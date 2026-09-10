@@ -21,7 +21,7 @@ type NodeNetworkConfigReconciler struct {
 }
 
 func (r *NodeNetworkConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	r.Log.Debug("nodenetworkconfig reconcile", zap.String("config", req.NamespacedName.String()))
+	r.Log.Debug("nodenetworkconfig reconcile", zap.String("config", req.String()))
 
 	var nnc sgv1.NodeNetworkConfig
 	if err := r.Get(ctx, req.NamespacedName, &nnc); err != nil {

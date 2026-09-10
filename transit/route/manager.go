@@ -105,7 +105,7 @@ func (m *Manager) All() []TransitRoute {
 func (m *Manager) filterOut(dest netip.Prefix, segID sgtypes.SegmentID) []TransitRoute {
 	var out []TransitRoute
 	for _, r := range m.routes {
-		if !(r.Destination == dest && r.SegmentID == segID) {
+		if r.Destination != dest || r.SegmentID != segID {
 			out = append(out, r)
 		}
 	}

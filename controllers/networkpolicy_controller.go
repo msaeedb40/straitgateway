@@ -22,7 +22,7 @@ type NetworkPolicyReconciler struct {
 }
 
 func (r *NetworkPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	r.Log.Debug("networkpolicy reconcile", zap.String("policy", req.NamespacedName.String()))
+	r.Log.Debug("networkpolicy reconcile", zap.String("policy", req.String()))
 
 	policies, err := r.Compiler.Compile(ctx)
 	if err != nil {

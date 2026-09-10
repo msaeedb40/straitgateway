@@ -33,6 +33,7 @@ type HostInterface struct {
 //   host namespace   │   pod namespace
 //   sgk<id>     ←→  │   <ifName> (e.g. eth0)
 func setupNetKit(netns, ifName string, alloc *IPAllocation, mtu int) (*HostInterface, error) {
+	_ = alloc
 	if mtu == 0 {
 		mtu = 1500
 	}
@@ -118,7 +119,8 @@ func teardownNetKit(containerID string) error {
 	link, err := netlink.LinkByName(hostName)
 	if err != nil {
 		// Interface may already be gone — not an error.
-		return nil
+		_ = err
+		return nil //nolint:nilerr // interface already deleted
 	}
 	return netlink.LinkDel(link)
 }

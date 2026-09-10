@@ -78,6 +78,8 @@ jobs:
             VERSION=${{ needs.metadata.outputs.version }}
             COMMIT=${{ github.sha }}
             BUILD_DATE=${{ github.event.head_commit.timestamp }}
+            ALPINE_VERSION=3.24.1
+            CLANG_VERSION=22
           cache-from: type=gha
           cache-to: type=gha,mode=max
           labels: |
@@ -116,11 +118,17 @@ jobs:
         with:
           name: helm-charts
           path: dist/charts/*.tgz
-      - name: Checkout gh-pages branch
-        uses: actions/checkout@v4
-        with:
-          ref: gh-pages
-          path: gh-pages
+      - name: Checkout or prepare gh-pages branch
+        run: |
+          if git clone --depth=1 --branch=gh-pages "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" gh-pages 2>/dev/null; then
+            echo "Checked out existing gh-pages branch"
+          else
+            echo "Creating orphan gh-pages branch"
+            mkdir -p gh-pages
+            cd gh-pages
+            git init -b gh-pages
+            git remote add origin "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git"
+          fi
       - name: Update Helm index
         run: |
           mkdir -p gh-pages/charts
@@ -133,7 +141,7 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add -A
           git commit -m "Release Helm chart ${{ needs.metadata.outputs.version }}" || echo "No changes"
-          git push
+          git push -u origin gh-pages
 
   # ── Create GitHub Release ─────────────────────────────────────────────────────
   create-release:

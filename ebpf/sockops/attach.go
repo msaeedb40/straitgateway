@@ -42,7 +42,7 @@ func (a *Attacher) AttachCgroup(cgroupPath string, prog *ebpf.Program, attachTyp
 // Close detaches all cgroup BPF programs.
 func (a *Attacher) Close() error {
 	for _, l := range a.links {
-		l.Close()
+		_ = l.Close()
 	}
 	return nil
 }

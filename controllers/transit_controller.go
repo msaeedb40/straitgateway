@@ -21,7 +21,7 @@ type TransitGatewayReconciler struct {
 }
 
 func (r *TransitGatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	r.Log.Debug("transit gateway reconcile", zap.String("transit", req.NamespacedName.String()))
+	r.Log.Debug("transit gateway reconcile", zap.String("transit", req.String()))
 
 	var tg sgv1.TransitGateway
 	if err := r.Get(ctx, req.NamespacedName, &tg); err != nil {

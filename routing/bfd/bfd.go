@@ -25,7 +25,6 @@ const (
 
 // Session represents a BFD session with a single peer.
 type Session struct {
-	mu          sync.RWMutex
 	PeerAddress netip.Addr
 	State       State
 	// DetectMultiplier × TxInterval = detection timeout.

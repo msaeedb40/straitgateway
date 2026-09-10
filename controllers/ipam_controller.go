@@ -20,7 +20,7 @@ type IPAMReconciler struct {
 }
 
 func (r *IPAMReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	r.Log.Debug("IPAM reconcile", zap.String("node", req.NamespacedName.String()))
+	r.Log.Debug("IPAM reconcile", zap.String("node", req.String()))
 
 	var node corev1.Node
 	if err := r.Get(ctx, req.NamespacedName, &node); err != nil {

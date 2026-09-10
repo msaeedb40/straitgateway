@@ -21,14 +21,14 @@ func WithNetNS(nsPath string, fn func() error) error {
 	if err != nil {
 		return fmt.Errorf("opening current netns: %w", err)
 	}
-	defer unix.Close(origNS)
+	defer func() { _ = unix.Close(origNS) }()
 
 	// Open target namespace.
 	targetNS, err := unix.Open(nsPath, unix.O_RDONLY|unix.O_CLOEXEC, 0)
 	if err != nil {
 		return fmt.Errorf("opening target netns %s: %w", nsPath, err)
 	}
-	defer unix.Close(targetNS)
+	defer func() { _ = unix.Close(targetNS) }()
 
 	// Enter target namespace.
 	if err := unix.Setns(targetNS, unix.CLONE_NEWNET); err != nil {

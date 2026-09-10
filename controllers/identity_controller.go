@@ -20,7 +20,7 @@ type IdentityReconciler struct {
 }
 
 func (r *IdentityReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	r.Log.Debug("identity reconcile", zap.String("pod", req.NamespacedName.String()))
+	r.Log.Debug("identity reconcile", zap.String("pod", req.String()))
 
 	var pod corev1.Pod
 	if err := r.Get(ctx, req.NamespacedName, &pod); err != nil {

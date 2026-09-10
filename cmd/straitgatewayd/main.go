@@ -88,7 +88,8 @@ func main() {
 	}
 	_ = os.Remove(socketPath)
 
-	lis, err := net.Listen("unix", socketPath)
+	var lc net.ListenConfig
+	lis, err := lc.Listen(ctx, "unix", socketPath)
 	if err != nil {
 		log.Fatal("listening on socket", zap.String("path", socketPath), zap.Error(err))
 	}

@@ -7,7 +7,7 @@ entries:
       artifacthub.io/operator: "false"
     apiVersion: v2
     appVersion: 1.0.0
-    created: "2026-09-11T00:02:35.758316372+03:00"
+    created: "2026-09-11T02:40:27.740258723+03:00"
     dependencies:
     - name: crds
       repository: file://charts/crds
@@ -40,4 +40,4 @@ entries:
     urls:
     - https://msaeedb40.github.io/straitgateway/charts/straitgateway-1.0.0.tgz
     version: 1.0.0
-generated: "2026-09-11T00:02:35.756439484+03:00"
+generated: "2026-09-11T02:40:27.737829175+03:00"

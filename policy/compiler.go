@@ -45,15 +45,7 @@ func (c *Compiler) Compile(ctx context.Context) ([]ir.PolicyIR, error) {
 		return nil, fmt.Errorf("listing StraitNetworkPolicies: %w", err)
 	}
 	for _, snp := range snpList.Items {
-		compiled, err := c.compileStraitNetworkPolicy(snp)
-		if err != nil {
-			c.log.Warn("failed to compile StraitNetworkPolicy",
-				zap.String("name", snp.Name),
-				zap.String("namespace", snp.Namespace),
-				zap.Error(err),
-			)
-			continue
-		}
+		compiled := c.compileStraitNetworkPolicy(snp)
 		policies = append(policies, compiled...)
 	}
 
@@ -72,7 +64,7 @@ func (c *Compiler) Compile(ctx context.Context) ([]ir.PolicyIR, error) {
 }
 
 // compileStraitNetworkPolicy compiles a StraitNetworkPolicy into PolicyIR rules.
-func (c *Compiler) compileStraitNetworkPolicy(snp sgv1.StraitNetworkPolicy) ([]ir.PolicyIR, error) {
+func (c *Compiler) compileStraitNetworkPolicy(snp sgv1.StraitNetworkPolicy) []ir.PolicyIR {
 	var rules []ir.PolicyIR
 	var policyID sgtypes.PolicyID = 1
 
@@ -88,8 +80,8 @@ func (c *Compiler) compileStraitNetworkPolicy(snp sgv1.StraitNetworkPolicy) ([]i
 			pol.Action = ir.PolicyActionAllow
 		case sgv1.PolicyActionDeny:
 			pol.Action = ir.PolicyActionDeny
-		case sgv1.PolicyActionReject:
-			pol.Action = ir.PolicyActionReject
+		default:
+			pol.Action = ir.PolicyActionDeny
 		}
 
 		// Map direction.
@@ -98,6 +90,8 @@ func (c *Compiler) compileStraitNetworkPolicy(snp sgv1.StraitNetworkPolicy) ([]i
 			pol.Direction = ir.PolicyDirectionIngress
 		case sgv1.PolicyDirectionEgress:
 			pol.Direction = ir.PolicyDirectionEgress
+		default:
+			pol.Direction = ir.PolicyDirectionIngress
 		}
 
 		// Map ports.
@@ -107,6 +101,8 @@ func (c *Compiler) compileStraitNetworkPolicy(snp sgv1.StraitNetworkPolicy) ([]i
 				pol.DstPort = uint16(*p.Port)
 			}
 			switch p.Protocol {
+			case sgv1.PolicyProtocolTCP:
+				pol.Protocol = sgtypes.ProtocolTCP
 			case sgv1.PolicyProtocolUDP:
 				pol.Protocol = sgtypes.ProtocolUDP
 			case sgv1.PolicyProtocolICMP:
@@ -120,7 +116,7 @@ func (c *Compiler) compileStraitNetworkPolicy(snp sgv1.StraitNetworkPolicy) ([]i
 		policyID++
 	}
 
-	return rules, nil
+	return rules
 }
 
 // compileNetworkPolicy compiles a standard Kubernetes NetworkPolicy into PolicyIR.

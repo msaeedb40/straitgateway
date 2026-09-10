@@ -23,7 +23,7 @@ type ServiceReconciler struct {
 }
 
 func (r *ServiceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	r.Log.Debug("service reconcile triggered", zap.String("service", req.NamespacedName.String()))
+	r.Log.Debug("service reconcile triggered", zap.String("service", req.String()))
 
 	// Re-reconcile all services (the manager handles delta detection).
 	if _, err := r.Manager.Reconcile(ctx); err != nil {

@@ -23,7 +23,7 @@ type EndpointSliceReconciler struct {
 }
 
 func (r *EndpointSliceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	r.Log.Debug("endpointslice reconcile triggered", zap.String("eps", req.NamespacedName.String()))
+	r.Log.Debug("endpointslice reconcile triggered", zap.String("eps", req.String()))
 
 	if _, err := r.Manager.Reconcile(ctx); err != nil {
 		r.Log.Error("endpoint reconciliation failed", zap.Error(err))

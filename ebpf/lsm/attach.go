@@ -40,7 +40,7 @@ func (a *Attacher) Attach(prog *ebpf.Program) error {
 // Close detaches all LSM hooks.
 func (a *Attacher) Close() error {
 	for _, l := range a.links {
-		l.Close()
+		_ = l.Close()
 	}
 	return nil
 }

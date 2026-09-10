@@ -20,7 +20,7 @@ type BGPPeerReconciler struct {
 }
 
 func (r *BGPPeerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	r.Log.Debug("bgp peer reconcile", zap.String("peer", req.NamespacedName.String()))
+	r.Log.Debug("bgp peer reconcile", zap.String("peer", req.String()))
 
 	var peer sgv1.BGPPeer
 	if err := r.Get(ctx, req.NamespacedName, &peer); err != nil {

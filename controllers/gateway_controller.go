@@ -22,7 +22,7 @@ type GatewayReconciler struct {
 }
 
 func (r *GatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	log := r.Log.With(zap.String("gateway", req.NamespacedName.String()))
+	log := r.Log.With(zap.String("gateway", req.String()))
 
 	var gw gwapiv1.Gateway
 	if err := r.Get(ctx, req.NamespacedName, &gw); err != nil {

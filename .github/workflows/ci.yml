@@ -89,7 +89,7 @@ jobs:
           go install golang.org/x/vuln/cmd/govulncheck@latest
           govulncheck ./...
       - name: Trivy FS scan
-        uses: aquasecurity/trivy-action@master
+        uses: aquasecurity/trivy-action@0.28.0
         with:
           scan-type: fs
           format: sarif
@@ -198,6 +198,8 @@ jobs:
           cache-to: type=gha,mode=max
           build-args: |
             GO_VERSION=${{ env.GO_VERSION }}
+            CLANG_VERSION=${{ env.CLANG_VERSION }}
+            ALPINE_VERSION=3.24.1
 
   # ── Helm Install Test (kind) ─────────────────────────────────────────────────
   helm-test:
@@ -216,14 +218,18 @@ jobs:
           config: |
             kind: Cluster
             apiVersion: kind.x-k8s.io/v1alpha4
+            networking:
+              kubeProxyMode: "none" # required for CNI straitgateway 
+              disableDefaultCNI: true # required for CNI straitgateway   
             nodes:
               - role: control-plane
               - role: worker
+              - role: worker
       - name: Build local container images for kind
         run: |
-          docker build -f build/Dockerfile.sg-controller -t ${{ env.REGISTRY }}/straitgateway-controller:1.0.0 .
-          docker build -f build/Dockerfile.straitgatewayd -t ${{ env.REGISTRY }}/straitgatewayd:1.0.0 .
-          docker build -f build/Dockerfile.sg-cli -t ${{ env.REGISTRY }}/straitgateway-cli:1.0.0 .
+          docker build --build-arg ALPINE_VERSION=3.24.1 --build-arg GO_VERSION=${{ env.GO_VERSION }} -f build/Dockerfile.sg-controller -t ${{ env.REGISTRY }}/straitgateway-controller:1.0.0 .
+          docker build --build-arg ALPINE_VERSION=3.24.1 --build-arg GO_VERSION=${{ env.GO_VERSION }} --build-arg CLANG_VERSION=${{ env.CLANG_VERSION }} -f build/Dockerfile.straitgatewayd -t ${{ env.REGISTRY }}/straitgatewayd:1.0.0 .
+          docker build --build-arg ALPINE_VERSION=3.24.1 --build-arg GO_VERSION=${{ env.GO_VERSION }} -f build/Dockerfile.sg-cli -t ${{ env.REGISTRY }}/straitgateway-cli:1.0.0 .
           docker build -f build/Dockerfile.ui -t ${{ env.REGISTRY }}/straitgateway-ui:1.0.0 .
       - name: Load images into kind cluster
         run: |
@@ -242,17 +248,17 @@ jobs:
             --namespace straitgateway-system \
             --create-namespace \
             --set global.clusterName=ci \
-            --set kubeProxyReplacement.enabled=false \
-            --wait --timeout=3m
+            --set kubeProxyReplacement.enabled=true \
+            --wait --timeout=15m
       - name: Helm upgrade --install (idempotency check)
         run: |
           helm upgrade --install straitgateway ./straitgateway-helm \
             --namespace straitgateway-system \
             --set global.clusterName=ci \
-            --set kubeProxyReplacement.enabled=false \
-            --wait --timeout=3m
+            --set kubeProxyReplacement.enabled=true \
+            --wait --timeout=15m
       - name: Helm test
-        run: helm test straitgateway --namespace straitgateway-system --timeout 2m
+        run: helm test straitgateway --namespace straitgateway-system --timeout 20m
       - name: Helm uninstall
         run: helm uninstall straitgateway --namespace straitgateway-system
 
@@ -264,7 +270,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: "22"
+          node-version: "24"
           cache: npm
           cache-dependency-path: ui/package-lock.json
       - name: Install dependencies
@@ -272,7 +278,7 @@ jobs:
         run: npm ci
       - name: Run unit tests
         working-directory: ui
-        run: npm run test -- --watch=false
+        run: npm run test -- --no-watch
       - name: Build production
         working-directory: ui
         run: npm run build -- --configuration=production
@@ -287,7 +293,7 @@ jobs:
     name: GitHub Pages
     runs-on: ubuntu-latest
     needs: [helm-lint]
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/developer')
     permissions:
       contents: write
       pages: write

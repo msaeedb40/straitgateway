@@ -75,7 +75,7 @@ func cmdAdd(args *skel.CmdArgs) error {
 	if err != nil {
 		return fmt.Errorf("straitgateway CNI ADD: dial daemon: %w", err)
 	}
-	defer client.Close()
+	defer func() { _ = client.Close() }()
 
 	alloc, err := client.AllocateIP(args.ContainerID, args.Netns, args.IfName)
 	if err != nil {
@@ -148,7 +148,7 @@ func cmdDel(args *skel.CmdArgs) error {
 		log.Printf("straitgateway CNI DEL: dial daemon (non-fatal): %v", err)
 		return nil
 	}
-	defer client.Close()
+	defer func() { _ = client.Close() }()
 
 	// Deregister endpoint (removes BPF identity, policy state, service map entry)
 	if err := client.DeregisterEndpoint(args.ContainerID); err != nil {
@@ -180,7 +180,7 @@ func cmdCheck(args *skel.CmdArgs) error {
 	if err != nil {
 		return fmt.Errorf("straitgateway CNI CHECK: dial daemon: %w", err)
 	}
-	defer client.Close()
+	defer func() { _ = client.Close() }()
 
 	return client.CheckEndpoint(args.ContainerID, args.Netns, args.IfName)
 }
@@ -196,7 +196,7 @@ func cmdGC(args *skel.CmdArgs) error {
 	if err != nil {
 		return fmt.Errorf("straitgateway CNI GC: dial daemon: %w", err)
 	}
-	defer client.Close()
+	defer func() { _ = client.Close() }()
 
 	return client.GarbageCollect(args.Args)
 }

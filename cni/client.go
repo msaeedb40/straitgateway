@@ -57,7 +57,7 @@ func (c *DaemonClient) Close() error {
 // AllocateIP requests an IP allocation from the straitgatewayd IPAM.
 // Returns the allocated IPAllocation including identity.
 // This call must complete within the CNI timeout (typically 30s).
-func (c *DaemonClient) AllocateIP(containerID, netns, ifName string) (*IPAllocation, error) {
+func (c *DaemonClient) AllocateIP(_, _, _ string) (*IPAllocation, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), agentCallTimeout)
 	defer cancel()
 	_ = ctx
@@ -69,7 +69,7 @@ func (c *DaemonClient) AllocateIP(containerID, netns, ifName string) (*IPAllocat
 }
 
 // ReleaseIP releases an allocated IP back to the IPAM pool.
-func (c *DaemonClient) ReleaseIP(containerID string) error {
+func (c *DaemonClient) ReleaseIP(_ string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), agentCallTimeout)
 	defer cancel()
 	_ = ctx
@@ -79,7 +79,7 @@ func (c *DaemonClient) ReleaseIP(containerID string) error {
 // RegisterEndpoint notifies straitgatewayd of the new host-side NetKit interface.
 // This triggers ASYNC dataplane reconciliation (service map, policy, NAT).
 // CNI ADD returns BEFORE this completes — it must not block the fast path.
-func (c *DaemonClient) RegisterEndpoint(containerID string, ifIndex int, identity sgtypes.Identity) error {
+func (c *DaemonClient) RegisterEndpoint(_ string, _ int, _ sgtypes.Identity) error {
 	ctx, cancel := context.WithTimeout(context.Background(), agentCallTimeout)
 	defer cancel()
 	_ = ctx
@@ -87,7 +87,7 @@ func (c *DaemonClient) RegisterEndpoint(containerID string, ifIndex int, identit
 }
 
 // DeregisterEndpoint removes the endpoint's BPF state and IP allocation.
-func (c *DaemonClient) DeregisterEndpoint(containerID string) error {
+func (c *DaemonClient) DeregisterEndpoint(_ string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), agentCallTimeout)
 	defer cancel()
 	_ = ctx
@@ -95,7 +95,7 @@ func (c *DaemonClient) DeregisterEndpoint(containerID string) error {
 }
 
 // CheckEndpoint validates the endpoint's network configuration.
-func (c *DaemonClient) CheckEndpoint(containerID, netns, ifName string) error {
+func (c *DaemonClient) CheckEndpoint(_, _, _ string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), agentCallTimeout)
 	defer cancel()
 	_ = ctx
@@ -103,7 +103,7 @@ func (c *DaemonClient) CheckEndpoint(containerID, netns, ifName string) error {
 }
 
 // GarbageCollect triggers GC of stale endpoint state on straitgatewayd.
-func (c *DaemonClient) GarbageCollect(args string) error {
+func (c *DaemonClient) GarbageCollect(_ string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), agentCallTimeout)
 	defer cancel()
 	_ = ctx
