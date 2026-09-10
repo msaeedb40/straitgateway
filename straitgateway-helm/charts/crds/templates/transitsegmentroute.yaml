@@ -1,0 +1,50 @@
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: transitsegmentroutes.straitgateway.io
+spec:
+  group: straitgateway.io
+  names:
+    kind: TransitSegmentRoute
+    listKind: TransitSegmentRouteList
+    plural: transitsegmentroutes
+    singular: transitsegmentroute
+    shortNames: [tsr]
+    categories: [straitgateway]
+  scope: Cluster
+  versions:
+    - name: v1alpha1
+      served: true
+      storage: true
+      schema:
+        openAPIV3Schema:
+          type: object
+          properties:
+            apiVersion: { type: string }
+            kind: { type: string }
+            metadata: { type: object }
+            spec:
+              type: object
+              required: [segmentRef, destination]
+              properties:
+                segmentRef:
+                  type: object
+                  required: [name]
+                  properties:
+                    name: { type: string }
+                destination: { type: string, description: "CIDR destination prefix" }
+                nextHop: { type: string }
+                gatewayName: { type: string }
+                protocol: { type: string, enum: [wireguard, bgp, static] }
+                metric: { type: integer, minimum: 0 }
+            status:
+              type: object
+              properties:
+                active: { type: boolean }
+      subresources:
+        status: {}
+      additionalPrinterColumns:
+        - { name: Segment, type: string, jsonPath: .spec.segmentRef.name }
+        - { name: Destination, type: string, jsonPath: .spec.destination }
+        - { name: Protocol, type: string, jsonPath: .spec.protocol }
+        - { name: Age, type: date, jsonPath: .metadata.creationTimestamp }

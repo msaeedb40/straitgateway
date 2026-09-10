@@ -1,0 +1,310 @@
+name: CI
+
+on:
+  push:
+    branches: [main, developer]
+  pull_request:
+    branches: [main, developer]
+
+permissions:
+  contents: write
+  packages: write
+  security-events: write
+  pages: write
+  id-token: write
+
+env:
+  REGISTRY: ghcr.io/msaeedb40
+  GO_VERSION: "1.26.7"
+  CLANG_VERSION: "22"
+
+jobs:
+  # ── Go Lint & Verification ──────────────────────────────────────────────────
+  lint:
+    name: Go Lint & Verification
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+      - name: Verify License Headers
+        run: bash hack/verify/verify-boilerplate.sh
+      - name: Verify Go Modules
+        run: bash hack/verify/verify-go-modules.sh
+      - name: go vet
+        run: go vet ./...
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v6
+        with:
+          version: latest
+          args: --timeout=5m
+
+  # ── Helm Lint ────────────────────────────────────────────────────────────────
+  helm-lint:
+    name: Helm Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: azure/setup-helm@v4
+        with:
+          version: "3.17.0"
+      - name: Helm lint
+        run: helm lint ./straitgateway-helm --strict
+      - name: Helm template render
+        run: helm template straitgateway ./straitgateway-helm --namespace straitgateway-system > /dev/null
+
+  # ── Go Unit Tests ────────────────────────────────────────────────────────────
+  test-unit:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+      - name: Run unit tests
+        run: go test -v -race -count=1 -coverprofile=coverage.out ./test/integration/...
+      - name: Upload coverage
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage
+          path: coverage.out
+
+  # ── Security Scan ─────────────────────────────────────────────────────────────
+  security:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    # Scan on pull requests (main or developer) or on push to main (developer → main merge)
+    if: (github.event_name == 'pull_request' && (github.base_ref == 'main' || github.base_ref == 'developer')) || (github.event_name == 'push' && github.ref == 'refs/heads/main')
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+      - name: govulncheck
+        run: |
+          go install golang.org/x/vuln/cmd/govulncheck@latest
+          govulncheck ./...
+      - name: Trivy FS scan
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: fs
+          format: sarif
+          output: trivy-results.sarif
+      - name: Upload Trivy SARIF
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: trivy-results.sarif
+
+  # ── Multi-Arch Binary Builds ─────────────────────────────────────────────────
+  build:
+    name: Build (${{ matrix.goos }}/${{ matrix.goarch }})
+    runs-on: ubuntu-latest
+    needs: [lint, test-unit]
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - goos: linux
+            goarch: amd64
+          - goos: linux
+            goarch: arm64
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+      - name: Build all binaries
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          CGO_ENABLED: "0"
+        run: |
+          mkdir -p dist/${{ matrix.goos }}_${{ matrix.goarch }}
+          for cmd in straitgatewayd sg-controller sg-cli; do
+            echo "Building $cmd (${{ matrix.goos }}/${{ matrix.goarch }})..."
+            go build \
+              -ldflags="-s -w \
+                -X github.com/msaeedb40/straitgateway/internal/version.Version=${GITHUB_REF_NAME:-dev} \
+                -X github.com/msaeedb40/straitgateway/internal/version.Commit=${GITHUB_SHA:-none} \
+                -X github.com/msaeedb40/straitgateway/internal/version.BuildDate=$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+              -o dist/${{ matrix.goos }}_${{ matrix.goarch }}/$cmd \
+              ./cmd/$cmd/
+          done
+      - name: Upload binaries
+        uses: actions/upload-artifact@v4
+        with:
+          name: binaries-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: dist/${{ matrix.goos }}_${{ matrix.goarch }}/
+
+  # ── Docker Build & Push ──────────────────────────────────────────────────────
+  docker-build:
+    name: Docker Build & Push (${{ matrix.image }})
+    runs-on: ubuntu-latest
+    needs: [build]
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - image: straitgateway-controller
+            dockerfile: build/Dockerfile.sg-controller
+            context: .
+          - image: straitgatewayd
+            dockerfile: build/Dockerfile.straitgatewayd
+            context: .
+          - image: straitgateway-cli
+            dockerfile: build/Dockerfile.sg-cli
+            context: .
+          - image: straitgateway-ui
+            dockerfile: build/Dockerfile.ui
+            context: .
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up QEMU (multi-arch)
+        uses: docker/setup-qemu-action@v3
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      - name: Login to GHCR
+        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/developer')
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Docker meta
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ matrix.image }}
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=sha,prefix=git-
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ matrix.context }}
+          file: ${{ matrix.dockerfile }}
+          platforms: ${{ github.event_name == 'push' && 'linux/amd64,linux/arm64' || 'linux/amd64' }}
+          push: ${{ github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/developer') }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+            GO_VERSION=${{ env.GO_VERSION }}
+
+  # ── Helm Install Test (kind) ─────────────────────────────────────────────────
+  helm-test:
+    name: Helm Install Test
+    runs-on: ubuntu-latest
+    needs: [helm-lint]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: azure/setup-helm@v4
+        with:
+          version: "3.17.0"
+      - name: Create kind cluster
+        uses: helm/kind-action@v1.10.0
+        with:
+          cluster_name: straitgateway-ci
+          config: |
+            kind: Cluster
+            apiVersion: kind.x-k8s.io/v1alpha4
+            nodes:
+              - role: control-plane
+              - role: worker
+      - name: Build local container images for kind
+        run: |
+          docker build -f build/Dockerfile.sg-controller -t ${{ env.REGISTRY }}/straitgateway-controller:1.0.0 .
+          docker build -f build/Dockerfile.straitgatewayd -t ${{ env.REGISTRY }}/straitgatewayd:1.0.0 .
+          docker build -f build/Dockerfile.sg-cli -t ${{ env.REGISTRY }}/straitgateway-cli:1.0.0 .
+          docker build -f build/Dockerfile.ui -t ${{ env.REGISTRY }}/straitgateway-ui:1.0.0 .
+      - name: Load images into kind cluster
+        run: |
+          kind load docker-image --name straitgateway-ci \
+            ${{ env.REGISTRY }}/straitgateway-controller:1.0.0 \
+            ${{ env.REGISTRY }}/straitgatewayd:1.0.0 \
+            ${{ env.REGISTRY }}/straitgateway-cli:1.0.0 \
+            ${{ env.REGISTRY }}/straitgateway-ui:1.0.0
+      - name: Install Gateway API CRDs
+        run: |
+          kubectl apply --server-side -f \
+            https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.6.1/standard-install.yaml
+      - name: Helm install (straitgateway-helm)
+        run: |
+          helm install straitgateway ./straitgateway-helm \
+            --namespace straitgateway-system \
+            --create-namespace \
+            --set global.clusterName=ci \
+            --set kubeProxyReplacement.enabled=false \
+            --wait --timeout=3m
+      - name: Helm upgrade --install (idempotency check)
+        run: |
+          helm upgrade --install straitgateway ./straitgateway-helm \
+            --namespace straitgateway-system \
+            --set global.clusterName=ci \
+            --set kubeProxyReplacement.enabled=false \
+            --wait --timeout=3m
+      - name: Helm test
+        run: helm test straitgateway --namespace straitgateway-system --timeout 2m
+      - name: Helm uninstall
+        run: helm uninstall straitgateway --namespace straitgateway-system
+
+  # ── Angular UI Build ─────────────────────────────────────────────────────────
+  ui-build:
+    name: UI Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: ui/package-lock.json
+      - name: Install dependencies
+        working-directory: ui
+        run: npm ci
+      - name: Run unit tests
+        working-directory: ui
+        run: npm run test -- --watch=false
+      - name: Build production
+        working-directory: ui
+        run: npm run build -- --configuration=production
+      - name: Upload UI artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ui-dist
+          path: ui/dist/
+
+  # ── GitHub Pages (Helm repo + Tailwind v4 project page) ───────────────────────
+  pages:
+    name: GitHub Pages
+    runs-on: ubuntu-latest
+    needs: [helm-lint]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    permissions:
+      contents: write
+      pages: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: azure/setup-helm@v4
+        with:
+          version: "3.17.0"
+      - name: Package Helm chart & generate Tailwind v4 pages
+        run: bash hack/pages/generate-pages.sh
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./dist
+          publish_branch: gh-pages
+          force_orphan: true

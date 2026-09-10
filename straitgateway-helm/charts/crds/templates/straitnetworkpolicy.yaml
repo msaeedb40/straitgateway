@@ -1,0 +1,139 @@
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: straitnetworkpolicies.straitgateway.io
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.18.0
+spec:
+  group: straitgateway.io
+  names:
+    kind: StraitNetworkPolicy
+    listKind: StraitNetworkPolicyList
+    plural: straitnetworkpolicies
+    singular: straitnetworkpolicy
+    shortNames:
+      - snp
+    categories:
+      - straitgateway
+  scope: Namespaced
+  versions:
+    - name: v1alpha1
+      served: true
+      storage: true
+      schema:
+        openAPIV3Schema:
+          type: object
+          properties:
+            apiVersion:
+              type: string
+            kind:
+              type: string
+            metadata:
+              type: object
+            spec:
+              type: object
+              properties:
+                priority:
+                  type: integer
+                  format: int32
+                  minimum: 0
+                  maximum: 255
+                podSelector:
+                  type: object
+                  properties:
+                    matchLabels:
+                      type: object
+                      additionalProperties:
+                        type: string
+                rules:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      direction:
+                        type: string
+                        enum: [ingress, egress]
+                      action:
+                        type: string
+                        enum: [allow, deny, reject]
+                      from:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            podSelector:
+                              type: object
+                              properties:
+                                matchLabels:
+                                  type: object
+                                  additionalProperties:
+                                    type: string
+                            namespaceSelector:
+                              type: object
+                              properties:
+                                matchLabels:
+                                  type: object
+                                  additionalProperties:
+                                    type: string
+                      to:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            podSelector:
+                              type: object
+                              properties:
+                                matchLabels:
+                                  type: object
+                                  additionalProperties:
+                                    type: string
+                            namespaceSelector:
+                              type: object
+                              properties:
+                                matchLabels:
+                                  type: object
+                                  additionalProperties:
+                                    type: string
+                      ports:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            protocol:
+                              type: string
+                              enum: [TCP, UDP, ICMP, SCTP]
+                            port:
+                              type: integer
+                            endPort:
+                              type: integer
+            status:
+              type: object
+              properties:
+                conditions:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      type:
+                        type: string
+                      status:
+                        type: string
+                      reason:
+                        type: string
+                      message:
+                        type: string
+                      lastTransitionTime:
+                        type: string
+                        format: date-time
+      subresources:
+        status: {}
+      additionalPrinterColumns:
+        - name: Priority
+          type: integer
+          jsonPath: .spec.priority
+        - name: Rules
+          type: integer
+          jsonPath: .spec.rules
+        - name: Age
+          type: date
+          jsonPath: .metadata.creationTimestamp

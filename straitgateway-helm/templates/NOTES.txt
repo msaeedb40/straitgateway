@@ -1,0 +1,20 @@
+Thank you for installing {{ include "straitgateway.name" . }}!
+
+straitgateway is an eBPF-native networking platform:
+- CNI: NetKit fast-path container networking
+- Kube-Proxy Replacement: {{ .Values.kubeProxyReplacement.enabled }} (mode: {{ .Values.kubeProxyReplacement.mode }})
+- Gateway API: {{ .Values.gatewayAPI.enabled }}
+- Multi-cluster Transit: {{ .Values.transitGateway.enabled }}
+- BGP Routing: {{ .Values.bgp.enabled }}
+
+To check the status of straitgateway:
+  kubectl get pods -n {{ .Release.Namespace }} -l app.kubernetes.io/part-of=straitgateway
+
+To inspect the node agent daemonset:
+  kubectl get daemonset -n {{ .Release.Namespace }} {{ include "straitgateway.fullname" . }}-agent
+
+{{- if .Values.ui.enabled }}
+To access the straitgateway Web UI:
+  kubectl port-forward -n {{ .Release.Namespace }} svc/{{ include "straitgateway.fullname" . }}-ui 8080:80
+  Open http://localhost:8080 in your browser.
+{{- end }}

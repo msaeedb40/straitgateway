@@ -1,0 +1,70 @@
+# Copyright 2026 straitgateway Authors
+# SPDX-License-Identifier: Apache-2.0
+# Multi-stage build for straitgatewayd (privileged node agent)
+
+ARG GO_VERSION=1.26.7
+ARG ALPINE_VERSION=3.24
+ARG CLANG_VERSION=22
+
+# ── BPF build stage ───────────────────────────────────────────────────────────
+FROM alpine:${ALPINE_VERSION} AS bpf-builder
+ARG CLANG_VERSION
+RUN apk add --no-cache \
+    clang${CLANG_VERSION} \
+    llvm${CLANG_VERSION} \
+    lld${CLANG_VERSION} \
+    bpftool \
+    libbpf-dev \
+    elfutils-dev \
+    linux-headers \
+    make \
+    gcc \
+    musl-dev \
+    bash
+WORKDIR /src
+COPY bpf/ bpf/
+RUN make -C bpf all CLANG=clang-${CLANG_VERSION} 2>/dev/null || true
+
+# ── Go build stage ────────────────────────────────────────────────────────────
+FROM golang:${GO_VERSION}-alpine AS go-builder
+WORKDIR /src
+RUN apk add --no-cache git make
+
+COPY go.mod go.sum ./
+RUN go mod download
+
+COPY . .
+COPY --from=bpf-builder /src/bpf/*.o /src/bpf/ 2>/dev/null || true
+
+ARG VERSION=v1.0.0
+ARG COMMIT=none
+ARG BUILD_DATE=unknown
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=${TARGETARCH:-amd64} go build \
+    -ldflags="-s -w \
+      -X github.com/msaeedb40/straitgateway/internal/version.Version=${VERSION} \
+      -X github.com/msaeedb40/straitgateway/internal/version.Commit=${COMMIT} \
+      -X github.com/msaeedb40/straitgateway/internal/version.BuildDate=${BUILD_DATE}" \
+    -o /out/straitgatewayd \
+    ./cmd/straitgatewayd
+
+# Build CNI plugin binary
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=${TARGETARCH:-amd64} go build \
+    -o /out/straitgateway-cni \
+    ./cni
+
+# ── Runtime stage ─────────────────────────────────────────────────────────────
+FROM alpine:${ALPINE_VERSION}
+RUN apk add --no-cache \
+    iproute2 \
+    iptables \
+    ip6tables \
+    kmod \
+    ethtool \
+    ca-certificates
+COPY --from=go-builder /out/straitgatewayd /usr/local/bin/straitgatewayd
+COPY --from=go-builder /out/straitgateway-cni /opt/cni/bin/straitgateway
+COPY --from=bpf-builder /src/bpf/*.o /var/lib/straitgateway/bpf/ 2>/dev/null || true
+COPY scripts/install-cni.sh /install-cni.sh
+RUN chmod +x /install-cni.sh
+# straitgatewayd runs as root (required for eBPF and netlink operations)
+ENTRYPOINT ["/usr/local/bin/straitgatewayd"]

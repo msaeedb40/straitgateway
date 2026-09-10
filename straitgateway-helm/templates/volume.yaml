@@ -1,0 +1,22 @@
+{{/*
+Copyright 2026 straitgateway Authors
+SPDX-License-Identifier: Apache-2.0
+*/}}
+{{- if and .Values.persistence .Values.persistence.enabled }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "straitgateway.fullname" . }}-data
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "straitgateway.labels" . | nindent 4 }}
+spec:
+  accessModes:
+    - {{ default "ReadWriteOnce" .Values.persistence.accessMode }}
+  resources:
+    requests:
+      storage: {{ default "10Gi" .Values.persistence.size }}
+  {{- if .Values.persistence.storageClass }}
+  storageClassName: {{ .Values.persistence.storageClass | quote }}
+  {{- end }}
+{{- end }}

@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: "{{ include "straitgateway.fullname" . }}-test-connection"
+  labels:
+    {{- include "straitgateway.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": test
+spec:
+  containers:
+    - name: wget
+      image: busybox
+      command: ['wget']
+      args: ['{{ include "straitgateway.fullname" . }}-controller:{{ .Values.controller.metricsPort | default 9090 }}']
+  restartPolicy: Never

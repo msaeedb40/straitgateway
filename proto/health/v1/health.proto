@@ -1,0 +1,26 @@
+// Copyright 2026 straitgateway Authors
+// SPDX-License-Identifier: Apache-2.0
+
+syntax = "proto3";
+package straitgateway.health.v1;
+option go_package = "github.com/msaeedb40/straitgateway/proto/health/v1;healthv1";
+
+// HealthService implements the gRPC health check protocol.
+service HealthService {
+  rpc Check(HealthCheckRequest) returns (HealthCheckResponse);
+  rpc Watch(HealthCheckRequest) returns (stream HealthCheckResponse);
+}
+
+message HealthCheckRequest {
+  string service = 1;
+}
+
+message HealthCheckResponse {
+  enum ServingStatus {
+    UNKNOWN = 0;
+    SERVING = 1;
+    NOT_SERVING = 2;
+    SERVICE_UNKNOWN = 3;
+  }
+  ServingStatus status = 1;
+}

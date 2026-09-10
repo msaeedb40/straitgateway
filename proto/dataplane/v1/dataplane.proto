@@ -1,0 +1,45 @@
+syntax = "proto3";
+package straitgateway.dataplane.v1;
+option go_package = "github.com/msaeedb40/straitgateway/proto/dataplane/v1;dataplanev1";
+
+import "common/v1/common.proto";
+
+service DataplaneService {
+  rpc GetBPFMapStats(GetBPFMapStatsRequest) returns (GetBPFMapStatsResponse);
+  rpc StreamFlows(StreamFlowsRequest) returns (stream FlowEvent);
+}
+
+message GetBPFMapStatsRequest {}
+message GetBPFMapStatsResponse {
+  map<string, BPFMapStat> maps = 1;
+}
+
+message BPFMapStat {
+  uint32 entries = 1;
+  uint32 max_entries = 2;
+  uint32 key_size = 3;
+  uint32 value_size = 4;
+  string type = 5;
+}
+
+message StreamFlowsRequest {
+  uint32 limit = 1;
+  string filter_action = 2;
+  string filter_protocol = 3;
+}
+
+message FlowEvent {
+  straitgateway.common.v1.IPAddress src_ip = 1;
+  straitgateway.common.v1.IPAddress dst_ip = 2;
+  uint32 src_port = 3;
+  uint32 dst_port = 4;
+  uint32 src_identity = 5;
+  uint32 dst_identity = 6;
+  straitgateway.common.v1.L4Protocol protocol = 7;
+  string direction = 8;
+  string action = 9;
+  uint64 bytes = 10;
+  int64  timestamp_ns = 11;
+  string drop_reason = 12;
+  straitgateway.common.v1.ObservabilityAttributes attributes = 13;
+}

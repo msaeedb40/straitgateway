@@ -1,0 +1,36 @@
+syntax = "proto3";
+package straitgateway.bgp.v1;
+option go_package = "github.com/msaeedb40/straitgateway/proto/bgp/v1;bgpv1";
+
+import "common/v1/common.proto";
+
+service BGPService {
+  rpc ListPeers(ListBGPPeersRequest) returns (ListBGPPeersResponse);
+  rpc ListPrefixes(ListBGPPrefixesRequest) returns (ListBGPPrefixesResponse);
+}
+
+message ListBGPPeersRequest {}
+message ListBGPPeersResponse { repeated BGPPeerInfo peers = 1; }
+
+message BGPPeerInfo {
+  string peer_address = 1;
+  uint32 peer_asn = 2;
+  uint32 local_asn = 3;
+  string session_state = 4;
+  uint32 prefixes_advertised = 5;
+  uint32 prefixes_received = 6;
+  string bfd_state = 7;
+  int64  uptime_seconds = 8;
+}
+
+message ListBGPPrefixesRequest { string peer_address = 1; }
+message ListBGPPrefixesResponse { repeated BGPPrefix prefixes = 1; }
+
+message BGPPrefix {
+  straitgateway.common.v1.IPPrefix prefix = 1;
+  string next_hop = 2;
+  uint32 local_pref = 3;
+  uint32 med = 4;
+  repeated uint32 as_path = 5;
+  string origin = 6;
+}

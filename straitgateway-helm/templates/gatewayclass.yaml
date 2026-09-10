@@ -1,0 +1,21 @@
+{{/*
+Copyright 2026 straitgateway Authors
+SPDX-License-Identifier: Apache-2.0
+*/}}
+# GatewayClass — declares straitgateway as a Gateway API controller.
+# controllerName: straitgateway.io/skgateway
+{{- if .Values.gatewayAPI.enabled }}
+apiVersion: gateway.networking.k8s.io/v1
+kind: GatewayClass
+metadata:
+  name: {{ .Values.gatewayAPI.gatewayClass }}
+  labels:
+    {{- include "straitgateway.labels" . | nindent 4 }}
+  annotations:
+    gateway.networking.k8s.io/bundle-version: "v1.6.1"
+spec:
+  controllerName: {{ .Values.gatewayAPI.controllerName }}
+  description: >
+    straitgateway eBPF-native Gateway API implementation.
+    Handles HTTPRoute, GRPCRoute, TLSRoute, TCPRoute, UDPRoute, ReferenceGrant.
+{{- end }}

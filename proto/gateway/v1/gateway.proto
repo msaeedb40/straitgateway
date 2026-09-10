@@ -1,0 +1,39 @@
+syntax = "proto3";
+package straitgateway.gateway.v1;
+option go_package = "github.com/msaeedb40/straitgateway/proto/gateway/v1;gatewayv1";
+
+service GatewayService {
+  rpc ListGateways(ListGatewaysRequest) returns (ListGatewaysResponse);
+  rpc ListRoutes(ListRoutesRequest) returns (ListRoutesResponse);
+}
+
+message ListGatewaysRequest {}
+message ListGatewaysResponse { repeated GatewayInfo gateways = 1; }
+
+message GatewayInfo {
+  string name = 1;
+  string namespace = 2;
+  string gateway_class = 3;
+  repeated string addresses = 4;
+  repeated ListenerInfo listeners = 5;
+  bool ready = 6;
+}
+
+message ListenerInfo {
+  string name = 1;
+  string protocol = 2;
+  uint32 port = 3;
+  uint32 route_count = 4;
+}
+
+message ListRoutesRequest { string gateway = 1; string namespace = 2; }
+message ListRoutesResponse { repeated RouteInfo routes = 1; }
+
+message RouteInfo {
+  string name = 1;
+  string namespace = 2;
+  string type = 3;
+  string parent_gateway = 4;
+  repeated string hostnames = 5;
+  uint32 backend_count = 6;
+}

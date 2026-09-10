@@ -1,0 +1,36 @@
+# Copyright 2026 straitgateway Authors
+# SPDX-License-Identifier: Apache-2.0
+# Multi-stage build for sg-controller
+
+ARG GO_VERSION=1.26.7
+ARG ALPINE_VERSION=3.24
+
+# ── Build stage ───────────────────────────────────────────────────────────────
+FROM golang:${GO_VERSION}-alpine AS builder
+WORKDIR /src
+RUN apk add --no-cache git make
+
+COPY go.mod go.sum ./
+RUN go mod download
+
+COPY . .
+
+ARG VERSION=v1.0.0
+ARG COMMIT=none
+ARG BUILD_DATE=unknown
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=${TARGETARCH:-amd64} go build \
+    -ldflags="-s -w \
+      -X github.com/msaeedb40/straitgateway/internal/version.Version=${VERSION} \
+      -X github.com/msaeedb40/straitgateway/internal/version.Commit=${COMMIT} \
+      -X github.com/msaeedb40/straitgateway/internal/version.BuildDate=${BUILD_DATE}" \
+    -o /out/sg-controller \
+    ./cmd/sg-controller
+
+# ── Runtime stage ─────────────────────────────────────────────────────────────
+FROM alpine:${ALPINE_VERSION}
+RUN apk add --no-cache ca-certificates && \
+    addgroup -g 65532 nonroot && \
+    adduser -u 65532 -G nonroot -s /bin/sh -D nonroot
+COPY --from=builder /out/sg-controller /usr/local/bin/sg-controller
+USER 65532:65532
+ENTRYPOINT ["/usr/local/bin/sg-controller"]

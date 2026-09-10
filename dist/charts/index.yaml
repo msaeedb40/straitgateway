@@ -1,0 +1,43 @@
+apiVersion: v1
+entries:
+  straitgateway:
+  - annotations:
+      artifacthub.io/category: network
+      artifacthub.io/license: Apache-2.0
+      artifacthub.io/operator: "false"
+    apiVersion: v2
+    appVersion: 1.0.0
+    created: "2026-09-11T00:02:35.758316372+03:00"
+    dependencies:
+    - name: crds
+      repository: file://charts/crds
+      version: 1.0.0
+    description: 'straitgateway — eBPF-native Kubernetes CNI, Service LB, NetworkPolicy,
+      Gateway API v1.6.1, kube-proxy replacement, Multi-cluster Transit Gateway, and
+      BGP/BFD routing. Built on NetKit/TCX/XDP with a strict IR-based compiler. '
+    digest: 6dc0f9fa59a2b1156426082a98cda3d51dd421f2c67a67c46f40509107b1634e
+    home: https://github.com/msaeedb40/straitgateway
+    keywords:
+    - cni
+    - ebpf
+    - networking
+    - kubernetes
+    - gateway-api
+    - network-policy
+    - service-mesh
+    - transit-gateway
+    - bgp
+    - bfd
+    - wireguard
+    kubeVersion: '>= 1.34.0'
+    maintainers:
+    - name: msaeedb40
+      url: https://github.com/msaeedb40
+    name: straitgateway
+    sources:
+    - https://github.com/msaeedb40/straitgateway
+    type: application
+    urls:
+    - https://msaeedb40.github.io/straitgateway/charts/straitgateway-1.0.0.tgz
+    version: 1.0.0
+generated: "2026-09-11T00:02:35.756439484+03:00"

@@ -1,0 +1,68 @@
+// Copyright 2026 straitgateway Authors
+// SPDX-License-Identifier: Apache-2.0
+
+syntax = "proto3";
+package straitgateway.common.v1;
+option go_package = "github.com/msaeedb40/straitgateway/proto/common/v1;commonv1";
+
+// IPAddress represents an IPv4 or IPv6 address.
+message IPAddress {
+  oneof address {
+    fixed32 ipv4 = 1;
+    bytes   ipv6 = 2;  // 16 bytes
+  }
+}
+
+// IPPrefix represents an IP CIDR prefix.
+message IPPrefix {
+  IPAddress address      = 1;
+  uint32    prefix_length = 2;
+}
+
+// Identity is the 32-bit straitgateway security identity.
+message Identity {
+  uint32 id = 1;
+  // labels_hash is a FNV-1a hash of the sorted label set.
+  uint64 labels_hash = 2;
+}
+
+// Endpoint represents a pod or host endpoint.
+message Endpoint {
+  string    name      = 1;
+  string    namespace = 2;
+  IPAddress ipv4      = 3;
+  IPAddress ipv6      = 4;
+  Identity  identity  = 5;
+  uint32    segment_id = 6;
+}
+
+// L4Protocol represents a Layer-4 protocol.
+enum L4Protocol {
+  L4_PROTOCOL_UNSPECIFIED = 0;
+  L4_PROTOCOL_TCP         = 1;
+  L4_PROTOCOL_UDP         = 2;
+  L4_PROTOCOL_ICMP        = 3;
+  L4_PROTOCOL_SCTP        = 4;
+}
+
+// L4Port represents a port range.
+message L4Port {
+  uint32     port     = 1;
+  uint32     end_port = 2; // 0 = single port
+  L4Protocol protocol = 3;
+}
+
+// ObservabilityAttributes represents the 11-attribute canonical model.
+message ObservabilityAttributes {
+  string cluster_name  = 1;
+  string node_name     = 2;
+  string namespace     = 3;
+  string pod_name      = 4;
+  string workload_name = 5;
+  uint32 identity      = 6;
+  uint32 segment_id    = 7;
+  string direction     = 8;
+  string protocol      = 9;
+  string action        = 10;
+  string drop_reason   = 11;
+}

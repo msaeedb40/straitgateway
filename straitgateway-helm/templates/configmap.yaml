@@ -1,0 +1,54 @@
+{{/*
+Copyright 2026 straitgateway Authors
+SPDX-License-Identifier: Apache-2.0
+*/}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "straitgateway.fullname" . }}-config
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "straitgateway.labels" . | nindent 4 }}
+data:
+  cni-config.json: |
+    {
+      "cniVersion": "1.1.0",
+      "name": "straitgateway",
+      "type": "straitgateway",
+      "socketPath": "/run/straitgateway/daemon.sock",
+      "mtu": {{ .Values.cni.mtu }},
+      "enableIPv4": true,
+      "enableIPv6": false
+    }
+  straitgateway.yaml: |
+    clusterName: {{ .Values.global.clusterName | quote }}
+    clusterID: {{ .Values.global.clusterID }}
+    dataplane:
+      overlay: {{ .Values.dataplane.overlay }}
+      directRoutingDevice: {{ .Values.dataplane.directRoutingDevice | quote }}
+    kubeProxyReplacement:
+      enabled: {{ .Values.kubeProxyReplacement.enabled }}
+      mode: {{ .Values.kubeProxyReplacement.mode | quote }}
+    serviceLoadBalancer:
+      algorithm: {{ .Values.serviceLoadBalancer.algorithm | quote }}
+      maglevTableSize: {{ .Values.serviceLoadBalancer.maglevTableSize }}
+      dsr: {{ .Values.serviceLoadBalancer.dsr }}
+      nodePort:
+        enabled: {{ .Values.serviceLoadBalancer.nodePort.enabled }}
+        range: {{ .Values.serviceLoadBalancer.nodePort.range | quote }}
+    networkPolicy:
+      enabled: {{ .Values.networkPolicy.enabled }}
+      defaultDeny: {{ .Values.networkPolicy.defaultDeny }}
+      lsm: {{ .Values.networkPolicy.lsm }}
+    gatewayAPI:
+      enabled: {{ .Values.gatewayAPI.enabled }}
+      controllerName: {{ .Values.gatewayAPI.controllerName | quote }}
+      gatewayClass: {{ .Values.gatewayAPI.gatewayClass | quote }}
+    transitGateway:
+      enabled: {{ .Values.transitGateway.enabled }}
+      topology: {{ .Values.transitGateway.topology | quote }}
+      encryption: {{ .Values.transitGateway.encryption | quote }}
+    bgp:
+      enabled: {{ .Values.bgp.enabled }}
+      bfd: {{ .Values.bgp.bfd }}
+      announceLoadBalancerIP: {{ .Values.bgp.announceLoadBalancerIP }}

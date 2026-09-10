@@ -1,0 +1,257 @@
+## straitgateway Helm Chart — Production Values
+## Docs: https://github.com/msaeedb40/straitgateway
+
+## ─── Global ──────────────────────────────────────────────────────────────────
+global:
+  ## registry is the container image registry.
+  registry: ghcr.io/msaeedb40
+  ## imagePullPolicy for all straitgateway images.
+  imagePullPolicy: IfNotPresent
+  ## imagePullSecrets for private registries.
+  imagePullSecrets: []
+  ## clusterName is the unique identifier for this cluster in the transit mesh.
+  clusterName: ""
+  ## clusterID is the numeric cluster ID (required for transit gateway).
+  clusterID: 1
+
+## ─── Images ───────────────────────────────────────────────────────────────────
+images:
+  controller:
+    repository: straitgateway-controller
+    tag: ""  # defaults to chart appVersion
+  daemon:
+    repository: straitgatewayd
+    tag: ""
+  cli:
+    repository: straitgateway-cli
+    tag: ""
+  ui:
+    repository: straitgateway-ui
+    tag: ""
+
+## ─── CNI ──────────────────────────────────────────────────────────────────────
+cni:
+  ## enabled controls CNI plugin installation.
+  enabled: true
+  ## installDir is the host path where the CNI binary is installed.
+  installDir: /opt/cni/bin
+  ## confDir is the host path for the CNI configuration file.
+  confDir: /etc/cni/net.d
+  ## chainingMode allows straitgateway CNI to chain with another CNI plugin.
+  ## Set to "none" for standalone operation.
+  chainingMode: none
+  ## mtu overrides interface MTU. 0 = auto-detect from host interface.
+  mtu: 0
+
+## ─── IPAM ─────────────────────────────────────────────────────────────────────
+ipam:
+  ## mode: PerNode allocates a per-node CIDR from the cluster pod CIDR.
+  mode: PerNode
+  ## operator manages cluster-wide CIDR assignments.
+  operator:
+    enabled: true
+
+## ─── Dataplane ────────────────────────────────────────────────────────────────
+dataplane:
+  ## overlay defines inter-node pod traffic encapsulation.
+  ## Native = no encapsulation (requires L3 fabric or BGP route advertisement).
+  ## VXLAN/Geneve = encapsulation for L2 fabrics.
+  overlay: Native
+  ## directRoutingDevice is the primary uplink interface for native routing.
+  ## Auto-detected if empty.
+  directRoutingDevice: ""
+
+## ─── kube-proxy replacement ───────────────────────────────────────────────────
+kubeProxyReplacement:
+  ## enabled replaces kube-proxy with eBPF service dataplane.
+  enabled: true
+  ## mode must be "none" when kubeProxyReplacement is enabled
+  ## (prevents kube-proxy from managing iptables/ipvs rules).
+  mode: none
+
+## ─── Service Load Balancer ────────────────────────────────────────────────────
+serviceLoadBalancer:
+  ## algorithm: maglev, roundrobin, leastconn, iphash, random.
+  algorithm: maglev
+  ## maglevTableSize is the Maglev consistent hash table size.
+  ## Must be a prime number. Default: 128.
+  maglevTableSize: 128
+  ## dsr enables Direct Server Return for supported service types.
+  dsr: false
+  ## nodePort enables NodePort acceleration via XDP.
+  nodePort:
+    enabled: true
+    ## range defines the NodePort range. Must match kube-apiserver --service-node-port-range.
+    range: "30000-32767"
+
+## ─── NetworkPolicy ────────────────────────────────────────────────────────────
+networkPolicy:
+  ## enabled activates eBPF network policy enforcement.
+  enabled: true
+  ## defaultDeny enforces a default-deny posture for all pods.
+  ## Individual policies must explicitly Allow traffic.
+  defaultDeny: false
+  ## lsm enables Linux Security Module enforcement hooks.
+  lsm: true
+
+## ─── Gateway API ──────────────────────────────────────────────────────────────
+gatewayAPI:
+  ## enabled activates the Gateway API controller.
+  enabled: true
+  ## installCRDs installs Gateway API standard channel CRDs.
+  installCRDs: true
+  ## controllerName is the GatewayClass controller name.
+  controllerName: straitgateway.io/skgateway
+  ## gatewayClass is the GatewayClass name managed by straitgateway.
+  gatewayClass: skgateway
+
+## ─── Transit Gateway ──────────────────────────────────────────────────────────
+transitGateway:
+  ## enabled activates multi-cluster transit gateway.
+  enabled: false
+  ## topology: Mesh, HubAndSpoke, PeerToPeer, GatewayToGateway.
+  topology: Mesh
+  ## encryption: None, WireGuard, IPsec.
+  encryption: WireGuard
+
+## ─── BGP / BFD ────────────────────────────────────────────────────────────────
+bgp:
+  ## enabled activates the BGP routing controller.
+  enabled: false
+  ## bfd enables BFD for fast link failure detection.
+  bfd: false
+  ## announceLoadBalancerIP advertises LoadBalancer IPs via BGP.
+  announceLoadBalancerIP: false
+
+## ─── Encryption ───────────────────────────────────────────────────────────────
+encryption:
+  ## enabled activates transparent pod-to-pod encryption.
+  enabled: false
+  ## type: wireguard, ipsec, mtls.
+  type: wireguard
+  ## nodeEncryption encrypts node-to-node traffic (not just pod-to-pod).
+  nodeEncryption: false
+
+## ─── Observability ────────────────────────────────────────────────────────────
+observability:
+  ## metrics enables Prometheus metrics (prefix: straitgateway_).
+  metrics:
+    enabled: true
+    port: 9090
+    serviceMonitor:
+      enabled: false
+      namespace: ""
+      interval: 30s
+  ## tracing enables OpenTelemetry OTLP trace export.
+  tracing:
+    enabled: false
+    endpoint: ""
+    samplingRate: 0.1
+  ## flowLogs enables eBPF ring buffer flow event export.
+  flowLogs:
+    enabled: true
+    ## format: json, protobuf.
+    format: json
+    ## output: stdout, file, grpc.
+    output: stdout
+
+## ─── UI Dashboard ─────────────────────────────────────────────────────────────
+ui:
+  ## enabled deploys the Angular UI dashboard.
+  enabled: true
+  replicaCount: 1
+  service:
+    type: ClusterIP
+    port: 80
+
+
+## ─── Controller ───────────────────────────────────────────────────────────────
+controller:
+  replicaCount: 1
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 1000m
+      memory: 512Mi
+  ## leaderElection enables leader election for HA deployments.
+  leaderElection: false
+  ## leaderElectionID is the leader election resource name.
+  leaderElectionID: straitgateway-controller-leader
+
+## ─── Node Agent (DaemonSet) ───────────────────────────────────────────────────
+agent:
+  ## priorityClassName ensures the agent is scheduled even under resource pressure.
+  priorityClassName: system-node-critical
+  resources:
+    requests:
+      cpu: 200m
+      memory: 256Mi
+    limits:
+      cpu: 2000m
+      memory: 1Gi
+  ## tolerations ensures the agent runs on all nodes including control-plane.
+  tolerations:
+    - operator: Exists
+  ## updateStrategy for the DaemonSet.
+  updateStrategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 2
+
+## ─── RBAC ─────────────────────────────────────────────────────────────────────
+rbac:
+  ## create controls ClusterRole and ClusterRoleBinding creation.
+  create: true
+
+## ─── ServiceAccount ───────────────────────────────────────────────────────────
+serviceAccount:
+  ## create controls ServiceAccount creation.
+  create: true
+  ## name overrides the default ServiceAccount name.
+  name: ""
+  ## annotations to add to the ServiceAccount.
+  annotations: {}
+
+## ─── Pod Security ─────────────────────────────────────────────────────────────
+podSecurityContext: {}
+
+## Agent runs as privileged (required for eBPF program loading and netlink).
+agentSecurityContext:
+  privileged: true
+  capabilities:
+    add:
+      - NET_ADMIN
+      - SYS_ADMIN
+      - NET_RAW
+      - PERFMON
+      - BPF
+    drop:
+      - ALL
+
+
+## ─── Node Selector ────────────────────────────────────────────────────────────
+nodeSelector:
+  kubernetes.io/os: linux
+
+affinity: {}
+tolerations: {} 
+labels: {}
+  
+
+## ─── Extra Configuration ──────────────────────────────────────────────────────
+extraEnv: []
+extraVolumes: []
+extraVolumeMounts: []
+
+routes:
+  tls:
+    enabled: false
+    sniHosts: []
+  grpc:
+    enabled: false
+  tcp:
+    enabled: false
+  udp:
+    enabled: false

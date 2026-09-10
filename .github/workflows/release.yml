@@ -1,0 +1,187 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'v1.0.0'
+        required: true
+
+permissions:
+  contents: write
+  packages: write
+  pages: write
+  id-token: write
+
+env:
+  REGISTRY: ghcr.io/msaeedb40
+  GO_VERSION: "1.26.7"
+
+jobs:
+  # ── Release Metadata ──────────────────────────────────────────────────────────
+  metadata:
+    name: Release Metadata
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.meta.outputs.version }}
+      tags: ${{ steps.meta.outputs.tags }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Extract version
+        id: meta
+        run: |
+          VERSION="${{ github.event.inputs.version || github.ref_name }}"
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+
+  # ── Build & Push Multi-Arch Images ───────────────────────────────────────────
+  release-images:
+    name: Release Images
+    runs-on: ubuntu-latest
+    needs: [metadata]
+    strategy:
+      matrix:
+        component:
+          - name: straitgateway-controller
+            dockerfile: build/Dockerfile.sg-controller
+          - name: straitgatewayd
+            dockerfile: build/Dockerfile.straitgatewayd
+          - name: straitgateway-cli
+            dockerfile: build/Dockerfile.sg-cli
+          - name: straitgateway-ui
+            dockerfile: build/Dockerfile.ui
+    steps:
+      - uses: actions/checkout@v4
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Set up QEMU (for arm64 cross-compilation)
+        uses: docker/setup-qemu-action@v3
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      - name: Build and push ${{ matrix.component.name }}
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ${{ matrix.component.dockerfile }}
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ matrix.component.name }}:${{ needs.metadata.outputs.version }}
+            ${{ env.REGISTRY }}/${{ matrix.component.name }}:latest
+          build-args: |
+            VERSION=${{ needs.metadata.outputs.version }}
+            COMMIT=${{ github.sha }}
+            BUILD_DATE=${{ github.event.head_commit.timestamp }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          labels: |
+            org.opencontainers.image.title=${{ matrix.component.name }}
+            org.opencontainers.image.description=straitgateway eBPF-native Kubernetes networking
+            org.opencontainers.image.url=https://github.com/msaeedb40/straitgateway
+            org.opencontainers.image.source=https://github.com/msaeedb40/straitgateway
+            org.opencontainers.image.version=${{ needs.metadata.outputs.version }}
+            org.opencontainers.image.licenses=Apache-2.0
+
+  # ── Publish Helm Chart ────────────────────────────────────────────────────────
+  release-helm:
+    name: Publish Helm Chart
+    runs-on: ubuntu-latest
+    needs: [metadata, release-images]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Install Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: latest
+      - name: Update chart version
+        run: |
+          VERSION="${{ needs.metadata.outputs.version }}"
+          VERSION="${VERSION#v}"  # strip leading 'v'
+          sed -i "s/^version:.*/version: ${VERSION}/" straitgateway-helm/Chart.yaml
+          sed -i "s/^appVersion:.*/appVersion: \"${VERSION}\"/" straitgateway-helm/Chart.yaml
+      - name: Package chart
+        run: |
+          mkdir -p dist/charts
+          helm package straitgateway-helm/ -d dist/charts
+      - name: Upload chart artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: helm-charts
+          path: dist/charts/*.tgz
+      - name: Checkout gh-pages branch
+        uses: actions/checkout@v4
+        with:
+          ref: gh-pages
+          path: gh-pages
+      - name: Update Helm index
+        run: |
+          mkdir -p gh-pages/charts
+          cp dist/charts/*.tgz gh-pages/charts/
+          helm repo index gh-pages/charts/ --url https://msaeedb40.github.io/straitgateway/charts
+      - name: Push gh-pages
+        run: |
+          cd gh-pages
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "Release Helm chart ${{ needs.metadata.outputs.version }}" || echo "No changes"
+          git push
+
+  # ── Create GitHub Release ─────────────────────────────────────────────────────
+  create-release:
+    name: Create GitHub Release
+    runs-on: ubuntu-latest
+    needs: [metadata, release-images, release-helm]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+      - name: Download Helm chart artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: helm-charts
+          path: dist/charts
+      - name: Build release binaries
+        run: make build-all-arch
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.metadata.outputs.version }}
+          name: straitgateway ${{ needs.metadata.outputs.version }}
+          draft: false
+          prerelease: ${{ contains(needs.metadata.outputs.version, '-') }}
+          files: |
+            bin/*
+            dist/charts/*.tgz
+          body: |
+            ## straitgateway ${{ needs.metadata.outputs.version }}
+
+            ### Container Images
+            ```
+            ghcr.io/msaeedb40/straitgateway-controller:${{ needs.metadata.outputs.version }}
+            ghcr.io/msaeedb40/straitgatewayd:${{ needs.metadata.outputs.version }}
+            ghcr.io/msaeedb40/straitgateway-cli:${{ needs.metadata.outputs.version }}
+            ghcr.io/msaeedb40/straitgateway-ui:${{ needs.metadata.outputs.version }}
+            ```
+
+            ### Install via Helm
+            ```bash
+            helm repo add straitgateway https://msaeedb40.github.io/straitgateway/charts
+            helm repo update
+            helm install straitgateway straitgateway/straitgateway
+            ```
+
+            ### Install Gateway API CRDs first
+            ```bash
+            kubectl apply --server-side -f https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.6.1/standard-install.yaml
+            ```

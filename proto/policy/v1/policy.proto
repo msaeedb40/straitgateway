@@ -1,0 +1,34 @@
+syntax = "proto3";
+package straitgateway.policy.v1;
+option go_package = "github.com/msaeedb40/straitgateway/proto/policy/v1;policyv1";
+
+service PolicyService {
+  rpc ListPolicies(ListPoliciesRequest) returns (ListPoliciesResponse);
+  rpc EvaluatePolicy(EvaluatePolicyRequest) returns (EvaluatePolicyResponse);
+}
+
+message ListPoliciesRequest { string namespace = 1; }
+message ListPoliciesResponse { repeated PolicyRule rules = 1; }
+
+message PolicyRule {
+  uint32 src_identity = 1;
+  uint32 dst_identity = 2;
+  uint32 dst_port = 3;
+  string protocol = 4;
+  string action = 5;
+  int32  priority = 6;
+  string direction = 7;
+}
+
+message EvaluatePolicyRequest {
+  uint32 src_identity = 1;
+  uint32 dst_identity = 2;
+  uint32 dst_port = 3;
+  string protocol = 4;
+}
+
+message EvaluatePolicyResponse {
+  string action = 1;
+  int32  priority = 2;
+  string policy_name = 3;
+}

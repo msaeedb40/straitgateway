@@ -1,0 +1,17 @@
+<svg viewBox="0 0 480 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="480" height="80" rx="12" fill="#0F1117"/>
+  <!-- Icon -->
+  <path d="M40 40 L56 24 L72 40 L56 56 Z" stroke="url(#b)" stroke-width="1.5" fill="none"/>
+  <circle cx="56" cy="40" r="5" fill="#6366f1"/>
+  <line x1="56" y1="24" x2="56" y2="30" stroke="#818cf8" stroke-width="1.2" stroke-linecap="round"/>
+  <line x1="72" y1="40" x2="66" y2="40" stroke="#818cf8" stroke-width="1.2" stroke-linecap="round"/>
+  <line x1="56" y1="56" x2="56" y2="50" stroke="#818cf8" stroke-width="1.2" stroke-linecap="round"/>
+  <line x1="40" y1="40" x2="46" y2="40" stroke="#818cf8" stroke-width="1.2" stroke-linecap="round"/>
+  <!-- Text -->
+  <text x="90" y="48" font-family="Inter,system-ui,sans-serif" font-weight="700" font-size="26"
+        fill="url(#t)" letter-spacing="-0.5">straitgateway</text>
+  <defs>
+    <linearGradient id="b" x1="40" y1="24" x2="72" y2="56"><stop offset="0%" stop-color="#6366f1"/><stop offset="100%" stop-color="#38bdf8"/></linearGradient>
+    <linearGradient id="t" x1="90" y1="0" x2="400" y2="0"><stop offset="0%" stop-color="#818cf8"/><stop offset="60%" stop-color="#c4b5fd"/><stop offset="100%" stop-color="#38bdf8"/></linearGradient>
+  </defs>
+</svg>

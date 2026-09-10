@@ -1,0 +1,82 @@
+// Copyright 2026 straitgateway Authors
+// SPDX-License-Identifier: Apache-2.0
+
+syntax = "proto3";
+package straitgateway.agent.v1;
+option go_package = "github.com/msaeedb40/straitgateway/proto/agent/v1;agentv1";
+
+import "common/v1/common.proto";
+
+// AgentService is the gRPC service exposed by straitgatewayd on the Unix socket.
+// The CNI plugin is the primary client.
+service AgentService {
+  // AllocateIP assigns a pod IP address from the node CIDR.
+  rpc AllocateIP(AllocateIPRequest) returns (AllocateIPResponse);
+  // ReleaseIP releases a previously allocated pod IP address.
+  rpc ReleaseIP(ReleaseIPRequest) returns (ReleaseIPResponse);
+  // ConfigureEndpoint configures a pod endpoint (BPF identity, routes, policy).
+  rpc ConfigureEndpoint(ConfigureEndpointRequest) returns (ConfigureEndpointResponse);
+  // DeleteEndpoint removes a pod endpoint and cleans up BPF state.
+  rpc DeleteEndpoint(DeleteEndpointRequest) returns (DeleteEndpointResponse);
+  // GetStatus returns the agent health and readiness.
+  rpc GetStatus(GetStatusRequest) returns (GetStatusResponse);
+}
+
+message AllocateIPRequest {
+  string container_id = 1;
+  string pod_name     = 2;
+  string namespace    = 3;
+  string if_name      = 4;
+  string netns        = 5;
+  bool   ipv4         = 6;
+  bool   ipv6         = 7;
+}
+
+message AllocateIPResponse {
+  straitgateway.common.v1.IPAddress ipv4_address = 1;
+  straitgateway.common.v1.IPAddress ipv6_address = 2;
+  straitgateway.common.v1.IPAddress gateway      = 3;
+  straitgateway.common.v1.IPPrefix  ipv4_cidr    = 4;
+  uint32 mtu         = 5;
+  int32  host_ifindex = 6;
+}
+
+message ReleaseIPRequest {
+  string container_id = 1;
+  straitgateway.common.v1.IPAddress ipv4_address = 2;
+}
+
+message ReleaseIPResponse {}
+
+message ConfigureEndpointRequest {
+  string container_id = 1;
+  string pod_name     = 2;
+  string namespace    = 3;
+  straitgateway.common.v1.IPAddress ipv4_address = 4;
+  int32  host_ifindex = 5;
+  map<string, string> labels = 6;
+}
+
+message ConfigureEndpointResponse {
+  straitgateway.common.v1.Identity identity = 1;
+}
+
+message DeleteEndpointRequest {
+  string container_id = 1;
+}
+
+message DeleteEndpointResponse {}
+
+message GetStatusRequest {}
+
+message GetStatusResponse {
+  bool   cni_ready            = 1;
+  bool   service_ready        = 2;
+  bool   policy_ready         = 3;
+  bool   gateway_ready        = 4;
+  bool   kube_proxy_replaced  = 5;
+  int64  bpf_map_revision     = 6;
+  string kernel_version       = 7;
+  string node_name            = 8;
+  string version              = 9;
+}

@@ -1,0 +1,35 @@
+syntax = "proto3";
+package straitgateway.service.v1;
+option go_package = "github.com/msaeedb40/straitgateway/proto/service/v1;servicev1";
+
+import "common/v1/common.proto";
+
+service ServiceLBService {
+  rpc GetService(GetServiceRequest) returns (GetServiceResponse);
+  rpc ListServices(ListServicesRequest) returns (ListServicesResponse);
+}
+
+message GetServiceRequest { string namespace = 1; string name = 2; }
+message GetServiceResponse { ServiceInfo service = 1; }
+message ListServicesRequest {}
+message ListServicesResponse { repeated ServiceInfo services = 1; }
+
+message ServiceInfo {
+  string name = 1;
+  string namespace = 2;
+  straitgateway.common.v1.IPAddress cluster_ip = 3;
+  string type = 4;
+  uint32 port = 5;
+  straitgateway.common.v1.L4Protocol protocol = 6;
+  string algorithm = 7;
+  uint32 backend_count = 8;
+  repeated BackendInfo backends = 9;
+}
+
+message BackendInfo {
+  uint32 id = 1;
+  straitgateway.common.v1.IPAddress address = 2;
+  uint32 port = 3;
+  uint32 weight = 4;
+  string state = 5;
+}

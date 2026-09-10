@@ -1,0 +1,13 @@
+version: v2
+name: buf.build/msaeedb40/straitgateway
+modules:
+  - path: .
+lint:
+  use:
+    - STANDARD
+breaking:
+  use:
+    - FILE
+deps:
+  - buf.build/googleapis/googleapis
+  - buf.build/grpc/grpc

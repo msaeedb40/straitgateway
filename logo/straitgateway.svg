@@ -1,0 +1,31 @@
+<svg viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="200" height="200" rx="40" fill="#0F1117"/>
+  <rect width="200" height="200" rx="40" fill="url(#bg)"/>
+  <!-- Diamond / gateway shape -->
+  <path d="M100 30 L170 100 L100 170 L30 100 Z" stroke="url(#border)" stroke-width="2.5" fill="none"/>
+  <!-- Inner diamond -->
+  <path d="M100 58 L142 100 L100 142 L58 100 Z" stroke="#6366f1" stroke-width="1.5" fill="rgba(99,102,241,0.08)"/>
+  <!-- Center node -->
+  <circle cx="100" cy="100" r="10" fill="#6366f1"/>
+  <!-- Spoke lines -->
+  <line x1="100" y1="30" x2="100" y2="58" stroke="#818cf8" stroke-width="1.5" stroke-linecap="round"/>
+  <line x1="170" y1="100" x2="142" y2="100" stroke="#818cf8" stroke-width="1.5" stroke-linecap="round"/>
+  <line x1="100" y1="170" x2="100" y2="142" stroke="#818cf8" stroke-width="1.5" stroke-linecap="round"/>
+  <line x1="30" y1="100" x2="58" y2="100" stroke="#818cf8" stroke-width="1.5" stroke-linecap="round"/>
+  <!-- Corner dots -->
+  <circle cx="100" cy="30" r="4" fill="#818cf8"/>
+  <circle cx="170" cy="100" r="4" fill="#818cf8"/>
+  <circle cx="100" cy="170" r="4" fill="#818cf8"/>
+  <circle cx="30" cy="100" r="4" fill="#818cf8"/>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="200" y2="200">
+      <stop offset="0%" stop-color="#1a1b2e"/>
+      <stop offset="100%" stop-color="#0f1117"/>
+    </linearGradient>
+    <linearGradient id="border" x1="30" y1="30" x2="170" y2="170">
+      <stop offset="0%" stop-color="#6366f1"/>
+      <stop offset="50%" stop-color="#a78bfa"/>
+      <stop offset="100%" stop-color="#38bdf8"/>
+    </linearGradient>
+  </defs>
+</svg>

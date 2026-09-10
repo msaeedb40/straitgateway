@@ -1,0 +1,101 @@
+{{/*
+Copyright 2026 straitgateway Authors
+SPDX-License-Identifier: Apache-2.0
+*/}}
+{{- if .Values.rbac.create }}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ include "straitgateway.fullname" . }}
+  labels:
+    {{- include "straitgateway.labels" . | nindent 4 }}
+rules:
+  # Core Kubernetes resources
+  - apiGroups: [""]
+    resources:
+      - nodes
+      - nodes/status
+      - pods
+      - pods/status
+      - namespaces
+      - services
+      - services/status
+      - endpoints
+      - configmaps
+      - secrets
+    verbs: ["get", "list", "watch", "update", "patch"]
+  - apiGroups: ["discovery.k8s.io"]
+    resources:
+      - endpointslices
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["networking.k8s.io"]
+    resources:
+      - networkpolicies
+    verbs: ["get", "list", "watch"]
+  # Gateway API standard resources
+  - apiGroups: ["gateway.networking.k8s.io"]
+    resources:
+      - gatewayclasses
+      - gatewayclasses/status
+      - gateways
+      - gateways/status
+      - httproutes
+      - httproutes/status
+      - grpcroutes
+      - grpcroutes/status
+      - tlsroutes
+      - tlsroutes/status
+      - tcproutes
+      - tcproutes/status
+      - udproutes
+      - udproutes/status
+      - referencegrants
+      - referencegrants/status
+    verbs: ["get", "list", "watch", "update", "patch"]
+  # StraitGateway Custom Resources
+  - apiGroups: ["networking.straitgateway.io"]
+    resources:
+      - straitnetworkpolicies
+      - straitnetworkpolicies/status
+      - transitgateways
+      - transitgateways/status
+      - transitsegments
+      - transitsegments/status
+      - transitsegmentattachments
+      - transitsegmentattachments/status
+      - transitsegmentroutes
+      - transitsegmentroutes/status
+      - nodenetworkconfigs
+      - nodenetworkconfigs/status
+      - clusternetworkconfigs
+      - clusternetworkconfigs/status
+      - bgppeers
+      - bgppeers/status
+      - bfdsessions
+      - bfdsessions/status
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  # Coordination for leader election
+  - apiGroups: ["coordination.k8s.io"]
+    resources:
+      - leases
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  - apiGroups: [""]
+    resources:
+      - events
+    verbs: ["create", "patch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ include "straitgateway.fullname" . }}
+  labels:
+    {{- include "straitgateway.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ include "straitgateway.fullname" . }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "straitgateway.serviceAccountName" . }}
+    namespace: {{ .Release.Namespace }}
+{{- end }}

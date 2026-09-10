@@ -1,0 +1,34 @@
+syntax = "proto3";
+package straitgateway.transit.v1;
+option go_package = "github.com/msaeedb40/straitgateway/proto/transit/v1;transitv1";
+
+import "common/v1/common.proto";
+
+service TransitService {
+  rpc ListSegments(ListSegmentsRequest) returns (ListSegmentsResponse);
+  rpc ListPeers(ListPeersRequest) returns (ListPeersResponse);
+}
+
+message ListSegmentsRequest {}
+message ListSegmentsResponse { repeated SegmentInfo segments = 1; }
+
+message SegmentInfo {
+  uint32 segment_id = 1;
+  string name = 2;
+  string topology = 3;
+  string encryption = 4;
+  repeated string attached_clusters = 5;
+}
+
+message ListPeersRequest { uint32 segment_id = 1; }
+message ListPeersResponse { repeated PeerInfo peers = 1; }
+
+message PeerInfo {
+  uint32 cluster_id = 1;
+  straitgateway.common.v1.IPAddress tunnel_ip = 2;
+  string state = 3;
+  int64  tx_bytes = 4;
+  int64  rx_bytes = 5;
+  double latency_ms = 6;
+  string last_handshake = 7;
+}

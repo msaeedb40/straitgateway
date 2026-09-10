@@ -1,0 +1,168 @@
+{{/*
+Copyright 2026 straitgateway Authors
+SPDX-License-Identifier: Apache-2.0
+*/}}
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: {{ include "straitgateway.fullname" . }}-agent
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "straitgateway.labels" . | nindent 4 }}
+    app.kubernetes.io/component: agent
+spec:
+  selector:
+    matchLabels:
+      {{- include "straitgateway.agent.selectorLabels" . | nindent 6 }}
+  updateStrategy:
+    {{- toYaml .Values.agent.updateStrategy | nindent 4 }}
+  template:
+    metadata:
+      labels:
+        {{- include "straitgateway.agent.selectorLabels" . | nindent 8 }}
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9091"
+        prometheus.io/path: "/metrics"
+    spec:
+      serviceAccountName: {{ include "straitgateway.serviceAccountName" . }}
+      hostNetwork: true
+      hostPID: true
+      priorityClassName: {{ .Values.agent.priorityClassName }}
+      tolerations:
+        {{- toYaml .Values.agent.tolerations | nindent 8 }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      initContainers:
+        # CNI installer — copies straitgateway CNI binary and config to host.
+        - name: install-cni
+          image: {{ include "straitgateway.agent.image" . }}
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          command: ["/install-cni.sh"]
+          env:
+            - name: CNI_CONF_DIR
+              value: {{ .Values.cni.confDir | quote }}
+            - name: CNI_BIN_DIR
+              value: {{ .Values.cni.installDir | quote }}
+          securityContext:
+            privileged: true
+          volumeMounts:
+            - name: cni-bin-dir
+              mountPath: /host/opt/cni/bin
+            - name: cni-conf-dir
+              mountPath: /host/etc/cni/net.d
+      containers:
+        - name: straitgatewayd
+          image: {{ include "straitgateway.agent.image" . }}
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          args:
+            - --socket=/run/straitgateway/daemon.sock
+            - --bpffs=/sys/fs/bpf/straitgateway
+            - --log-level=info
+            - --node-name=$(NODE_NAME)
+          ports:
+            - name: agent-metrics
+              containerPort: 9091
+              protocol: TCP
+          env:
+            - name: NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+            - name: CLUSTER_NAME
+              value: {{ .Values.global.clusterName | quote }}
+            - name: CLUSTER_ID
+              value: {{ .Values.global.clusterID | quote }}
+            - name: KUBE_PROXY_REPLACEMENT
+              value: {{ .Values.kubeProxyReplacement.enabled | quote }}
+            {{- with .Values.extraEnv }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          securityContext:
+            {{- toYaml .Values.agentSecurityContext | nindent 12 }}
+          resources:
+            {{- toYaml .Values.agent.resources | nindent 12 }}
+          volumeMounts:
+            # BPF filesystem — required for map pinning.
+            - name: bpffs
+              mountPath: /sys/fs/bpf
+              mountPropagation: Bidirectional
+            # cgroupv2 — required for cgroup/sockops BPF programs.
+            - name: cgroupv2
+              mountPath: /sys/fs/cgroup
+              mountPropagation: Bidirectional
+            # Host proc — required for netns operations.
+            - name: proc
+              mountPath: /host/proc
+              readOnly: true
+            # Host var/run — for CNI socket.
+            - name: run-straitgateway
+              mountPath: /run/straitgateway
+            # Host CNI binary directory.
+            - name: cni-bin-dir
+              mountPath: /host/opt/cni/bin
+            # Host CNI config directory.
+            - name: cni-conf-dir
+              mountPath: /host/etc/cni/net.d
+            # eBPF objects directory.
+            - name: bpf-objects
+              mountPath: /var/lib/straitgateway/bpf
+            # Kubernetes PKI certificates
+            - name: k8s-pki
+              mountPath: /etc/kubernetes/pki
+              readOnly: true
+            # Kubernetes admin config
+            - name: k8s-admin-conf
+              mountPath: /etc/kubernetes/admin.conf
+              readOnly: true
+            {{- with .Values.extraVolumeMounts }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8082
+            initialDelaySeconds: 30
+            periodSeconds: 30
+            failureThreshold: 5
+      volumes:
+        - name: bpffs
+          hostPath:
+            path: /sys/fs/bpf
+            type: DirectoryOrCreate
+        - name: cgroupv2
+          hostPath:
+            path: /sys/fs/cgroup
+            type: DirectoryOrCreate
+        - name: proc
+          hostPath:
+            path: /proc
+        - name: run-straitgateway
+          hostPath:
+            path: /run/straitgateway
+            type: DirectoryOrCreate
+        - name: cni-bin-dir
+          hostPath:
+            path: {{ .Values.cni.installDir }}
+            type: DirectoryOrCreate
+        - name: cni-conf-dir
+          hostPath:
+            path: {{ .Values.cni.confDir }}
+            type: DirectoryOrCreate
+        - name: bpf-objects
+          hostPath:
+            path: /var/lib/straitgateway/bpf
+            type: DirectoryOrCreate
+        - name: k8s-pki
+          hostPath:
+            path: /etc/kubernetes/pki
+            type: DirectoryOrCreate
+        - name: k8s-admin-conf
+          hostPath:
+            path: /etc/kubernetes/admin.conf
+            type: FileOrCreate
+        {{- with .Values.extraVolumes }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}

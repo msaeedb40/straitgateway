@@ -1,0 +1,21 @@
+{{/*
+Copyright 2026 straitgateway Authors
+SPDX-License-Identifier: Apache-2.0
+*/}}
+{{- if and .Values.gatewayAPI.enabled .Values.routes .Values.routes.udp .Values.routes.udp.enabled }}
+apiVersion: gateway.networking.k8s.io/v1alpha2
+kind: UDPRoute
+metadata:
+  name: {{ include "straitgateway.fullname" . }}-udp
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "straitgateway.labels" . | nindent 4 }}
+spec:
+  parentRefs:
+    - name: {{ include "straitgateway.fullname" . }}-gateway
+      namespace: {{ .Release.Namespace }}
+  rules:
+    - backendRefs:
+        - name: {{ include "straitgateway.fullname" . }}
+          port: {{ .Values.service.port }}
+{{- end }}

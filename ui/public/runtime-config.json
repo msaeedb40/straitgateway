@@ -1,0 +1,8 @@
+{
+  "apiBase": "http://localhost:8080",
+  "prometheusBase": "http://localhost:9090",
+  "grafanaBase": "http://localhost:3000",
+  "jaegerBase": "http://localhost:16686",
+  "clusterName": "dev",
+  "refreshIntervalMs": 15000
+}
