@@ -1,7 +1,7 @@
 # Copyright 2026 straitgateway Authors
 # SPDX-License-Identifier: Apache-2.0
 
-ARG GO_VERSION=1.26.7
+ARG GO_VERSION=1.26
 ARG ALPINE_VERSION=3.24.1
 
 FROM golang:${GO_VERSION}-alpine AS builder
