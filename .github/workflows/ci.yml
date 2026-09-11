@@ -227,7 +227,7 @@ jobs:
         uses: helm/kind-action@v1
         with:
           cluster_name: straitgateway-ci
-          node_image: kindest/node:v1.34.0
+          node_image: kindest/node:v1.37.0
           config: .github/kind-config.yaml
       
  
@@ -255,7 +255,8 @@ jobs:
             --create-namespace \
             --set global.clusterName=ci \
             --set kubeProxyReplacement.enabled=true \
-            --wait --timeout=15m
+            --wait \
+            --timeout=15m
 
       - name: Collect diagnostics
         if: always()
@@ -305,7 +306,8 @@ jobs:
             --namespace straitgateway-system \
             --set global.clusterName=ci \
             --set kubeProxyReplacement.enabled=true \
-            --wait --timeout=15m
+            --wait \
+            --timeout=15m
       - name: Helm test
         run: helm test straitgateway --namespace straitgateway-system --timeout 10m
       - name: Helm uninstall
