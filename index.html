@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="en" class="dark scroll-smooth">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>straitgateway — eBPF-Native Kubernetes Networking & Gateway Fabric</title>
+  <meta name="description" content="straitgateway: eBPF-native CNI, kube-proxy replacement, Gateway API v1.6.1, transit gateway mesh, BGP/BFD, and zero-trust NetworkPolicy for Kubernetes.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+  <style type="text/tailwindcss">
+    @layer base {
+      body {
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        background-color: #06080e;
+        color: #e2e8f0;
+        overflow-x: hidden;
+      }
+      code, pre {
+        font-family: 'JetBrains Mono', monospace;
+      }
+    }
+    .gradient-text {
+      background: linear-gradient(135deg, #a5b4fc 0%, #818cf8 35%, #c084fc 70%, #38bdf8 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .hero-glow {
+      background: radial-gradient(ellipse 70% 40% at 50% -10%, rgba(99, 102, 241, 0.25) 0%, rgba(139, 92, 246, 0.12) 45%, transparent 70%);
+    }
+    .glass-card {
+      background: rgba(15, 23, 42, 0.6);
+      backdrop-filter: blur(16px);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .glass-card:hover {
+      border-color: rgba(129, 140, 248, 0.35);
+      box-shadow: 0 10px 35px -10px rgba(99, 102, 241, 0.2);
+      transform: translateY(-2px);
+    }
+    .code-box {
+      background: rgba(8, 12, 22, 0.85);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col antialiased selection:bg-indigo-500 selection:text-white">
+
+  <!-- Header -->
+  <header class="sticky top-0 z-50 backdrop-blur-xl bg-[#06080e]/80 border-b border-white/5">
+    <div class="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
+      <a href="#" class="flex items-center gap-3 group">
+        <div class="w-9 h-9 rounded-xl bg-indigo-500/10 border border-indigo-500/30 flex items-center justify-center text-indigo-400 shadow-inner group-hover:border-indigo-400 transition-colors">
+          <svg viewBox="0 0 24 24" fill="none" class="w-5 h-5" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+          </svg>
+        </div>
+        <span class="font-bold text-lg tracking-tight text-white group-hover:text-indigo-200 transition-colors">straitgateway</span>
+      </a>
+
+      <nav class="hidden md:flex items-center gap-8 text-sm font-medium text-slate-300">
+        <a href="#features" class="hover:text-indigo-400 transition-colors">Features</a>
+        <a href="#install" class="hover:text-indigo-400 transition-colors">Install</a>
+        <a href="#helm" class="hover:text-indigo-400 transition-colors">Helm Charts</a>
+        <a href="https://github.com/msaeedb40/straitgateway/tree/main/docs" target="_blank" rel="noopener noreferrer" class="hover:text-indigo-400 transition-colors">Documentation</a>
+      </nav>
+
+      <div class="flex items-center gap-3">
+        <a href="https://github.com/msaeedb40/straitgateway" target="_blank" rel="noopener noreferrer" class="flex items-center gap-2 px-4 py-2 text-sm font-medium text-slate-200 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg transition-all hover:border-white/20">
+          <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+            <path fill-rule="evenodd" clip-rule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.53 1.032 1.53 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"/>
+          </svg>
+          <span>GitHub</span>
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <!-- Hero Section -->
+  <main class="flex-1">
+    <section class="hero-glow relative pt-20 pb-28 px-6">
+      <div class="max-w-5xl mx-auto text-center">
+        <!-- Release Pill -->
+        <div class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-xs font-semibold text-indigo-300 mb-8 backdrop-blur-sm">
+          <span class="w-2 h-2 rounded-full bg-indigo-400 animate-pulse"></span>
+          <span>StraitGateway v1.0.0</span>
+          <span class="text-indigo-400/50">|</span>
+          <span class="text-slate-400 font-normal">Apache 2.0</span>
+        </div>
+
+        <h1 class="text-5xl md:text-7xl font-extrabold tracking-tight mb-6">
+          <span class="gradient-text">eBPF-Native</span> Kubernetes Networking & Gateway Fabric
+        </h1>
+
+        <p class="text-lg md:text-xl text-slate-300/90 max-w-3xl mx-auto leading-relaxed mb-10">
+          Unify your cluster networking with kernel-native performance. High-throughput CNI, iptables-free kube-proxy replacement, Gateway API v1.6.1, WireGuard multi-cluster mesh, and zero-trust policies.
+        </p>
+
+        <div class="flex flex-wrap items-center justify-center gap-4 mb-16">
+          <a href="#install" class="px-6 py-3.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-sm shadow-lg shadow-indigo-500/25 transition-all">
+            Get Started with Helm →
+          </a>
+          <a href="charts/index.yaml" class="px-6 py-3.5 rounded-xl bg-white/5 hover:bg-white/10 text-slate-200 border border-white/10 font-semibold text-sm transition-all">
+            View Chart Index
+          </a>
+        </div>
+
+        <!-- Badges Bar -->
+        <div class="grid grid-cols-2 md:grid-cols-5 gap-3 max-w-4xl mx-auto text-xs font-medium text-slate-400">
+          <div class="p-2.5 rounded-lg border border-white/5 bg-white/[0.02]">NetKit / TCX / XDP</div>
+          <div class="p-2.5 rounded-lg border border-white/5 bg-white/[0.02]">Kube-Proxy Replacement</div>
+          <div class="p-2.5 rounded-lg border border-white/5 bg-white/[0.02]">Gateway API v1.6.1</div>
+          <div class="p-2.5 rounded-lg border border-white/5 bg-white/[0.02]">WireGuard Transit Mesh</div>
+          <div class="p-2.5 rounded-lg border border-white/5 bg-white/[0.02]">BGP / BFD Multi-Path</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Installation Section -->
+    <section id="install" class="py-20 px-6 border-t border-white/5 bg-slate-950/40">
+      <div class="max-w-4xl mx-auto">
+        <div class="text-center mb-12">
+          <h2 class="text-3xl font-bold text-white mb-3">Install via Helm</h2>
+          <p class="text-slate-400 text-sm">Deploy StraitGateway into your cluster with Gateway API CRDs in minutes.</p>
+        </div>
+
+        <div class="space-y-6">
+          <!-- Step 1 -->
+          <div class="code-box rounded-2xl p-5 shadow-2xl relative">
+            <div class="flex items-center justify-between mb-3 text-xs text-slate-400 font-semibold uppercase tracking-wider">
+              <span>Step 1: Install Gateway API Standard CRDs</span>
+              <button onclick="copyCode('step1')" class="hover:text-indigo-400 flex items-center gap-1.5 transition-colors">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+                <span id="step1-btn">Copy</span>
+              </button>
+            </div>
+            <pre class="overflow-x-auto text-sm text-indigo-300 leading-relaxed font-mono"><code id="step1">kubectl apply --server-side -f \
+  https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.6.1/standard-install.yaml</code></pre>
+          </div>
+
+          <!-- Step 2 -->
+          <div class="code-box rounded-2xl p-5 shadow-2xl relative">
+            <div class="flex items-center justify-between mb-3 text-xs text-slate-400 font-semibold uppercase tracking-wider">
+              <span>Step 2: Add Helm Repository & Install StraitGateway</span>
+              <button onclick="copyCode('step2')" class="hover:text-indigo-400 flex items-center gap-1.5 transition-colors">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+                <span id="step2-btn">Copy</span>
+              </button>
+            </div>
+            <pre class="overflow-x-auto text-sm text-emerald-300 leading-relaxed font-mono"><code id="step2">helm repo add straitgateway https://msaeedb40.github.io/straitgateway/charts
+helm repo update
+helm install straitgateway straitgateway/straitgateway \
+  --namespace straitgateway-system \
+  --create-namespace</code></pre>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Core Features Section -->
+    <section id="features" class="py-24 px-6 max-w-7xl mx-auto">
+      <div class="text-center mb-16">
+        <h2 class="text-3xl md:text-4xl font-extrabold text-white mb-4">Enterprise-Grade Features</h2>
+        <p class="text-slate-400 max-w-2xl mx-auto text-base">Engineered from the ground up on modern Linux eBPF primitives for unparalleled throughput and observability.</p>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <!-- Feature 1 -->
+        <div class="glass-card rounded-2xl p-7">
+          <div class="w-12 h-12 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400 text-xl mb-5">
+            ⚡
+          </div>
+          <h3 class="text-lg font-bold text-white mb-2">eBPF Dataplane</h3>
+          <p class="text-sm text-slate-400 leading-relaxed">
+            High-performance NetKit, TCX, and XDP kernel hooks. Direct packet forwarding with zero iptables overhead and minimum CPU consumption.
+          </p>
+        </div>
+
+        <!-- Feature 2 -->
+        <div class="glass-card rounded-2xl p-7">
+          <div class="w-12 h-12 rounded-xl bg-violet-500/10 border border-violet-500/20 flex items-center justify-center text-violet-400 text-xl mb-5">
+            🔄
+          </div>
+          <h3 class="text-lg font-bold text-white mb-2">kube-proxy Replacement</h3>
+          <p class="text-sm text-slate-400 leading-relaxed">
+            Maglev consistent hashing, Direct Server Return (DSR), session affinity, and accelerated NodePort service load balancing.
+          </p>
+        </div>
+
+        <!-- Feature 3 -->
+        <div class="glass-card rounded-2xl p-7">
+          <div class="w-12 h-12 rounded-xl bg-sky-500/10 border border-sky-500/20 flex items-center justify-center text-sky-400 text-xl mb-5">
+            🌐
+          </div>
+          <h3 class="text-lg font-bold text-white mb-2">Gateway API v1.6.1</h3>
+          <p class="text-sm text-slate-400 leading-relaxed">
+            Standard Kubernetes Gateway API controller supporting HTTPRoute, GRPCRoute, TCPRoute, UDPRoute, and TLSRoute.
+          </p>
+        </div>
+
+        <!-- Feature 4 -->
+        <div class="glass-card rounded-2xl p-7">
+          <div class="w-12 h-12 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 text-xl mb-5">
+            🔗
+          </div>
+          <h3 class="text-lg font-bold text-white mb-2">WireGuard Transit Mesh</h3>
+          <p class="text-sm text-slate-400 leading-relaxed">
+            Hub-spoke and full-mesh inter-cluster connectivity. End-to-end kernel WireGuard encryption with 32-bit segment ID isolation.
+          </p>
+        </div>
+
+        <!-- Feature 5 -->
+        <div class="glass-card rounded-2xl p-7">
+          <div class="w-12 h-12 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400 text-xl mb-5">
+            📡
+          </div>
+          <h3 class="text-lg font-bold text-white mb-2">BGP + BFD Multi-Path</h3>
+          <p class="text-sm text-slate-400 leading-relaxed">
+            Dynamic route advertisement, Equal-Cost Multi-Path (ECMP) failover, and sub-second fault detection using hardware-accelerated BFD.
+          </p>
+        </div>
+
+        <!-- Feature 6 -->
+        <div class="glass-card rounded-2xl p-7">
+          <div class="w-12 h-12 rounded-xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-center text-rose-400 text-xl mb-5">
+            🔒
+          </div>
+          <h3 class="text-lg font-bold text-white mb-2">Zero-Trust NetworkPolicy</h3>
+          <p class="text-sm text-slate-400 leading-relaxed">
+            Identity-driven StraitNetworkPolicy engine. Strict default-deny posture with kernel LSM and socket-layer policy enforcement.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Helm Repository Section -->
+    <section id="helm" class="py-20 px-6 border-t border-white/5 bg-slate-950/30">
+      <div class="max-w-5xl mx-auto text-center">
+        <h2 class="text-3xl font-bold text-white mb-4">Helm Chart Repository</h2>
+        <p class="text-slate-400 text-sm max-w-xl mx-auto mb-10">All packaged releases are indexed and served directly from this GitHub Pages repository.</p>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 text-left">
+          <div class="glass-card rounded-2xl p-6">
+            <h3 class="text-base font-bold text-white mb-2">Repository URL</h3>
+            <p class="text-xs text-slate-400 mb-4">Use this URL with the Helm CLI to register the chart repository:</p>
+            <div class="p-3 rounded-xl bg-black/40 border border-white/10 font-mono text-xs text-indigo-300 break-all select-all">
+              https://msaeedb40.github.io/straitgateway/charts
+            </div>
+          </div>
+
+          <div class="glass-card rounded-2xl p-6 flex flex-col justify-between">
+            <div>
+              <h3 class="text-base font-bold text-white mb-2">Quick Downloads</h3>
+              <p class="text-xs text-slate-400 mb-4">Direct access to repository metadata and chart archive files:</p>
+            </div>
+            <div class="flex items-center gap-3">
+              <a href="charts/index.yaml" class="px-4 py-2 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-semibold text-slate-200 transition-colors">
+                index.yaml
+              </a>
+              <a href="charts/" class="px-4 py-2 rounded-lg bg-indigo-600/20 hover:bg-indigo-600/30 border border-indigo-500/30 text-xs font-semibold text-indigo-300 transition-colors">
+                Browse Charts Directory
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Footer -->
+  <footer class="border-t border-white/5 py-10 px-6 bg-[#06080e]">
+    <div class="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4 text-xs text-slate-500">
+      <div class="flex items-center gap-2">
+        <span>© 2026 StraitGateway Authors. Distributed under the Apache 2.0 License.</span>
+      </div>
+      <div class="flex items-center gap-6">
+        <a href="https://github.com/msaeedb40/straitgateway" class="hover:text-slate-300 transition-colors">GitHub</a>
+        <a href="https://github.com/msaeedb40/straitgateway/tree/main/docs" class="hover:text-slate-300 transition-colors">Docs</a>
+        <a href="charts/index.yaml" class="hover:text-slate-300 transition-colors">Helm Index</a>
+      </div>
+    </div>
+  </footer>
+
+  <script>
+    function copyCode(id) {
+      const text = document.getElementById(id).innerText;
+      navigator.clipboard.writeText(text).then(() => {
+        const btn = document.getElementById(id + '-btn');
+        btn.innerText = 'Copied!';
+        btn.classList.add('text-emerald-400');
+        setTimeout(() => {
+          btn.innerText = 'Copy';
+          btn.classList.remove('text-emerald-400');
+        }, 2000);
+      });
+    }
+  </script>
+</body>
+</html>
