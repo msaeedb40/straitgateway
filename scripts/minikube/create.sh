@@ -5,7 +5,7 @@ CLUSTER="${MINIKUBE_PROFILE:-straitgateway}"
 minikube start \
   --profile="${CLUSTER}" \
   --network-plugin=cni \
-  --cni=false \
+  --cni=straitgateway \
   --extra-config=kubeadm.skip-phases=addon/kube-proxy \
   --container-runtime=containerd \
   --memory=4096 \

@@ -87,8 +87,7 @@ helm upgrade --install straitgateway ./straitgateway-helm \
   --namespace straitgateway-system --create-namespace \
   --set global.clusterName="my-cluster" \
   --set kubeProxyReplacement.enabled=true \
-  --set kubeProxyReplacement.mode=none \
-  --set dataplane.overlay=Native \
+  --set dataplane.overlay=Native \ 
   --wait --timeout=15m
 ```
 

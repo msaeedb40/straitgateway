@@ -107,9 +107,8 @@ helm install straitgateway ./straitgateway-helm \
   --create-namespace \
   --set global.clusterName="production-cluster-01" \
   --set kubeProxyReplacement.enabled=true \
-  --set kubeProxyReplacement.mode=none \
   --set dataplane.overlay=Native \
-  --wait --timeout=10m
+  --wait --timeout=15m
 ```
 
 ### Key Helm Configuration Values
@@ -163,7 +162,7 @@ helm upgrade --install straitgateway ./straitgateway-helm \
   --create-namespace \
   --set global.clusterName="production-cluster-01" \
   --set kubeProxyReplacement.enabled=true \
-  --wait --timeout=5m
+  --wait --timeout=15m
 ```
 
 ### Enabling Multi-Cluster Transit Gateway & WireGuard
@@ -177,7 +176,7 @@ helm upgrade --install straitgateway ./straitgateway-helm \
   --set transitGateway.enabled=true \
   --set transitGateway.topology="Mesh" \
   --set transitGateway.encryption="WireGuard" \
-  --wait --timeout=5m
+  --wait --timeout=15m
 ```
 
 ### Enabling BGP Dynamic Routing & BFD
@@ -189,7 +188,7 @@ helm upgrade --install straitgateway ./straitgateway-helm \
   --set bgp.enabled=true \
   --set bgp.bfd=true \
   --set bgp.announceLoadBalancerIP=true \
-  --wait --timeout=5m
+  --wait --timeout=15m
 ```
 
 ---
