@@ -32,7 +32,7 @@ spec:
                   required: [name]
                   properties:
                     name: { type: string }
-                clusterID: { type: integer, format: int32 }
+                clusterID: { type: integer }
                 podSelector:
                   type: object
                   properties:

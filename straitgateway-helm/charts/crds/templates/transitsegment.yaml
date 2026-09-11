@@ -27,7 +27,7 @@ spec:
               type: object
               required: [segmentID]
               properties:
-                segmentID: { type: integer, format: int64, minimum: 1, maximum: 4294967295 }
+                segmentID: { type: integer, minimum: 1, maximum: 4294967295 }
                 name: { type: string }
                 cidr: { type: string }
                 description: { type: string }

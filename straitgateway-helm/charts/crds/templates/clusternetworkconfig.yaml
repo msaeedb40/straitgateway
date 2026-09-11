@@ -28,7 +28,7 @@ spec:
               required: [clusterName, podCIDR, serviceCIDR]
               properties:
                 clusterName: { type: string }
-                clusterID:   { type: integer, format: int32 }
+                clusterID:   { type: integer }
                 podCIDR:     { type: string }
                 serviceCIDR: { type: string }
                 kubeProxyReplacement: { type: boolean, default: true }

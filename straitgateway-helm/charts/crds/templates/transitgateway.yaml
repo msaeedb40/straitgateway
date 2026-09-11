@@ -26,7 +26,7 @@ spec:
             spec:
               type: object
               properties:
-                clusterID: { type: integer, format: int32 }
+                clusterID: { type: integer }
                 topology: { type: string, enum: [hub-spoke, mesh, peer-to-peer, gateway-to-gateway] }
                 encryption: { type: string, enum: [wireguard, ipsec, none] }
                 tunnelCIDR: { type: string }

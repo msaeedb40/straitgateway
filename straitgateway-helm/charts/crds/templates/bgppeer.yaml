@@ -28,8 +28,8 @@ spec:
               required: [peerAddress, peerASN, localASN]
               properties:
                 peerAddress: { type: string }
-                peerASN: { type: integer, format: int32 }
-                localASN: { type: integer, format: int32 }
+                peerASN: { type: integer }
+                localASN: { type: integer }
                 bfdEnabled: { type: boolean }
                 bfdDetectMultiplier: { type: integer }
                 advertisePodCIDR: { type: boolean }
