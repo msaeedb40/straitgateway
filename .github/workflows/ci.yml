@@ -216,16 +216,7 @@ jobs:
         with:
           cluster_name: straitgateway-ci
           node_image: kindest/node:v1.34.0
-          config: |
-            kind: Cluster
-            apiVersion: kind.x-k8s.io/v1alpha4
-            networking:
-              kubeProxyMode: "none" # required for CNI straitgateway 
-              disableDefaultCNI: true # required for CNI straitgateway   
-            nodes:
-              - role: control-plane
-              - role: worker
-              - role: worker
+          config: .github/kind-config.yaml
       - name: Build local container images for kind
         run: |
           docker build --build-arg ALPINE_VERSION=3.24.1 --build-arg GO_VERSION=${{ env.GO_VERSION }} -f build/Dockerfile.sg-controller -t ${{ env.REGISTRY }}/straitgateway-controller:1.0.0 .
