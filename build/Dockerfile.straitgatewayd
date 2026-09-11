@@ -24,6 +24,7 @@ RUN apk add --no-cache \
 WORKDIR /src
 COPY bpf/ bpf/
 RUN make -C bpf all CLANG=clang-${CLANG_VERSION} 2>/dev/null || true
+RUN mkdir -p /out/bpf && find bpf -name '*.o' -exec cp {} /out/bpf/ \; 2>/dev/null || true
 
 # ── Go build stage ────────────────────────────────────────────────────────────
 FROM golang:${GO_VERSION}-alpine AS go-builder
@@ -34,7 +35,6 @@ COPY go.mod go.sum ./
 RUN go mod download
 
 COPY . .
-COPY --from=bpf-builder /src/bpf/*.o /src/bpf/ 2>/dev/null || true
 
 ARG VERSION=v1.0.0
 ARG COMMIT=none
@@ -61,9 +61,10 @@ RUN apk add --no-cache \
     kmod \
     ethtool \
     ca-certificates
+RUN mkdir -p /var/lib/straitgateway/bpf
 COPY --from=go-builder /out/straitgatewayd /usr/local/bin/straitgatewayd
 COPY --from=go-builder /out/straitgateway-cni /opt/cni/bin/straitgateway
-COPY --from=bpf-builder /src/bpf/*.o /var/lib/straitgateway/bpf/ 2>/dev/null || true
+COPY --from=bpf-builder /out/bpf/ /var/lib/straitgateway/bpf/
 COPY scripts/install-cni.sh /install-cni.sh
 RUN chmod +x /install-cni.sh
 # straitgatewayd runs as root (required for eBPF and netlink operations)
