@@ -229,7 +229,6 @@ jobs:
           cluster_name: straitgateway-ci
           node_image: kindest/node:v1.34.0
           config: .github/kind-config.yaml
-          wait: 900s  
       
  
       - name: Build local container images for kind
@@ -314,7 +313,7 @@ jobs:
             --set kubeProxyReplacement.enabled=true \
             --wait --timeout=15m
       - name: Helm test
-        run: helm test straitgateway --namespace straitgateway-system --timeout 20m
+        run: helm test straitgateway --namespace straitgateway-system --timeout 10m
       - name: Helm uninstall
         run: helm uninstall straitgateway --namespace straitgateway-system
 
