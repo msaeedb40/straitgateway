@@ -15,7 +15,5 @@ metadata:
     gateway.networking.k8s.io/bundle-version: "v1.6.1"
 spec:
   controllerName: {{ .Values.gatewayAPI.controllerName }}
-  description: >
-    straitgateway eBPF-native Gateway API implementation.
-    Handles HTTPRoute, GRPCRoute, TLSRoute, TCPRoute, UDPRoute, ReferenceGrant.
+  description: {{ .Values.gatewayAPI.description | default "straitgateway eBPF-native Gateway API controller" | quote }}
 {{- end }}
