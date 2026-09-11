@@ -248,7 +248,7 @@ jobs:
         run: |
           kubectl apply --server-side -f \
             https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.6.1/standard-install.yaml
-      - name: Helm install (straitgateway-helm)
+      - name: Install StraitGateway
         run: |
           helm install straitgateway ./straitgateway-helm \
             --namespace straitgateway-system \
@@ -256,52 +256,46 @@ jobs:
             --set global.clusterName=ci \
             --set kubeProxyReplacement.enabled=true \
             --wait --timeout=15m
-      
-      - name: Wait for nodes to be ready
+
+      - name: Collect diagnostics
+        if: always()
         run: |
-          echo "Waiting for all nodes to be ready..."
-          kubectl wait --for=condition=ready node --all --timeout=300s || true
-          sleep 15
-          echo "=== Node Status ==="
-          kubectl get nodes -o wide  
+          echo "===== NODES ====="
+          kubectl get nodes -o wide
 
+          echo "===== PODS ====="
+          kubectl get pods -n straitgateway-system -o wide
 
-      - name: Diagnose StraitGateway
-        if: always()       
-        run: |
-          echo "=== Pods ==="
-          kubectl get pods -n straitgateway-system -o wide || true
+          echo "===== DEPLOYMENTS ====="
+          kubectl get deploy -n straitgateway-system
 
-          echo "=== Deployments ==="
-          kubectl get deployments -n straitgateway-system -o wide || true
+          echo "===== DAEMONSETS ====="
+          kubectl get ds -n straitgateway-system
 
-          echo "=== DaemonSets ==="
-          kubectl get daemonsets -n straitgateway-system -o wide || true
-
-          echo "=== Services ==="
-          kubectl get svc -n straitgateway-system || true
-
-          echo "=== Events ==="
+          echo "===== EVENTS ====="
           kubectl get events -n straitgateway-system \
             --sort-by='.lastTimestamp' || true
 
-          echo "=== Controller logs ==="
-          kubectl logs deployment/straitgateway-controller \
-            -n straitgateway-system \
-            --all-containers=true \
-            --tail=300 || true
+          echo "===== AGENT ====="
+          kubectl describe ds straitgateway-agent \
+            -n straitgateway-system || true
 
-          echo "=== UI logs ==="
-          kubectl logs deployment/straitgateway-ui \
-            -n straitgateway-system \
-            --all-containers=true \
-            --tail=300 || true
+          echo "===== CONTROLLER ====="
+          kubectl describe deploy straitgateway-controller \
+          -n straitgateway-system || true
 
-          echo "=== Agent logs ==="
-          kubectl logs daemonset/straitgateway-agent \
-            -n straitgateway-system \
-            --all-containers=true \
-            --tail=300 || true
+          echo "===== UI ====="
+          kubectl describe deploy straitgateway-ui \
+            -n straitgateway-system || true
+
+          echo "===== POD LOGS ====="
+          for pod in $(kubectl get pods -n straitgateway-system \
+            -o jsonpath='{.items[*].metadata.name}'); do
+            echo
+            echo "######## $pod ########"
+            kubectl logs -n straitgateway-system "$pod" \
+              --all-containers=true --tail=200 || true
+            done
 
 
 
