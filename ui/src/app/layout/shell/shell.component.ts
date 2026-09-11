@@ -8,6 +8,7 @@ import { HeaderComponent } from '../header/header.component';
 import { SidebarComponent } from '../sidebar/sidebar.component';
 import { BreadcrumbsComponent } from '../breadcrumbs/breadcrumbs.component';
 import { CommandBarComponent } from '../command-bar/command-bar.component';
+import { ContextMenuComponent } from '../context-menu/context-menu.component';
 import { NotificationService } from '../../core/services/notification.service';
 
 @Component({
@@ -20,6 +21,7 @@ import { NotificationService } from '../../core/services/notification.service';
     SidebarComponent,
     BreadcrumbsComponent,
     CommandBarComponent,
+    ContextMenuComponent,
   ],
   template: `
     <div class="sg-shell">
@@ -56,6 +58,9 @@ import { NotificationService } from '../../core/services/notification.service';
       @if (showCommandBar()) {
         <sg-command-bar (close)="showCommandBar.set(false)" />
       }
+
+      <!-- Global Context Menu -->
+      <sg-context-menu />
 
       <!-- Toast Notifications Container -->
       <aside aria-label="Notifications" class="sg-toast-container">

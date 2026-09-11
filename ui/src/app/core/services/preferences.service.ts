@@ -1,7 +1,8 @@
 // Copyright 2026 straitgateway Authors
 // SPDX-License-Identifier: Apache-2.0
 
-import { Injectable, signal, effect } from '@angular/core';
+import { Injectable, signal, effect, inject } from '@angular/core';
+import { StorageService } from './storage.service';
 
 export interface UserPreferences {
   theme: 'dark' | 'light';
@@ -25,31 +26,18 @@ const DEFAULT_PREFS: UserPreferences = {
 
 @Injectable({ providedIn: 'root' })
 export class PreferencesService {
-  private readonly _prefs = signal<UserPreferences>(this.loadFromStorage());
+  private storage = inject(StorageService);
+  private readonly _prefs = signal<UserPreferences>(this.storage.getLocal(STORAGE_KEY, DEFAULT_PREFS));
   readonly prefs = this._prefs.asReadonly();
 
   constructor() {
     effect(() => {
       const p = this._prefs();
-      if (typeof window !== 'undefined' && window.localStorage) {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(p));
-      }
+      this.storage.setLocal(STORAGE_KEY, p);
     });
   }
 
   update(partial: Partial<UserPreferences>) {
     this._prefs.update((cur) => ({ ...cur, ...partial }));
-  }
-
-  private loadFromStorage(): UserPreferences {
-    if (typeof window === 'undefined' || !window.localStorage) {
-      return DEFAULT_PREFS;
-    }
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      return raw ? { ...DEFAULT_PREFS, ...JSON.parse(raw) } : DEFAULT_PREFS;
-    } catch {
-      return DEFAULT_PREFS;
-    }
   }
 }

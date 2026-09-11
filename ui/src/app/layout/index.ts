@@ -6,3 +6,6 @@ export * from './sidebar/sidebar.component';
 export * from './command-bar/command-bar.component';
 export * from './breadcrumbs/breadcrumbs.component';
 export * from './shell/shell.component';
+export * from './context-menu';
+export * from './navbar/navbar.component';
+export * from './footer/footer.component';

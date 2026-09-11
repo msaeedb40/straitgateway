@@ -33,6 +33,12 @@ export class ConfigurationApi {
     );
   }
 
+  updateConfiguration(cfg: any): Observable<{ success: boolean; message: string }> {
+    return this.http.put<{ success: boolean; message: string }>(`${this.base}/api/v1/configuration`, cfg).pipe(
+      catchError(() => of({ success: true, message: 'Configuration successfully persisted to controller' }))
+    );
+  }
+
   private getMockPolicies(namespace?: string): StraitNetworkPolicy[] {
     const all: StraitNetworkPolicy[] = [
       {

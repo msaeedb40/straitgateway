@@ -17,6 +17,8 @@ import * as d3 from 'd3';
 
 import { PLATFORM_ID } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
+import { Router } from '@angular/router';
+import { ContextMenuService } from '../../layout/context-menu/context-menu.service';
 
 export interface TopologyNode extends d3.SimulationNodeDatum {
   id: string;
@@ -144,6 +146,8 @@ export class TopologyGraphComponent implements OnInit, OnDestroy {
   ];
 
   private platformId = inject(PLATFORM_ID);
+  private contextMenu = inject(ContextMenuService);
+  private router = inject(Router);
 
   ngOnInit() {
     if (isPlatformBrowser(this.platformId)) {
@@ -283,6 +287,38 @@ export class TopologyGraphComponent implements OnInit, OnDestroy {
       event.stopPropagation();
       this.selectedNode.set(d);
       this.nodeClick.emit(d);
+    });
+
+    // Context menu handler
+    nodeElements.on('contextmenu', (event, d) => {
+      event.preventDefault();
+      event.stopPropagation();
+      this.contextMenu.open(
+        event.clientX,
+        event.clientY,
+        [
+          {
+            label: `Inspect ${d.name}`,
+            action: () => {
+              this.selectedNode.set(d);
+              this.nodeClick.emit(d);
+            },
+          },
+          {
+            label: 'View Live Flows',
+            action: () => this.router.navigate(['/flows']),
+          },
+          {
+            label: 'Capture Packets',
+            action: () => this.router.navigate(['/packets']),
+          },
+          {
+            label: 'View Metrics',
+            action: () => this.router.navigate(['/metrics']),
+          },
+        ],
+        d
+      );
     });
 
     // Tick simulation
