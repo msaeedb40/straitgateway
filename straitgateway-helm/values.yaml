@@ -200,6 +200,12 @@ agent:
     rollingUpdate:
       maxUnavailable: 2
 
+      
+
+
+
+
+
 ## ─── RBAC ─────────────────────────────────────────────────────────────────────
 rbac:
   ## create controls ClusterRole and ClusterRoleBinding creation.
@@ -255,3 +261,5 @@ routes:
     enabled: false
   udp:
     enabled: false
+
+  

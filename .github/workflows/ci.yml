@@ -229,15 +229,9 @@ jobs:
           cluster_name: straitgateway-ci
           node_image: kindest/node:v1.34.0
           config: .github/kind-config.yaml
-          wait: 300s  
+          wait: 900s  
       
-      - name: Wait for nodes to be ready
-        run: |
-          echo "Waiting for all nodes to be ready..."
-          kubectl wait --for=condition=ready node --all --timeout=300s || true
-          sleep 15
-          echo "=== Node Status ==="
-          kubectl get nodes -o wide  
+ 
       - name: Build local container images for kind
         run: |
           docker build --build-arg ALPINE_VERSION=3.24.1 --build-arg GO_VERSION=${{ env.GO_VERSION }} -f build/Dockerfile.sg-controller -t ${{ env.REGISTRY }}/straitgateway-controller:1.0.0 .
@@ -263,6 +257,15 @@ jobs:
             --set global.clusterName=ci \
             --set kubeProxyReplacement.enabled=true \
             --wait --timeout=15m
+      
+      - name: Wait for nodes to be ready
+        run: |
+          echo "Waiting for all nodes to be ready..."
+          kubectl wait --for=condition=ready node --all --timeout=300s || true
+          sleep 15
+          echo "=== Node Status ==="
+          kubectl get nodes -o wide  
+
 
       - name: Diagnose StraitGateway
         if: always()       
