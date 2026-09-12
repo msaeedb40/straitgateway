@@ -62,7 +62,12 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	defer log.Sync() //nolint:errcheck
+	defer func() {
+		if err := log.Sync(); err != nil {
+			// Log sync errors but don't panic during shutdown
+			_, _ = os.Stderr.WriteString("failed to sync logger: " + err.Error() + "\n")
+		}
+	}()
 
 	log.Info("starting straitgatewayd",
 		zap.String("version", version.Version),
@@ -86,7 +91,11 @@ func main() {
 	if err := os.MkdirAll("/run/straitgateway", 0750); err != nil {
 		log.Fatal("creating socket directory", zap.Error(err))
 	}
-	_ = os.Remove(socketPath)
+
+	// Remove old socket file, only fail on permission errors.
+	if err := os.Remove(socketPath); err != nil && !os.IsNotExist(err) {
+		log.Fatal("removing old socket", zap.String("path", socketPath), zap.Error(err))
+	}
 
 	var lc net.ListenConfig
 	lis, err := lc.Listen(ctx, "unix", socketPath)
@@ -103,17 +112,25 @@ func main() {
 	// TODO: Register agent service implementation:
 	// agentpb.RegisterAgentServer(grpcSrv, newAgentServer(log, bpfFSPath, nodeName))
 
+	// Error channel to propagate server failures to main.
+	errChan := make(chan error, 1)
+
 	// Start gRPC server.
 	go func() {
 		log.Info("gRPC server listening", zap.String("socket", socketPath))
-		if err := grpcSrv.Serve(lis); err != nil {
-			log.Error("gRPC server error", zap.Error(err))
+		if err := grpcSrv.Serve(lis); err != nil && err != grpc.ErrServerStopped {
+			errChan <- err
 		}
 	}()
 
-	// Wait for shutdown signal.
-	<-ctx.Done()
-	log.Info("received shutdown signal, stopping straitgatewayd")
+	// Wait for shutdown signal or server error.
+	select {
+	case <-ctx.Done():
+		log.Info("received shutdown signal, stopping straitgatewayd")
+	case err := <-errChan:
+		log.Error("gRPC server error, stopping straitgatewayd", zap.Error(err))
+	}
+
 	grpcSrv.GracefulStop()
 	log.Info("straitgatewayd stopped")
 }
