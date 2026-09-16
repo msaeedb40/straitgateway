@@ -8,10 +8,12 @@ This guide provides step-by-step instructions for deploying, managing, upgrading
 
 Before installing StraitGateway, ensure your target nodes meet the following requirements:
 
-1. **Linux Kernel**: Version `>= 5.15` with eBPF, TCX, and NetKit enabled (Kernel 6.x recommended).
+1. **Linux Kernel**: Version `>= 6.7.0` with eBPF, TCX, and NetKit enabled.
+   > [!IMPORTANT]
+   > NetKit was introduced in Linux Kernel 6.7.0 to replace legacy `veth` pairs. `straitgatewayd` verifies `MinKernelVersion = "6.7.0"` at startup.
 2. **Kernel Modules & Mounts**:
    - BPF filesystem mounted: `/sys/fs/bpf`
-   - Linux Security Modules (BPF LSM) enabled (for socket-level enforcement).
+   - Linux Security Modules (BPF LSM) enabled (`CONFIG_BPF_LSM=y` and `lsm=...,bpf` in kernel boot parameters) for socket-level enforcement.
 3. **Kubernetes Version**: `>= v1.34.0`.
 4. **Tools**:
    - `kubectl` configured with cluster administrator privileges.
@@ -106,6 +108,7 @@ helm install straitgateway ./straitgateway-helm \
   --namespace straitgateway-system \
   --create-namespace \
   --set global.clusterName="production-cluster-01" \
+  --set global.clusterID=1 \
   --set kubeProxyReplacement.enabled=true \
   --set dataplane.overlay=Native \
   --wait --timeout=15m
@@ -116,14 +119,24 @@ helm install straitgateway ./straitgateway-helm \
 | Value | Default | Description |
 | :--- | :--- | :--- |
 | `global.clusterName` | `""` | Unique identifier for cluster in transit mesh |
-| `cni.enabled` | `true` | Installs StraitGateway CNI plugin and host configs |
+| `global.clusterID` | `1` | Numeric cluster ID (required for transit mesh) |
+| `cni.enabled` | `true` | Installs StraitGateway CNI plugin binary |
+| `cni.disableDefaultCNI` | `true` | Disables pre-existing CNI plugins |
+| `dataplane.overlay` | `Native` | Pod traffic routing (`Native`, `VXLAN`, `Geneve`) |
 | `kubeProxyReplacement.enabled` | `true` | Replaces kube-proxy with eBPF service dataplane |
-| `serviceLoadBalancer.algorithm` | `maglev` | LB algorithm (`maglev`, `roundrobin`, `leastconn`, `iphash`) |
+| `serviceLoadBalancer.algorithm` | `maglev` | LB algorithm (`maglev`, `roundrobin`, `leastconn`, `iphash`, `random`) |
+| `serviceLoadBalancer.maglevTableSize` | `128` | Maglev consistent hash table size (must be prime) |
+| `serviceLoadBalancer.dsr` | `false` | Enables Direct Server Return for backends |
+| `serviceLoadBalancer.nodePort.enabled`| `true` | Accelerates NodePort handling via XDP |
 | `networkPolicy.enabled` | `true` | Activates eBPF identity network policy engine |
-| `networkPolicy.defaultDeny` | `false` | Sets cluster-wide default-deny posture |
+| `networkPolicy.lsm` | `true` | Enables Linux Security Module socket hooks |
+| `networkPolicy.defaultDeny` | `false` | Sets cluster-wide default-deny zero trust posture |
 | `transitGateway.enabled` | `false` | Enables multi-cluster transit gateway mesh |
+| `transitGateway.topology` | `Mesh` | Transit topology (`Mesh`, `HubAndSpoke`, `PeerToPeer`, `GatewayToGateway`) |
 | `transitGateway.encryption` | `WireGuard` | Transit tunnel encryption (`WireGuard`, `IPsec`, `None`) |
-| `ui.enabled` | `true` | Deploys the StraitGateway Angular dashboard |
+| `bgp.enabled` | `false` | Activates BGP dynamic routing controller |
+| `bgp.bfd` | `false` | Enables BFD sub-second link failure detection |
+| `ui.enabled` | `false` | Deploys the Angular UI dashboard (accessible via ClusterIP) |
 
 ---
 
@@ -143,7 +156,7 @@ kubectl delete namespace straitgateway-system --ignore-not-found
 
 ### Step 3: Remove CRDs (Optional)
 > [!WARNING]
-> Deleting CRDs will delete all active `TransitGateway`, `TransitSegment`, and `StraitNetworkPolicy` custom resources.
+> Deleting CRDs will delete all active `TransitGateway`, `TransitSegment`, `StraitNetworkPolicy`, `NodeNetworkConfig`, `ClusterNetworkConfig`, and `BFDSession` custom resources.
 
 ```bash
 kubectl delete -f straitgateway-helm/charts/crds/
@@ -172,44 +185,54 @@ To upgrade an existing cluster and enable multi-cluster transit mesh with WireGu
 helm upgrade --install straitgateway ./straitgateway-helm \
   --namespace straitgateway-system \
   --set global.clusterName="production-cluster-01" \
-  --set global.clusterID="1" \
+  --set global.clusterID=1 \
   --set transitGateway.enabled=true \
   --set transitGateway.topology="Mesh" \
   --set transitGateway.encryption="WireGuard" \
   --wait --timeout=15m
 ```
 
-### Enabling BGP Dynamic Routing & BFD
-To configure Top-of-Rack BGP peering and fast link-state detection:
+### Enabling the UI Dashboard
+To enable and access the Angular management console:
 
 ```bash
 helm upgrade --install straitgateway ./straitgateway-helm \
   --namespace straitgateway-system \
-  --set bgp.enabled=true \
-  --set bgp.bfd=true \
-  --set bgp.announceLoadBalancerIP=true \
+  --set ui.enabled=true \
   --wait --timeout=15m
+
+# Forward UI port to local machine
+kubectl port-forward -n straitgateway-system svc/straitgateway-ui 8080:80
 ```
 
 ---
 
-## 6. Verification & Post-Install Checks
+## 6. Verification & Operational Health Checks
 
-Once installed or updated, verify cluster health:
+Once installed or updated, verify cluster health with `kubectl` and `sg-cli`:
 
 ```bash
 # 1. Check pod status in straitgateway-system
 kubectl get pods -n straitgateway-system -o wide
 
 # 2. Check DaemonSet rollout
-kubectl rollout status daemonset/straitgatewayd -n straitgateway-system
+kubectl rollout status daemonset/straitgateway-agent -n straitgateway-system
 
-# 3. Verify GatewayClass controller registration
+# 3. Check controller deployment rollout
+kubectl rollout status deployment/straitgateway-controller -n straitgateway-system
+
+# 4. Verify ClusterNetworkConfig and NodeNetworkConfig CRDs
+kubectl get cnc
+kubectl get nnc -o wide
+
+# 5. Verify GatewayClass controller registration
 kubectl get gatewayclass skgateway -o yaml
 
-# 4. Check eBPF agent logs
-kubectl logs -n straitgateway-system -l app.kubernetes.io/name=straitgatewayd -c straitgatewayd --tail=50
+# 6. Check eBPF agent logs
+kubectl logs -n straitgateway-system -l app.kubernetes.io/name=straitgateway-agent -c straitgatewayd --tail=50
 
-# 5. Check UI service access
-kubectl get svc -n straitgateway-system straitgateway-ui
+# 7. Check status via sg-cli
+sg-cli status
+sg-cli node list
+sg-cli gateway list
 ```

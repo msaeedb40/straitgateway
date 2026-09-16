@@ -43,9 +43,9 @@ jobs:
       - name: go vet
         run: go vet ./...
       - name: golangci-lint
-        uses: golangci/golangci-lint-action@v9
+        uses: golangci/golangci-lint-action@v6
         with:
-          version: v2.13.2
+          version: v1.64.6
           args: --timeout=5m
 
   # ── Helm Lint ────────────────────────────────────────────────────────────────
@@ -250,9 +250,9 @@ jobs:
  
       - name: Build local container images for kind
         run: |
-          docker build --build-arg ALPINE_VERSION=3.24.1 --build-arg GO_VERSION=${{ env.GO_VERSION }} -f build/Dockerfile.sg-controller -t ${{ env.REGISTRY }}/straitgateway-controller:1.0.0 .
-          docker build --build-arg ALPINE_VERSION=3.24.1 --build-arg GO_VERSION=${{ env.GO_VERSION }} --build-arg CLANG_VERSION=${{ env.CLANG_VERSION }} -f build/Dockerfile.straitgatewayd -t ${{ env.REGISTRY }}/straitgatewayd:1.0.0 .
-          docker build --build-arg ALPINE_VERSION=3.24.1 --build-arg GO_VERSION=${{ env.GO_VERSION }} -f build/Dockerfile.sg-cli -t ${{ env.REGISTRY }}/straitgateway-cli:1.0.0 .
+          docker build --build-arg ALPINE_VERSION=${{ env.ALPINE_VERSION }} --build-arg GO_VERSION=${{ env.GO_VERSION }} -f build/Dockerfile.sg-controller -t ${{ env.REGISTRY }}/straitgateway-controller:1.0.0 .
+          docker build --build-arg ALPINE_VERSION=${{ env.ALPINE_VERSION }} --build-arg GO_VERSION=${{ env.GO_VERSION }} --build-arg CLANG_VERSION=${{ env.CLANG_VERSION }} --build-arg LLVM_VERSION=${{ env.LLVM_VERSION }} -f build/Dockerfile.straitgatewayd -t ${{ env.REGISTRY }}/straitgatewayd:1.0.0 .
+          docker build --build-arg ALPINE_VERSION=${{ env.ALPINE_VERSION }} --build-arg GO_VERSION=${{ env.GO_VERSION }} -f build/Dockerfile.sg-cli -t ${{ env.REGISTRY }}/straitgateway-cli:1.0.0 .
           docker build -f build/Dockerfile.ui -t ${{ env.REGISTRY }}/straitgateway-ui:1.0.0 .
       - name: Load images into kind cluster
         run: |
@@ -272,6 +272,7 @@ jobs:
             --create-namespace \
             --set global.clusterName=ci \
             --set kubeProxyReplacement.enabled=true \
+            --set ui.enabled=true \
             --wait \
             --timeout=15m
 
@@ -323,6 +324,7 @@ jobs:
             --namespace straitgateway-system \
             --set global.clusterName=ci \
             --set kubeProxyReplacement.enabled=true \
+            --set ui.enabled=true \
             --wait \
             --timeout=15m
       - name: Helm test
@@ -346,7 +348,7 @@ jobs:
         run: npm ci
       - name: Run unit tests
         working-directory: ui
-        run: npm run test -- --no-watch
+        run: npm run test -- --watch=false
       - name: Build production
         working-directory: ui
         run: npm run build -- --configuration=production

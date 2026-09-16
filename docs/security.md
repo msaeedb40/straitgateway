@@ -9,8 +9,8 @@ StraitGateway implements an identity-based zero-trust security framework. By shi
 Traditional firewall and iptables policies match against dynamic Pod IP addresses. In elastic Kubernetes clusters with frequent pod restarts and auto-scaling, IP churn leads to race conditions where stale rules temporarily allow unauthorized traffic.
 
 ### How StraitGateway Identities Work
-1. **Label Hash Allocation**: When a pod starts, `sg-controller` hashes its immutable metadata labels and namespace into a unique 32-bit numeric security **Identity** (`sgtypes.Identity`).
-2. **Cluster-Wide Identity Map**: The identity is pushed to the node's eBPF `identity_map` linking pod IP -> Identity.
+1. **Label Hash Allocation**: When a pod starts, `sg-controller`'s `IdentityReconciler` hashes its immutable metadata labels and namespace into a unique 32-bit numeric security **Identity** (`sgtypes.Identity`).
+2. **Cluster-Wide Identity Map**: The identity is pushed to the node's eBPF `identity_map` linking pod IP -> Identity via `NodeNetworkConfig`.
 3. **In-Packet Identification**: Network packets carry or resolve to this identity at ingress and egress hooks.
 4. **O(1) Policy Lookups**: Enforcement rules are stored in `policy_map` as `(SrcIdentity, DstIdentity, Port, Proto) -> Action`. Lookups occur in constant time regardless of how many pods share that identity.
 
@@ -104,7 +104,7 @@ spec:
 
 ## Linux Security Module (LSM) BPF Enforcement
 
-In addition to packet-level filtering on network interfaces, StraitGateway utilizes **BPF LSM (Linux Security Module)** hooks directly within the kernel socket layer:
+In addition to packet-level filtering on network interfaces, StraitGateway utilizes **BPF LSM (Linux Security Module)** hooks directly within the kernel socket layer (enabled by default via `networkPolicy.lsm: true`):
 
 - **`bpf_lsm_socket_connect`**: Evaluates egress network policies at the exact moment a process calls `connect()`. If the connection violates policy, the syscall returns `-EPERM` immediately before any SYN packet is constructed or placed on the wire.
 - **`bpf_lsm_socket_bind`**: Restricts which ports and IP addresses containers can bind to, preventing unauthorized port interception or privilege escalation inside compromised pods.
@@ -133,3 +133,4 @@ By configuring `networkPolicy.defaultDeny=true` in Helm:
 - All ingress and egress traffic is dropped by default across the entire cluster.
 - Pods are fully isolated upon creation until an explicit `StraitNetworkPolicy` or standard Kubernetes `NetworkPolicy` allows the flow.
 - Health checks (Kubelet liveness and readiness probes) are automatically whitelisted via kernel identity rules to maintain pod lifecycle stability.
+- Dataplane readiness status is continuously reported in `NodeNetworkConfig` (`status.dataplane.policyReady`).

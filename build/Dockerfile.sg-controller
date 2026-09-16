@@ -8,7 +8,7 @@ ARG ALPINE_VERSION=3.24.1
 # ── Build stage ───────────────────────────────────────────────────────────────
 FROM golang:${GO_VERSION}-alpine AS builder
 WORKDIR /src
-RUN apk add --no-cache git make
+RUN for i in 1 2 3 4 5; do apk add --no-cache git make && exit 0 || sleep 2; done; exit 1
 
 COPY go.mod go.sum ./
 RUN go mod download
@@ -28,7 +28,7 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH=${TARGETARCH:-amd64} go build \
 
 # ── Runtime stage ─────────────────────────────────────────────────────────────
 FROM alpine:${ALPINE_VERSION}
-RUN apk add --no-cache ca-certificates && \
+RUN for i in 1 2 3 4 5; do apk add --no-cache ca-certificates && break || sleep 2; done && \
     addgroup -g 65532 nonroot && \
     adduser -u 65532 -G nonroot -s /bin/sh -D nonroot
 COPY --from=builder /out/sg-controller /usr/local/bin/sg-controller

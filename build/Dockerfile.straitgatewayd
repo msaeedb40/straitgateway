@@ -11,30 +11,32 @@ ARG LLVM_VERSION=22
 FROM alpine:${ALPINE_VERSION} AS bpf-builder
 ARG CLANG_VERSION=22
 RUN CLANG_MAJOR=$(echo "${CLANG_VERSION:-22}" | cut -d. -f1) && \
-    (apk add --no-cache \
-        clang${CLANG_MAJOR} \
-        llvm${CLANG_MAJOR} \
-        lld${CLANG_MAJOR} \
-        bpftool \
-        libbpf-dev \
-        elfutils-dev \
-        linux-headers \
-        make \
-        gcc \
-        musl-dev \
-        bash || \
-     apk add --no-cache \
-        clang \
-        llvm \
-        lld \
-        bpftool \
-        libbpf-dev \
-        elfutils-dev \
-        linux-headers \
-        make \
-        gcc \
-        musl-dev \
-        bash)
+    for i in 1 2 3 4 5; do \
+        apk add --no-cache \
+            clang${CLANG_MAJOR} \
+            llvm${CLANG_MAJOR} \
+            lld${CLANG_MAJOR} \
+            bpftool \
+            libbpf-dev \
+            elfutils-dev \
+            linux-headers \
+            make \
+            gcc \
+            musl-dev \
+            bash && break || \
+        apk add --no-cache \
+            clang \
+            llvm \
+            lld \
+            bpftool \
+            libbpf-dev \
+            elfutils-dev \
+            linux-headers \
+            make \
+            gcc \
+            musl-dev \
+            bash && break || sleep 2; \
+    done
 WORKDIR /src
 COPY bpf/ bpf/
 RUN CLANG_MAJOR=$(echo "${CLANG_VERSION:-22}" | cut -d. -f1); \
@@ -45,7 +47,7 @@ RUN mkdir -p /out/bpf && find bpf -name '*.o' -exec cp {} /out/bpf/ \; 2>/dev/nu
 # ── Go build stage ────────────────────────────────────────────────────────────
 FROM golang:${GO_VERSION}-alpine AS go-builder
 WORKDIR /src
-RUN apk add --no-cache git make
+RUN for i in 1 2 3 4 5; do apk add --no-cache git make && break || sleep 2; done
 
 COPY go.mod go.sum ./
 RUN go mod download
@@ -70,13 +72,13 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH=${TARGETARCH:-amd64} go build \
 
 # ── Runtime stage ─────────────────────────────────────────────────────────────
 FROM alpine:${ALPINE_VERSION}
-RUN apk add --no-cache \
+RUN for i in 1 2 3 4 5; do apk add --no-cache \
     iproute2 \
     iptables \
     ip6tables \
     kmod \
     ethtool \
-    ca-certificates
+    ca-certificates && break || sleep 2; done
 RUN mkdir -p /var/lib/straitgateway/bpf
 COPY --from=go-builder /out/straitgatewayd /usr/local/bin/straitgatewayd
 COPY --from=go-builder /out/straitgateway-cni /opt/cni/bin/straitgateway

@@ -53,7 +53,7 @@ StraitGateway isolates cross-cluster traffic using a 32-bit segmentation model:
 StraitGateway provides four primary CRDs in `straitgateway.io/v1alpha1` for multi-cluster transit:
 
 ### 1. `TransitGateway`
-Configures local cluster identity, peering topology, and encryption settings.
+Configures local cluster identity, numeric cluster ID, peering topology, and encryption settings.
 
 ```yaml
 apiVersion: straitgateway.io/v1alpha1
@@ -62,7 +62,10 @@ metadata:
   name: primary-transit-gw
 spec:
   # Unique string identifier for this cluster in the transit network
-  clusterID: "cluster-us-east-1"
+  clusterName: "production-cluster-01"
+  
+  # Numeric cluster ID (1-65535, matches global.clusterID in Helm)
+  clusterID: 1
   
   # Topology: Mesh, HubAndSpoke, PeerToPeer, GatewayToGateway
   topology: Mesh
@@ -104,9 +107,9 @@ metadata:
 spec:
   # Must contain at least two attachment points to bridge
   attachments:
-    - name: "cluster-us-east-1"
+    - name: "production-cluster-01"
       segmentID: 100
-    - name: "cluster-eu-west-1"
+    - name: "eu-west-cluster-02"
       segmentID: 100
 ```
 
@@ -138,3 +141,20 @@ When transit peering is established:
 2. Peering public keys and tunnel endpoints are exchanged securely via Kubernetes secrets or GitOps synchronization.
 3. The node agent `straitgatewayd` provisions a `wg-strait` kernel interface.
 4. eBPF redirection programs steer cross-cluster packets into the WireGuard interface, encapsulating payload bytes with **ChaCha20-Poly1305** encryption before egressing the physical network.
+
+---
+
+## Operational Monitoring & CLI
+
+Operators can inspect active transit segments and peers via `sg-cli` and `TransitService` gRPC APIs:
+
+```bash
+# List all active transit segments
+sg-cli transit segments
+
+# Inspect peer states, tunnel IPs, and transfer stats
+sg-cli transit peers
+
+# Query WireGuard handshake status and interface metrics
+sg-cli wireguard status
+```
