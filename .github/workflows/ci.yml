@@ -282,20 +282,14 @@ jobs:
         run: |
           kubectl apply --server-side -f \
             https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.6.1/standard-install.yaml
+      
+      - name:  get cluster info
+        run: |
+          kubectl get nodes -o wide  
+          kubectl get pods -n kube-system -o wide
+    
 
-        
-        
-
-
-
-
-
-
-
-
-
-
-
+    
 
 
 
