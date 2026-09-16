@@ -10,8 +10,8 @@ RUN npm run build -- --configuration=production
  
 FROM nginx:alpine
 
-RUN apk add --no-cache curl  curl-ssl ca-certificates && \  
-    rm -rf /usr/share/nginx/html/*  
+RUN apk add --no-cache curl ca-certificates && \
+    rm -rf /usr/share/nginx/html/*
 
 COPY --from=builder /app/dist/ui/browser /usr/share/nginx/html
 RUN  chmod -R 755 /usr/share/nginx/html 
