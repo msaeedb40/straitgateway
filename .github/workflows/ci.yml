@@ -324,12 +324,17 @@ jobs:
       # ── Phase 3: Upgrade with full chart (controller + UI) ───────────────────
       - name: "Phase 3: Upgrade to full chart (controller + UI)"
         run: |
-          helm upgrade straitgateway ./straitgateway-helm \
+          # NOTE: Phase 1 installed with controller.replicaCount=0.
+          # helm upgrade inherits the previous release values, so we must
+          # explicitly reset replicaCount=1 here, otherwise the controller
+          # Deployment stays at 0 replicas and rollout status times out.
+          helm upgrade --install straitgateway ./straitgateway-helm \
             --namespace straitgateway-system \
             --set global.clusterName=ci \
             --set kubeProxyReplacement.enabled=true \
+            --set controller.replicaCount=1 \
             --set ui.enabled=true \
-            --debug \
+            --wait \
             --timeout=10m
 
           echo "── Waiting for controller rollout ──"
