@@ -338,28 +338,35 @@ jobs:
           echo "Agent pods Ready — eBPF dataplane is live:"
           kubectl get pods -n straitgateway-system -l app.kubernetes.io/component=agent -o wide
 
+      # ── Phase 2.8: Wait for CoreDNS to be Ready ──────────────────────────────
+      # With disableDefaultCNI: true, CoreDNS pods start Pending and are only
+      # scheduled / assigned IPs after straitgateway CNI is bootstrapped.
+      # We must wait for CoreDNS to be Ready before performing any DNS resolution.
+      - name: "Phase 2.8: Wait for CoreDNS Ready"
+        run: |
+          echo "Waiting for CoreDNS pods to be Ready..."
+          kubectl rollout status deployment/coredns -n kube-system --timeout=5m
+          echo "CoreDNS pods Ready:"
+          kubectl get pods -n kube-system -l k8s-app=kube-dns -o wide
+
       # ── Phase 2.9: Verify ClusterIP routing (kube-proxy replacement) ─────────
-      # The controller needs to reach kubernetes.default.svc:443 for API calls.
-      # If the eBPF service DNAT isn't working, the controller readiness probe
-      # will fail silently for the entire 15 min timeout. This step fails fast
-      # with a clear error if ClusterIP routing is broken.
+      # The controller needs to reach the Kubernetes API server for client-go calls.
+      # Testing both the raw Service ClusterIP (e.g. 10.96.0.1:443) and DNS name
+      # (kubernetes.default.svc:443) isolates eBPF service DNAT from CoreDNS issues.
       #
-      # IMPORTANT: kind is configured with disableDefaultCNI: true, so no image
-      # can be pulled from Docker Hub at this point. We MUST use an image that
-      # was already loaded into kind via "kind load docker-image". The
-      # straitgateway-cli image (Alpine-based) has wget with TLS support.
+      # IMPORTANT: kind is configured with disableDefaultCNI: true, so no external
+      # image can be pulled from Docker Hub at this point. We use the pre-loaded
+      # straitgateway-cli image (Alpine-based with wget).
       - name: "Phase 2.9: Verify ClusterIP routing (kube-proxy replacement)"
         run: |
-          echo "Testing ClusterIP connectivity to kubernetes.default.svc:443..."
-          # Use the pre-loaded straitgateway-cli image (Alpine + wget).
-          # kubectl run does not support --timeout; poll the phase instead.
+          K8S_IP=$(kubectl get svc kubernetes -n default -o jsonpath='{.spec.clusterIP}')
+          echo "Testing ClusterIP connectivity to ${K8S_IP}:443 and kubernetes.default.svc:443..."
           kubectl run net-test \
             --image=${{ env.REGISTRY }}/straitgateway-cli:1.0.0 \
             --image-pull-policy=Never \
             --restart=Never \
             --command \
-            -- wget -qO- --timeout=10 --tries=3 \
-               --no-check-certificate https://kubernetes.default.svc/healthz
+            -- sh -c "echo 'Checking Direct ClusterIP...' && wget -qO- --timeout=10 --tries=3 --no-check-certificate https://${K8S_IP}:443/healthz && echo 'Checking DNS ClusterIP...' && wget -qO- --timeout=10 --tries=3 --no-check-certificate https://kubernetes.default.svc/healthz"
 
           # Wait up to 90s for the pod to complete (5s × 18 iterations)
           for i in $(seq 1 18); do
@@ -370,11 +377,12 @@ jobs:
               2>/dev/null || true)
             echo "  [${i}/18] net-test pod: $STATUS${REASON:+ ($REASON)}"
             if [ "$STATUS" = "Succeeded" ]; then
-              echo "ClusterIP routing OK ✔ — eBPF kube-proxy replacement is working"
+              echo "ClusterIP and DNS routing OK ✔ — eBPF kube-proxy replacement and CoreDNS are working"
+              kubectl logs net-test 2>/dev/null || true
               kubectl delete pod net-test --ignore-not-found
               break
             elif [ "$STATUS" = "Failed" ] || [ "$REASON" = "ErrImageNeverPull" ]; then
-              echo "FAIL: ClusterIP UNREACHABLE ✘"
+              echo "FAIL: ClusterIP / DNS UNREACHABLE ✘"
               kubectl logs net-test 2>/dev/null || true
               kubectl describe pod net-test || true
               kubectl delete pod net-test --ignore-not-found
