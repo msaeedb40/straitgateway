@@ -28,7 +28,9 @@ spec:
       serviceAccountName: {{ include "straitgateway.serviceAccountName" . }}
       hostNetwork: true
       hostPID: true
+      {{- if and .Values.agent.priorityClassName (eq .Release.Namespace "kube-system") }}
       priorityClassName: {{ .Values.agent.priorityClassName }}
+      {{- end }}
       tolerations:
         {{- toYaml .Values.agent.tolerations | nindent 8 }}
       {{- with .Values.nodeSelector }}

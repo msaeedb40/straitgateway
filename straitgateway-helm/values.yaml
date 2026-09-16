@@ -185,7 +185,8 @@ controller:
 ## ─── Node Agent (DaemonSet) ───────────────────────────────────────────────────
 agent:
   ## priorityClassName ensures the agent is scheduled even under resource pressure.
-  priorityClassName: system-node-critical
+  ## Note: system-node-critical is only permitted by Kubernetes in kube-system namespace.
+  priorityClassName: ""
   resources:
     requests:
       cpu: 200m
