@@ -313,6 +313,14 @@ jobs:
           echo "All nodes are Ready. Node status:"
           kubectl get nodes -o wide
 
+      # ── Phase 2.5: Verify CRDs are established ──────────────────────────────
+      - name: "Phase 2.5: Verify CRDs are established"
+        run: |
+          echo "Waiting for all CRDs to be established..."
+          kubectl wait --for=condition=Established crds --all --timeout=2m
+          echo "All CRDs established:"
+          kubectl get crds | grep -E 'strait|gateway'
+
       # ── Phase 3: Upgrade with full chart (controller + UI) ───────────────────
       - name: "Phase 3: Upgrade to full chart (controller + UI)"
         run: |
@@ -321,8 +329,19 @@ jobs:
             --set global.clusterName=ci \
             --set kubeProxyReplacement.enabled=true \
             --set ui.enabled=true \
-            --wait \
+            --debug \
             --timeout=10m
+
+          echo "── Waiting for controller rollout ──"
+          kubectl rollout status deployment/straitgateway-controller \
+            -n straitgateway-system --timeout=8m
+
+          echo "── Waiting for UI rollout ──"
+          kubectl rollout status deployment/straitgateway-ui \
+            -n straitgateway-system --timeout=5m
+
+          echo "── All deployments ready ──"
+          kubectl get pods -n straitgateway-system -o wide
 
       - name: Diagnose failed deployment
         if: always()
@@ -386,8 +405,13 @@ jobs:
             --set global.clusterName=ci \
             --set kubeProxyReplacement.enabled=true \
             --set ui.enabled=true \
-            --wait \
+            --debug \
             --timeout=10m
+
+          kubectl rollout status deployment/straitgateway-controller \
+            -n straitgateway-system --timeout=5m
+          kubectl rollout status deployment/straitgateway-ui \
+            -n straitgateway-system --timeout=3m
       - name: Helm test
         run: helm test straitgateway --namespace straitgateway-system --timeout 10m
       - name: Helm uninstall
