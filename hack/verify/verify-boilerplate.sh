@@ -8,7 +8,13 @@ while IFS= read -r -d '' f; do
   if ! grep -q "SPDX-License-Identifier: Apache-2.0" "$f"; then
     missing+=("$f")
   fi
-done < <(find "${REPO_ROOT}" -name "*.go" -not -path "*/vendor/*" -not -path "*/.git/*" -print0)
+done < <(find "${REPO_ROOT}" -name "*.go" \
+  -not -path "*/vendor/*" \
+  -not -path "*/.git/*" \
+  -not -name "*.pb.go" \
+  -not -name "*_bpf*.go" \
+  -not -name "zz_generated*.go" \
+  -print0)
 if [ ${#missing[@]} -gt 0 ]; then
   echo "ERROR: Missing SPDX header in ${#missing[@]} file(s):"
   printf '  %s\n' "${missing[@]}"

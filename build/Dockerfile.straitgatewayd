@@ -9,22 +9,37 @@ ARG LLVM_VERSION=22
 
 # ── BPF build stage ───────────────────────────────────────────────────────────
 FROM alpine:${ALPINE_VERSION} AS bpf-builder
-ARG CLANG_VERSION
-RUN apk add --no-cache \
-    clang${CLANG_VERSION} \
-    llvm${CLANG_VERSION} \
-    lld${CLANG_VERSION} \
-    bpftool \
-    libbpf-dev \
-    elfutils-dev \
-    linux-headers \
-    make \
-    gcc \
-    musl-dev \
-    bash
+ARG CLANG_VERSION=22
+RUN CLANG_MAJOR=$(echo "${CLANG_VERSION:-22}" | cut -d. -f1) && \
+    (apk add --no-cache \
+        clang${CLANG_MAJOR} \
+        llvm${CLANG_MAJOR} \
+        lld${CLANG_MAJOR} \
+        bpftool \
+        libbpf-dev \
+        elfutils-dev \
+        linux-headers \
+        make \
+        gcc \
+        musl-dev \
+        bash || \
+     apk add --no-cache \
+        clang \
+        llvm \
+        lld \
+        bpftool \
+        libbpf-dev \
+        elfutils-dev \
+        linux-headers \
+        make \
+        gcc \
+        musl-dev \
+        bash)
 WORKDIR /src
 COPY bpf/ bpf/
-RUN make -C bpf all CLANG=clang${CLANG_VERSION} 2>/dev/null || true
+RUN CLANG_MAJOR=$(echo "${CLANG_VERSION:-22}" | cut -d. -f1); \
+    make -C bpf all CLANG=clang${CLANG_MAJOR} 2>/dev/null || \
+    make -C bpf all CLANG=clang 2>/dev/null || true
 RUN mkdir -p /out/bpf && find bpf -name '*.o' -exec cp {} /out/bpf/ \; 2>/dev/null || true
 
 # ── Go build stage ────────────────────────────────────────────────────────────

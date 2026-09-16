@@ -16,8 +16,8 @@ permissions:
 env:
   REGISTRY: ghcr.io/msaeedb40
   GO_VERSION: "1.26"
-  CLANG_VERSION: "22.1.0"
-  LLVM_VERSION: "22.1.0"
+  CLANG_VERSION: "22"
+  LLVM_VERSION: "22"
   ALPINE_VERSION: "3.24.1"
   ARCHS: "linux/amd64,linux/arm64"
 
