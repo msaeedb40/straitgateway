@@ -17,12 +17,14 @@ type BGPPeerSpec struct {
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:Minimum=1
 	// +kubebuilder:validation:Maximum=4294967295
+	// +kubebuilder:validation:Format=int64
 	PeerASN uint32 `json:"peerASN"`
 
 	// LocalASN is the local Autonomous System Number.
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:Minimum=1
 	// +kubebuilder:validation:Maximum=4294967295
+	// +kubebuilder:validation:Format=int64
 	LocalASN uint32 `json:"localASN"`
 
 	// HoldTime is the BGP hold time in seconds. Default: 90.

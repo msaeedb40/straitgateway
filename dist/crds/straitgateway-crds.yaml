@@ -246,7 +246,7 @@ spec:
                 type: integer
               localASN:
                 description: LocalASN is the local Autonomous System Number.
-                format: int32
+                format: int64
                 maximum: 4294967295
                 minimum: 1
                 type: integer
@@ -255,7 +255,7 @@ spec:
                 type: string
               peerASN:
                 description: PeerASN is the Autonomous System Number of the BGP peer.
-                format: int32
+                format: int64
                 maximum: 4294967295
                 minimum: 1
                 type: integer
@@ -2046,7 +2046,7 @@ spec:
                 default: 0
                 description: 'BackboneSegmentID is the segment used for backbone inter-cluster
                   routing (default: 0).'
-                format: int32
+                format: int64
                 maximum: 4294967295
                 minimum: 0
                 type: integer
@@ -2263,7 +2263,7 @@ spec:
                     segmentID:
                       description: SegmentID is the segment this attachment belongs
                         to.
-                      format: int32
+                      format: int64
                       maximum: 4294967295
                       minimum: 0
                       type: integer
@@ -2412,7 +2412,7 @@ spec:
                 type: string
               segmentID:
                 description: SegmentID is the segment this route belongs to.
-                format: int32
+                format: int64
                 maximum: 4294967295
                 minimum: 0
                 type: integer
@@ -2554,7 +2554,7 @@ spec:
                 description: |-
                   SegmentID is the 32-bit segment identifier. Segment 0 is the backbone.
                   All segments are isolated by default; connectivity is via backbone or explicit routes.
-                format: int32
+                format: int64
                 maximum: 4294967295
                 minimum: 0
                 type: integer

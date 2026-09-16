@@ -94,11 +94,18 @@ jobs:
       - name: security checkout
         uses: actions/checkout@v4
 
+      - name: Install Tetragon
+        uses: lizrice/tetragon-ci/.github/actions/tetragon-setup@v0.1.1
+        with:
+          tetragon_version: v1.7.0
+          enforce_policies: "false"
+
       - name: Set up Go for security scan 
         uses: actions/setup-go@v5
         with:
-          go-version: ${{ env.GO_VERSION }}
-          cache:  true 
+          go-version-file: 'go.mod'
+          cache: false
+
       - name: govulncheck
         run: |
           go install golang.org/x/vuln/cmd/govulncheck@latest
@@ -113,6 +120,10 @@ jobs:
         uses: github/codeql-action/upload-sarif@v3
         with:
           sarif_file: trivy-results.sarif
+
+      - name: Report Tetragon events
+        if: ${{ always() }}
+        uses: lizrice/tetragon-ci/.github/actions/tetragon-report@v0.1.1
 
   # ── Multi-Arch Binary Builds ─────────────────────────────────────────────────
   build:

@@ -60,7 +60,7 @@ spec:
                 description: |-
                   SegmentID is the 32-bit segment identifier. Segment 0 is the backbone.
                   All segments are isolated by default; connectivity is via backbone or explicit routes.
-                format: int32
+                format: int64
                 maximum: 4294967295
                 minimum: 0
                 type: integer

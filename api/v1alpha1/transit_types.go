@@ -51,6 +51,7 @@ type TransitGatewaySpec struct {
 	// +kubebuilder:default=0
 	// +kubebuilder:validation:Minimum=0
 	// +kubebuilder:validation:Maximum=4294967295
+	// +kubebuilder:validation:Format=int64
 	BackboneSegmentID uint32 `json:"backboneSegmentID"`
 
 	// NodeSelector restricts which nodes run as transit gateway nodes.
@@ -105,6 +106,7 @@ type TransitSegmentSpec struct {
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:Minimum=0
 	// +kubebuilder:validation:Maximum=4294967295
+	// +kubebuilder:validation:Format=int64
 	SegmentID uint32 `json:"segmentID"`
 
 	// Description is a human-readable description of the segment's purpose.
@@ -157,6 +159,7 @@ type TransitAttachmentRef struct {
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:Minimum=0
 	// +kubebuilder:validation:Maximum=4294967295
+	// +kubebuilder:validation:Format=int64
 	SegmentID uint32 `json:"segmentID"`
 }
 
@@ -213,6 +216,7 @@ type TransitSegmentRouteSpec struct {
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:Minimum=0
 	// +kubebuilder:validation:Maximum=4294967295
+	// +kubebuilder:validation:Format=int64
 	SegmentID uint32 `json:"segmentID"`
 }
 

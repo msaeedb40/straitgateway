@@ -82,7 +82,7 @@ spec:
                 type: integer
               localASN:
                 description: LocalASN is the local Autonomous System Number.
-                format: int32
+                format: int64
                 maximum: 4294967295
                 minimum: 1
                 type: integer
@@ -91,7 +91,7 @@ spec:
                 type: string
               peerASN:
                 description: PeerASN is the Autonomous System Number of the BGP peer.
-                format: int32
+                format: int64
                 maximum: 4294967295
                 minimum: 1
                 type: integer
