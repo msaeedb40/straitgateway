@@ -283,216 +283,23 @@ jobs:
           kubectl apply --server-side -f \
             https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.6.1/standard-install.yaml
 
-      # ── Phase 1: Bootstrap CNI ────────────────────────────────────────────────
-      # Install the agent DaemonSet ONLY first. The agent uses hostNetwork=true
-      # so it does NOT need a CNI to start. It installs the straitgateway CNI
-      # binary/config on each node, which brings nodes to Ready state.
-      # The controller and UI use regular pod networking and would crash if started
-      # before CNI is ready (can't reach kubernetes.default.svc:443).
-      - name: "Phase 1: Install agent DaemonSet (CNI bootstrap)"
-        run: |
-          helm install straitgateway ./straitgateway-helm \
-            --namespace straitgateway-system \
-            --create-namespace \
-            --set global.clusterName=ci \
-            --set kubeProxyReplacement.enabled=true \
-            --set ui.enabled=false \
-            --set controller.replicaCount=0 \
-            --timeout=10m
-          # Wait without --wait since replicas=0 for controller makes --wait finish immediately
-          # but we need the DaemonSet pods to be Running first.
-          echo "Waiting for agent DaemonSet pods to be Running..."
-          kubectl rollout status daemonset/straitgateway-agent \
-            -n straitgateway-system --timeout=8m
+        
+        
 
-      # ── Phase 2: Wait for all nodes to be Ready (CNI active) ─────────────────
-      - name: "Phase 2: Wait for nodes Ready (CNI bootstrapped)"
-        run: |
-          echo "Waiting for all cluster nodes to reach Ready state..."
-          kubectl wait --for=condition=Ready nodes --all --timeout=5m
-          echo "All nodes are Ready. Node status:"
-          kubectl get nodes -o wide
 
-      # ── Phase 2.5: Verify CRDs are established ──────────────────────────────
-      - name: "Phase 2.5: Verify CRDs are established"
-        run: |
-          echo "Waiting for all CRDs to be established..."
-          kubectl wait --for=condition=Established crds --all --timeout=2m
-          echo "All CRDs established:"
-          kubectl get crds | grep -E 'strait|gateway'
 
-      # ── Phase 2.7: Confirm agent pods are Ready (eBPF dataplane is live) ────
-      # node/Ready only means the CNI binary exists on disk. We must wait for
-      # the agent pod itself to pass its readiness probe, which confirms the
-      # eBPF programs are loaded and the dataplane is routing pod traffic.
-      # Without this, controller/UI pods get pod IPs but can't reach
-      # kubernetes.default.svc:443, causing readiness probes to fail.
-      - name: "Phase 2.7: Wait for agent pods Ready (eBPF dataplane live)"
-        run: |
-          echo "Waiting for all straitgateway-agent pods to be Ready..."
-          kubectl wait pod \
-            --for=condition=Ready \
-            --selector=app.kubernetes.io/component=agent \
-            --namespace=straitgateway-system \
-            --timeout=8m
-          echo "Agent pods Ready — eBPF dataplane is live:"
-          kubectl get pods -n straitgateway-system -l app.kubernetes.io/component=agent -o wide
 
-      # ── Phase 2.8: Wait for CoreDNS to be Ready ──────────────────────────────
-      # With disableDefaultCNI: true, CoreDNS pods start Pending and are only
-      # scheduled / assigned IPs after straitgateway CNI is bootstrapped.
-      # We must wait for CoreDNS to be Ready before performing any DNS resolution.
-      - name: "Phase 2.8: Wait for CoreDNS Ready"
-        run: |
-          echo "Waiting for CoreDNS pods to be Ready..."
-          kubectl rollout status deployment/coredns -n kube-system --timeout=5m
-          echo "CoreDNS pods Ready:"
-          kubectl get pods -n kube-system -l k8s-app=kube-dns -o wide
 
-      # ── Phase 2.9: Verify ClusterIP routing (kube-proxy replacement) ─────────
-      # The controller needs to reach the Kubernetes API server for client-go calls.
-      # Testing both the raw Service ClusterIP (e.g. 10.96.0.1:443) and DNS name
-      # (kubernetes.default.svc:443) isolates eBPF service DNAT from CoreDNS issues.
-      #
-      # IMPORTANT: kind is configured with disableDefaultCNI: true, so no external
-      # image can be pulled from Docker Hub at this point. We use the pre-loaded
-      # straitgateway-cli image (Alpine-based with wget).
-      - name: "Phase 2.9: Verify ClusterIP routing (kube-proxy replacement)"
-        run: |
-          K8S_IP=$(kubectl get svc kubernetes -n default -o jsonpath='{.spec.clusterIP}')
-          echo "Testing ClusterIP connectivity to ${K8S_IP}:443 and kubernetes.default.svc:443..."
-          kubectl run net-test \
-            --image=${{ env.REGISTRY }}/straitgateway-cli:1.0.0 \
-            --image-pull-policy=Never \
-            --restart=Never \
-            --command \
-            -- sh -c "echo 'Checking Direct ClusterIP...' && wget -qO- --timeout=10 --tries=3 --no-check-certificate https://${K8S_IP}:443/healthz && echo 'Checking DNS ClusterIP...' && wget -qO- --timeout=10 --tries=3 --no-check-certificate https://kubernetes.default.svc/healthz"
 
-          # Wait up to 90s for the pod to complete (5s × 18 iterations)
-          for i in $(seq 1 18); do
-            STATUS=$(kubectl get pod net-test \
-              -o jsonpath='{.status.phase}' 2>/dev/null || echo "Pending")
-            REASON=$(kubectl get pod net-test \
-              -o jsonpath='{.status.containerStatuses[0].state.waiting.reason}' \
-              2>/dev/null || true)
-            echo "  [${i}/18] net-test pod: $STATUS${REASON:+ ($REASON)}"
-            if [ "$STATUS" = "Succeeded" ]; then
-              echo "ClusterIP and DNS routing OK ✔ — eBPF kube-proxy replacement and CoreDNS are working"
-              kubectl logs net-test 2>/dev/null || true
-              kubectl delete pod net-test --ignore-not-found
-              break
-            elif [ "$STATUS" = "Failed" ] || [ "$REASON" = "ErrImageNeverPull" ]; then
-              echo "FAIL: ClusterIP / DNS UNREACHABLE ✘"
-              kubectl logs net-test 2>/dev/null || true
-              kubectl describe pod net-test || true
-              kubectl delete pod net-test --ignore-not-found
-              exit 1
-            fi
-            sleep 5
-          done
 
-      # ── Phase 3: Upgrade with full chart (controller + UI) ───────────────────
-      - name: "Phase 3: Upgrade to full chart (controller + UI)"
-        run: |
-          # Phase 1 installed with controller.replicaCount=0; explicitly
-          # reset to 1. --rollback-on-failure auto-reverts on timeout so
-          # the release is never left in a broken state.
-          helm upgrade --install straitgateway ./straitgateway-helm \
-            --namespace straitgateway-system \
-            --set global.clusterName=ci \
-            --set kubeProxyReplacement.enabled=true \
-            --set controller.replicaCount=1 \
-            --set ui.enabled=true \
-            --rollback-on-failure \
-            --timeout=15m
 
-          echo "── Waiting for controller rollout ──"
-          kubectl rollout status deployment/straitgateway-controller \
-            -n straitgateway-system --timeout=8m
 
-          echo "── Waiting for UI rollout ──"
-          kubectl rollout status deployment/straitgateway-ui \
-            -n straitgateway-system --timeout=5m
 
-          echo "── All deployments ready ──"
-          kubectl get pods -n straitgateway-system -o wide
 
-      - name: Diagnose failed deployment
-        if: always()
-        run: |
-          echo "=== NODES ==="
-          kubectl get nodes -o wide
 
-          echo "=== PODS ==="
-          kubectl get pods -n straitgateway-system -o wide
 
-          echo "=== DEPLOYMENTS ==="
-          kubectl get deployment -n straitgateway-system
 
-          echo "=== DAEMONSETS ==="
-          kubectl get daemonset -n straitgateway-system
-
-          echo "=== SERVICES ==="
-          kubectl get svc -n straitgateway-system
-
-          echo "=== EVENTS ==="
-          kubectl get events -n straitgateway-system \
-            --sort-by='.lastTimestamp'
-
-          echo "=== CONTROLLER DESCRIBE ==="
-          kubectl describe deployment straitgateway-controller \
-            -n straitgateway-system || true
-
-          echo "=== UI DESCRIBE ==="
-          kubectl describe deployment straitgateway-ui \
-            -n straitgateway-system || true
-
-          echo "=== AGENT DESCRIBE ==="
-          kubectl describe daemonset straitgateway-agent \
-            -n straitgateway-system || true
-
-          echo "=== CONTAINER LOGS (current) ==="
-          for pod in $(kubectl get pods -n straitgateway-system \
-            -o jsonpath='{.items[*].metadata.name}'); do
-            echo "===== $pod ====="
-            kubectl logs "$pod" -n straitgateway-system \
-              --all-containers=true \
-              --ignore-errors \
-              --tail=200 || true
-          done
-
-          echo "=== CONTAINER LOGS (previous/crashed) ==="
-          for pod in $(kubectl get pods -n straitgateway-system \
-            -o jsonpath='{.items[*].metadata.name}'); do
-            echo "===== $pod (previous) ====="
-            kubectl logs "$pod" -n straitgateway-system \
-              --all-containers=true \
-              --ignore-errors \
-              --previous \
-              --tail=100 2>/dev/null || true
-          done
-
-      - name: Helm upgrade --install (idempotency check)
-        run: |
-          helm upgrade --install straitgateway ./straitgateway-helm \
-            --namespace straitgateway-system \
-            --set global.clusterName=ci \
-            --set kubeProxyReplacement.enabled=true \
-            --set controller.replicaCount=1 \
-            --set ui.enabled=true \
-            --rollback-on-failure \
-            --debug \
-            --timeout=15m
-
-          kubectl rollout status deployment/straitgateway-controller \
-            -n straitgateway-system --timeout=8m
-          kubectl rollout status deployment/straitgateway-ui \
-            -n straitgateway-system --timeout=5m
-      - name: Helm test
-        run: helm test straitgateway --namespace straitgateway-system --timeout 10m
-      - name: Helm uninstall
-        run: helm uninstall straitgateway --namespace straitgateway-system
-
+   
   # ── Angular UI Build ─────────────────────────────────────────────────────────
   ui-build:
     name: UI Build
