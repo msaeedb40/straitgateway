@@ -1,7 +1,8 @@
-#!/usr/bin/env bash
+#!/bin/sh
 # Copyright 2026 straitgateway Authors — SPDX-License-Identifier: Apache-2.0
 # Copies straitgateway CNI binary and config to host paths.
-set -euo pipefail
+# NOTE: Uses /bin/sh (not bash) — runtime image is Alpine which ships only busybox sh.
+set -eu
 CNI_BIN_DIR="${CNI_BIN_DIR:-/host/opt/cni/bin}"
 CNI_CONF_DIR="${CNI_CONF_DIR:-/host/etc/cni/net.d}"
 mkdir -p "${CNI_BIN_DIR}" "${CNI_CONF_DIR}"

@@ -245,9 +245,18 @@ nodeSelector:
   kubernetes.io/os: linux
 
 affinity: {}
-tolerations: []
+## Tolerations for controller and UI pods.
+## The not-ready/unreachable tolerations are required so the controller and UI
+## can be scheduled while the CNI DaemonSet is still initializing on each node.
+tolerations:
+  - key: node.kubernetes.io/not-ready
+    operator: Exists
+    effect: NoSchedule
+  - key: node.kubernetes.io/unreachable
+    operator: Exists
+    effect: NoSchedule
 labels: {}
-  
+
 
 ## ─── Extra Configuration ──────────────────────────────────────────────────────
 extraEnv: []
