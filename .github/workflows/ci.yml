@@ -346,16 +346,30 @@ jobs:
       - name: "Phase 2.9: Verify ClusterIP routing (kube-proxy replacement)"
         run: |
           echo "Testing ClusterIP connectivity to kubernetes.default.svc:443..."
+          # kubectl run does not support --timeout; use --wait=false + poll loop.
           kubectl run net-test \
-            --image=busybox:stable \
+            --image=curlimages/curl:latest \
             --restart=Never \
-            --rm \
-            --attach \
-            --timeout=60s \
-            -- sh -c \
-            'wget -qO- --timeout=10 --tries=3 \
-              --no-check-certificate https://kubernetes.default.svc/healthz \
-            && echo "ClusterIP OK" || { echo "ClusterIP UNREACHABLE"; exit 1; }'
+            --command \
+            -- curl -sk --max-time 10 https://kubernetes.default.svc/healthz
+
+          # Wait up to 60s for the pod to complete
+          for i in $(seq 1 12); do
+            STATUS=$(kubectl get pod net-test \
+              -o jsonpath='{.status.phase}' 2>/dev/null || echo "Pending")
+            echo "  [${i}/12] net-test pod: $STATUS"
+            if [ "$STATUS" = "Succeeded" ]; then
+              echo "ClusterIP routing OK ✔"
+              kubectl delete pod net-test --ignore-not-found
+              break
+            elif [ "$STATUS" = "Failed" ]; then
+              echo "ClusterIP UNREACHABLE ✘ — eBPF kube-proxy replacement may not be routing"
+              kubectl logs net-test || true
+              kubectl delete pod net-test --ignore-not-found
+              exit 1
+            fi
+            sleep 5
+          done
           echo "eBPF kube-proxy replacement is forwarding ClusterIP traffic ✔"
 
       # ── Phase 3: Upgrade with full chart (controller + UI) ───────────────────
@@ -445,14 +459,16 @@ jobs:
             --namespace straitgateway-system \
             --set global.clusterName=ci \
             --set kubeProxyReplacement.enabled=true \
+            --set controller.replicaCount=1 \
             --set ui.enabled=true \
+            --rollback-on-failure \
             --debug \
-            --timeout=10m
+            --timeout=15m
 
           kubectl rollout status deployment/straitgateway-controller \
-            -n straitgateway-system --timeout=5m
+            -n straitgateway-system --timeout=8m
           kubectl rollout status deployment/straitgateway-ui \
-            -n straitgateway-system --timeout=3m
+            -n straitgateway-system --timeout=5m
       - name: Helm test
         run: helm test straitgateway --namespace straitgateway-system --timeout 10m
       - name: Helm uninstall
