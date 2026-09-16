@@ -49,6 +49,9 @@ cni:
 ipam:
   ## mode: PerNode allocates a per-node CIDR from the cluster pod CIDR.
   mode: PerNode
+  ## podCIDR allows administrator override to any CIDR (e.g. RFC 1918: 10.244.0.0/16, 172.16.0.0/16, 192.168.0.0/16).
+  ## If empty, dynamically discovered from node.spec.podCIDR or falls back to RFC 1918 default.
+  podCIDR: ""
   ## operator manages cluster-wide CIDR assignments.
   operator:
     enabled: true
@@ -232,8 +235,9 @@ agentSecurityContext:
       - NET_RAW
       - PERFMON
       - BPF
-    drop:
-      - ALL
+      - IPC_LOCK
+      - SYS_RESOURCE
+      - DAC_OVERRIDE
 
 
 ## ─── Node Selector ────────────────────────────────────────────────────────────

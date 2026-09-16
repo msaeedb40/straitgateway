@@ -82,6 +82,10 @@ spec:
               value: {{ .Values.global.clusterID | quote }}
             - name: KUBE_PROXY_REPLACEMENT
               value: {{ .Values.kubeProxyReplacement.enabled | quote }}
+            {{- if .Values.ipam.podCIDR }}
+            - name: POD_CIDR
+              value: {{ .Values.ipam.podCIDR | quote }}
+            {{- end }}
             {{- with .Values.extraEnv }}
             {{- toYaml . | nindent 12 }}
             {{- end }}
@@ -111,17 +115,6 @@ spec:
             # Host CNI config directory.
             - name: cni-conf-dir
               mountPath: "/host{{ .Values.cni.confDir }}"
-            # eBPF objects directory.
-            - name: bpf-objects
-              mountPath: /var/lib/straitgateway/bpf
-            # Kubernetes PKI certificates
-            - name: k8s-pki
-              mountPath: /etc/kubernetes/pki
-              readOnly: true
-            # Kubernetes admin config
-            - name: k8s-admin-conf
-              mountPath: /etc/kubernetes/admin.conf
-              readOnly: true
             {{- with .Values.extraVolumeMounts }}
             {{- toYaml . | nindent 12 }}
             {{- end }}
@@ -163,18 +156,6 @@ spec:
           hostPath:
             path: {{ .Values.cni.confDir }}
             type: DirectoryOrCreate
-        - name: bpf-objects
-          hostPath:
-            path: /var/lib/straitgateway/bpf
-            type: DirectoryOrCreate
-        - name: k8s-pki
-          hostPath:
-            path: /etc/kubernetes/pki
-            type: DirectoryOrCreate
-        - name: k8s-admin-conf
-          hostPath:
-            path: /etc/kubernetes/admin.conf
-            type: FileOrCreate
         {{- with .Values.extraVolumes }}
         {{- toYaml . | nindent 8 }}
         {{- end }}

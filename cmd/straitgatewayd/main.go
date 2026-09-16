@@ -25,6 +25,7 @@ import (
 	"os/signal"
 	"sync"
 	"syscall"
+	"time"
 
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
@@ -33,6 +34,7 @@ import (
 	"github.com/msaeedb40/straitgateway/identity"
 	"github.com/msaeedb40/straitgateway/internal/version"
 	"github.com/msaeedb40/straitgateway/ipam"
+	"github.com/msaeedb40/straitgateway/pkg/api"
 	sgtypes "github.com/msaeedb40/straitgateway/pkg/types"
 	"github.com/msaeedb40/straitgateway/platform/process"
 	agentv1 "github.com/msaeedb40/straitgateway/proto/agent/v1"
@@ -220,17 +222,8 @@ func main() {
 	flag.StringVar(&healthAddr, "health-addr", defaultHealthAddr,
 		"Health probe HTTP bind address.")
 	flag.StringVar(&podCIDRStr, "pod-cidr", os.Getenv("POD_CIDR"),
-		"Node-local PodCIDR (dynamically discovered from API server / node spec).")
+		"Node-local PodCIDR override (any valid CIDR, e.g. RFC 1918: 10.244.0.0/16, 172.16.0.0/16, 192.168.0.0/16; dynamically discovered if empty).")
 	flag.Parse()
-
-	// Default Pod CIDR if not specified.
-	if podCIDRStr == "" {
-		podCIDRStr = "10.244.0.0/24"
-	}
-	podCIDR, err := netip.ParsePrefix(podCIDRStr)
-	if err != nil {
-		panic(fmt.Sprintf("invalid pod-cidr %q: %v", podCIDRStr, err))
-	}
 
 	// Configure structured logger.
 	var zapCfg zap.Config
@@ -250,11 +243,37 @@ func main() {
 		}
 	}()
 
+	// Admin CIDR override, dynamic node discovery, or RFC 1918 fallback.
+	if podCIDRStr != "" {
+		log.Info("using administrator-configured pod CIDR override", zap.String("podCIDR", podCIDRStr))
+	} else if nodeName != "" {
+		if k8sClient, err := api.NewClientset(); err == nil {
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			if discovered, err := api.DiscoverPodCIDR(ctx, k8sClient, nodeName); err == nil && discovered != "" {
+				podCIDRStr = discovered
+				log.Info("dynamically discovered node pod CIDR", zap.String("podCIDR", podCIDRStr))
+			}
+			cancel()
+		}
+	}
+
+	// Fallback to RFC 1918 default pod CIDR if not specified or discovered.
+	if podCIDRStr == "" {
+		podCIDRStr = "10.244.0.0/16"
+		log.Info("using default RFC 1918 pod CIDR", zap.String("podCIDR", podCIDRStr))
+	}
+
+	podCIDR, err := netip.ParsePrefix(podCIDRStr)
+	if err != nil {
+		log.Fatal("invalid pod-cidr configuration", zap.String("podCIDR", podCIDRStr), zap.Error(err))
+	}
+
 	log.Info("starting straitgatewayd node agent",
 		zap.String("version", version.Version),
 		zap.String("commit", version.Commit),
 		zap.String("node", nodeName),
 		zap.String("podCIDR", podCIDR.String()),
+		zap.Bool("isRFC1918", podCIDR.Addr().IsPrivate()),
 	)
 
 	// Verify platform requirements (Linux kernel 6.6+ LTS / 6.7+).

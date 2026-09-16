@@ -73,3 +73,41 @@ func TestIPAMRelease(t *testing.T) {
 		t.Error("release did not increase available count")
 	}
 }
+
+func TestIPAMRFC1918Prefixes(t *testing.T) {
+	testCases := []struct {
+		name string
+		cidr string
+	}{
+		{"RFC1918_10_8", "10.0.0.0/8"},
+		{"RFC1918_10_16", "10.244.0.0/16"},
+		{"RFC1918_10_24", "10.244.1.0/24"},
+		{"RFC1918_172_12", "172.16.0.0/12"},
+		{"RFC1918_172_16", "172.16.0.0/16"},
+		{"RFC1918_192_16", "192.168.0.0/16"},
+		{"RFC1918_192_24", "192.168.1.0/24"},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			prefix, err := netip.ParsePrefix(tc.cidr)
+			if err != nil {
+				t.Fatalf("ParsePrefix failed for %s: %v", tc.cidr, err)
+			}
+			if !prefix.Addr().IsPrivate() {
+				t.Errorf("expected %s to be private RFC 1918", tc.cidr)
+			}
+			alloc, err := ipam.New(prefix)
+			if err != nil {
+				t.Fatalf("ipam.New failed for %s: %v", tc.cidr, err)
+			}
+			ip, err := alloc.Allocate()
+			if err != nil {
+				t.Fatalf("Allocate failed for %s: %v", tc.cidr, err)
+			}
+			if !prefix.Contains(ip) {
+				t.Errorf("allocated IP %s is not within CIDR %s", ip, prefix)
+			}
+		})
+	}
+}

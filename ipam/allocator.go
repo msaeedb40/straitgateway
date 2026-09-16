@@ -36,7 +36,11 @@ func New(cidr netip.Prefix) (*Allocator, error) {
 	bits := cidr.Bits()
 	var size int
 	if cidr.Addr().Is4() {
-		size = 1 << (32 - bits)
+		if bits < 16 {
+			size = 65536 // cap to 64k allocations per node for large CIDRs (e.g. /8 or /12)
+		} else {
+			size = 1 << (32 - bits)
+		}
 	} else {
 		size = 1 << (128 - bits)
 		if size > 65536 {

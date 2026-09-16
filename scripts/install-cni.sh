@@ -5,8 +5,11 @@ set -euo pipefail
 CNI_BIN_DIR="${CNI_BIN_DIR:-/host/opt/cni/bin}"
 CNI_CONF_DIR="${CNI_CONF_DIR:-/host/etc/cni/net.d}"
 mkdir -p "${CNI_BIN_DIR}" "${CNI_CONF_DIR}"
-cp /opt/cni/bin/straitgateway "${CNI_BIN_DIR}/straitgateway"
-cat > "${CNI_CONF_DIR}/10-straitgateway.conflist" << CNICONF
+cp /opt/cni/bin/straitgateway "${CNI_BIN_DIR}/straitgateway.tmp"
+chmod 755 "${CNI_BIN_DIR}/straitgateway.tmp"
+mv -f "${CNI_BIN_DIR}/straitgateway.tmp" "${CNI_BIN_DIR}/straitgateway"
+
+cat > "${CNI_CONF_DIR}/10-straitgateway.conflist.tmp" << CNICONF
 {
   "cniVersion": "1.1.0",
   "name": "straitgateway",
@@ -20,4 +23,5 @@ cat > "${CNI_CONF_DIR}/10-straitgateway.conflist" << CNICONF
   ]
 }
 CNICONF
+mv -f "${CNI_CONF_DIR}/10-straitgateway.conflist.tmp" "${CNI_CONF_DIR}/10-straitgateway.conflist"
 echo "[install-cni] straitgateway CNI installed to ${CNI_BIN_DIR} and ${CNI_CONF_DIR}"
