@@ -321,21 +321,37 @@ jobs:
           echo "All CRDs established:"
           kubectl get crds | grep -E 'strait|gateway'
 
+      # ── Phase 2.7: Confirm agent pods are Ready (eBPF dataplane is live) ────
+      # node/Ready only means the CNI binary exists on disk. We must wait for
+      # the agent pod itself to pass its readiness probe, which confirms the
+      # eBPF programs are loaded and the dataplane is routing pod traffic.
+      # Without this, controller/UI pods get pod IPs but can't reach
+      # kubernetes.default.svc:443, causing readiness probes to fail.
+      - name: "Phase 2.7: Wait for agent pods Ready (eBPF dataplane live)"
+        run: |
+          echo "Waiting for all straitgateway-agent pods to be Ready..."
+          kubectl wait pod \
+            --for=condition=Ready \
+            --selector=app.kubernetes.io/component=agent \
+            --namespace=straitgateway-system \
+            --timeout=8m
+          echo "Agent pods Ready — eBPF dataplane is live:"
+          kubectl get pods -n straitgateway-system -l app.kubernetes.io/component=agent -o wide
+
       # ── Phase 3: Upgrade with full chart (controller + UI) ───────────────────
       - name: "Phase 3: Upgrade to full chart (controller + UI)"
         run: |
-          # NOTE: Phase 1 installed with controller.replicaCount=0.
-          # helm upgrade inherits the previous release values, so we must
-          # explicitly reset replicaCount=1 here, otherwise the controller
-          # Deployment stays at 0 replicas and rollout status times out.
+          # Phase 1 installed with controller.replicaCount=0; explicitly
+          # reset to 1. Use --atomic so a failed upgrade rolls back cleanly
+          # instead of leaving the release in a broken state.
           helm upgrade --install straitgateway ./straitgateway-helm \
             --namespace straitgateway-system \
             --set global.clusterName=ci \
             --set kubeProxyReplacement.enabled=true \
             --set controller.replicaCount=1 \
             --set ui.enabled=true \
-            --wait \
-            --timeout=10m
+            --atomic \
+            --timeout=15m
 
           echo "── Waiting for controller rollout ──"
           kubectl rollout status deployment/straitgateway-controller \
