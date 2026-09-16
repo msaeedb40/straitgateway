@@ -343,34 +343,45 @@ jobs:
       # If the eBPF service DNAT isn't working, the controller readiness probe
       # will fail silently for the entire 15 min timeout. This step fails fast
       # with a clear error if ClusterIP routing is broken.
+      #
+      # IMPORTANT: kind is configured with disableDefaultCNI: true, so no image
+      # can be pulled from Docker Hub at this point. We MUST use an image that
+      # was already loaded into kind via "kind load docker-image". The
+      # straitgateway-cli image (Alpine-based) has wget with TLS support.
       - name: "Phase 2.9: Verify ClusterIP routing (kube-proxy replacement)"
         run: |
           echo "Testing ClusterIP connectivity to kubernetes.default.svc:443..."
-          # kubectl run does not support --timeout; use --wait=false + poll loop.
+          # Use the pre-loaded straitgateway-cli image (Alpine + wget).
+          # kubectl run does not support --timeout; poll the phase instead.
           kubectl run net-test \
-            --image=curlimages/curl:latest \
+            --image=${{ env.REGISTRY }}/straitgateway-cli:1.0.0 \
+            --image-pull-policy=Never \
             --restart=Never \
             --command \
-            -- curl -sk --max-time 10 https://kubernetes.default.svc/healthz
+            -- wget -qO- --timeout=10 --tries=3 \
+               --no-check-certificate https://kubernetes.default.svc/healthz
 
-          # Wait up to 60s for the pod to complete
-          for i in $(seq 1 12); do
+          # Wait up to 90s for the pod to complete (5s × 18 iterations)
+          for i in $(seq 1 18); do
             STATUS=$(kubectl get pod net-test \
               -o jsonpath='{.status.phase}' 2>/dev/null || echo "Pending")
-            echo "  [${i}/12] net-test pod: $STATUS"
+            REASON=$(kubectl get pod net-test \
+              -o jsonpath='{.status.containerStatuses[0].state.waiting.reason}' \
+              2>/dev/null || true)
+            echo "  [${i}/18] net-test pod: $STATUS${REASON:+ ($REASON)}"
             if [ "$STATUS" = "Succeeded" ]; then
-              echo "ClusterIP routing OK ✔"
+              echo "ClusterIP routing OK ✔ — eBPF kube-proxy replacement is working"
               kubectl delete pod net-test --ignore-not-found
               break
-            elif [ "$STATUS" = "Failed" ]; then
-              echo "ClusterIP UNREACHABLE ✘ — eBPF kube-proxy replacement may not be routing"
-              kubectl logs net-test || true
+            elif [ "$STATUS" = "Failed" ] || [ "$REASON" = "ErrImageNeverPull" ]; then
+              echo "FAIL: ClusterIP UNREACHABLE ✘"
+              kubectl logs net-test 2>/dev/null || true
+              kubectl describe pod net-test || true
               kubectl delete pod net-test --ignore-not-found
               exit 1
             fi
             sleep 5
           done
-          echo "eBPF kube-proxy replacement is forwarding ClusterIP traffic ✔"
 
       # ── Phase 3: Upgrade with full chart (controller + UI) ───────────────────
       - name: "Phase 3: Upgrade to full chart (controller + UI)"
