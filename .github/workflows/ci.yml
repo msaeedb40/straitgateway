@@ -338,19 +338,39 @@ jobs:
           echo "Agent pods Ready — eBPF dataplane is live:"
           kubectl get pods -n straitgateway-system -l app.kubernetes.io/component=agent -o wide
 
+      # ── Phase 2.9: Verify ClusterIP routing (kube-proxy replacement) ─────────
+      # The controller needs to reach kubernetes.default.svc:443 for API calls.
+      # If the eBPF service DNAT isn't working, the controller readiness probe
+      # will fail silently for the entire 15 min timeout. This step fails fast
+      # with a clear error if ClusterIP routing is broken.
+      - name: "Phase 2.9: Verify ClusterIP routing (kube-proxy replacement)"
+        run: |
+          echo "Testing ClusterIP connectivity to kubernetes.default.svc:443..."
+          kubectl run net-test \
+            --image=busybox:stable \
+            --restart=Never \
+            --rm \
+            --attach \
+            --timeout=60s \
+            -- sh -c \
+            'wget -qO- --timeout=10 --tries=3 \
+              --no-check-certificate https://kubernetes.default.svc/healthz \
+            && echo "ClusterIP OK" || { echo "ClusterIP UNREACHABLE"; exit 1; }'
+          echo "eBPF kube-proxy replacement is forwarding ClusterIP traffic ✔"
+
       # ── Phase 3: Upgrade with full chart (controller + UI) ───────────────────
       - name: "Phase 3: Upgrade to full chart (controller + UI)"
         run: |
           # Phase 1 installed with controller.replicaCount=0; explicitly
-          # reset to 1. Use --atomic so a failed upgrade rolls back cleanly
-          # instead of leaving the release in a broken state.
+          # reset to 1. --rollback-on-failure auto-reverts on timeout so
+          # the release is never left in a broken state.
           helm upgrade --install straitgateway ./straitgateway-helm \
             --namespace straitgateway-system \
             --set global.clusterName=ci \
             --set kubeProxyReplacement.enabled=true \
             --set controller.replicaCount=1 \
             --set ui.enabled=true \
-            --atomic \
+            --rollback-on-failure \
             --timeout=15m
 
           echo "── Waiting for controller rollout ──"

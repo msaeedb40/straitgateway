@@ -12,6 +12,9 @@ metadata:
     app.kubernetes.io/component: controller
 spec:
   replicas: {{ .Values.controller.replicaCount }}
+  # progressDeadlineSeconds must exceed the helm --timeout value so Kubernetes
+  # does not mark the Deployment Failed before helm gives up (default: 600s).
+  progressDeadlineSeconds: {{ .Values.controller.progressDeadlineSeconds | default 900 }}
   selector:
     matchLabels:
       {{- include "straitgateway.controller.selectorLabels" . | nindent 6 }}

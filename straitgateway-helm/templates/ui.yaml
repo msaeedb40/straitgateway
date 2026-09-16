@@ -13,6 +13,8 @@ metadata:
     app.kubernetes.io/component: ui
 spec:
   replicas: {{ .Values.ui.replicaCount }}
+  # progressDeadlineSeconds must exceed the helm --timeout value.
+  progressDeadlineSeconds: {{ .Values.ui.progressDeadlineSeconds | default 900 }}
   selector:
     matchLabels:
       {{- include "straitgateway.ui.selectorLabels" . | nindent 6 }}
