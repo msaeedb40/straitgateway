@@ -282,20 +282,54 @@ jobs:
         run: |
           kubectl apply --server-side -f \
             https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.6.1/standard-install.yaml
-      - name: Install StraitGateway
+
+      # ── Phase 1: Bootstrap CNI ────────────────────────────────────────────────
+      # Install the agent DaemonSet ONLY first. The agent uses hostNetwork=true
+      # so it does NOT need a CNI to start. It installs the straitgateway CNI
+      # binary/config on each node, which brings nodes to Ready state.
+      # The controller and UI use regular pod networking and would crash if started
+      # before CNI is ready (can't reach kubernetes.default.svc:443).
+      - name: "Phase 1: Install agent DaemonSet (CNI bootstrap)"
         run: |
           helm install straitgateway ./straitgateway-helm \
             --namespace straitgateway-system \
             --create-namespace \
             --set global.clusterName=ci \
             --set kubeProxyReplacement.enabled=true \
+            --set ui.enabled=false \
+            --set controller.replicaCount=0 \
+            --timeout=10m
+          # Wait without --wait since replicas=0 for controller makes --wait finish immediately
+          # but we need the DaemonSet pods to be Running first.
+          echo "Waiting for agent DaemonSet pods to be Running..."
+          kubectl rollout status daemonset/straitgateway-agent \
+            -n straitgateway-system --timeout=8m
+
+      # ── Phase 2: Wait for all nodes to be Ready (CNI active) ─────────────────
+      - name: "Phase 2: Wait for nodes Ready (CNI bootstrapped)"
+        run: |
+          echo "Waiting for all cluster nodes to reach Ready state..."
+          kubectl wait --for=condition=Ready nodes --all --timeout=5m
+          echo "All nodes are Ready. Node status:"
+          kubectl get nodes -o wide
+
+      # ── Phase 3: Upgrade with full chart (controller + UI) ───────────────────
+      - name: "Phase 3: Upgrade to full chart (controller + UI)"
+        run: |
+          helm upgrade straitgateway ./straitgateway-helm \
+            --namespace straitgateway-system \
+            --set global.clusterName=ci \
+            --set kubeProxyReplacement.enabled=true \
             --set ui.enabled=true \
             --wait \
-            --timeout=15m
+            --timeout=10m
 
       - name: Diagnose failed deployment
         if: always()
         run: |
+          echo "=== NODES ==="
+          kubectl get nodes -o wide
+
           echo "=== PODS ==="
           kubectl get pods -n straitgateway-system -o wide
 
@@ -324,7 +358,7 @@ jobs:
           kubectl describe daemonset straitgateway-agent \
             -n straitgateway-system || true
 
-          echo "=== CONTAINER LOGS ==="
+          echo "=== CONTAINER LOGS (current) ==="
           for pod in $(kubectl get pods -n straitgateway-system \
             -o jsonpath='{.items[*].metadata.name}'); do
             echo "===== $pod ====="
@@ -334,7 +368,16 @@ jobs:
               --tail=200 || true
           done
 
-
+          echo "=== CONTAINER LOGS (previous/crashed) ==="
+          for pod in $(kubectl get pods -n straitgateway-system \
+            -o jsonpath='{.items[*].metadata.name}'); do
+            echo "===== $pod (previous) ====="
+            kubectl logs "$pod" -n straitgateway-system \
+              --all-containers=true \
+              --ignore-errors \
+              --previous \
+              --tail=100 2>/dev/null || true
+          done
 
       - name: Helm upgrade --install (idempotency check)
         run: |
@@ -344,7 +387,7 @@ jobs:
             --set kubeProxyReplacement.enabled=true \
             --set ui.enabled=true \
             --wait \
-            --timeout=15m
+            --timeout=10m
       - name: Helm test
         run: helm test straitgateway --namespace straitgateway-system --timeout 10m
       - name: Helm uninstall
