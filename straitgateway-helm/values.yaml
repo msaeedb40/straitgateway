@@ -234,11 +234,10 @@ agentSecurityContext:
       - SYS_ADMIN
       - NET_RAW
       - PERFMON
-      - BPF
-      - IPC_LOCK
-      - SYS_RESOURCE
-      - DAC_OVERRIDE
-
+      - BPF 
+    drop:
+      - ALL
+ 
 
 ## ─── Node Selector ────────────────────────────────────────────────────────────
 nodeSelector:

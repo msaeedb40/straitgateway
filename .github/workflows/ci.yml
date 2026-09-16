@@ -293,21 +293,13 @@ jobs:
           helm upgrade --install straitgateway ./straitgateway-helm/ \
             --namespace kube-system \
             --create-namespace \
-            --set kubeProxyReplacement=true \
-            --set controller.image.repository=ghcr.io/msaeedb40/straitgateway-controller \
-            --set controller.image.tag=1.0.0 \
-            --set controller.image.pullPolicy=IfNotPresent \
-            --set straitd.image.repository=ghcr.io/msaeedb40/straitgatewayd \
-            --set straitd.image.tag=1.0.0 \
-            --set straitd.image.pullPolicy=IfNotPresent \
-            --set ui.image.repository=ghcr.io/msaeedb40/straitgateway-ui \
-            --set ui.image.tag=1.0.0 \
-            --set ui.image.pullPolicy=IfNotPresent \
-            --wait --timeout=20m 
+            --set kubeProxyReplacement.enabled=true \ 
+            --wait \
+            --timeout=20m 
 
 
     
-
+ 
 
 
    
