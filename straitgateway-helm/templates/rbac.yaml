@@ -23,7 +23,7 @@ rules:
       - endpoints
       - configmaps
       - secrets
-    verbs: ["get", "list", "watch", "update", "patch"]
+    verbs: ["get", "list", "watch", "create", "update", "patch"]
   - apiGroups: ["discovery.k8s.io"]
     resources:
       - endpointslices
@@ -53,7 +53,7 @@ rules:
       - referencegrants/status
     verbs: ["get", "list", "watch", "update", "patch"]
   # StraitGateway Custom Resources
-  - apiGroups: ["networking.straitgateway.io"]
+  - apiGroups: ["straitgateway.io"]
     resources:
       - straitnetworkpolicies
       - straitnetworkpolicies/status

@@ -4,6 +4,7 @@
 set -euo pipefail
 CNI_BIN_DIR="${CNI_BIN_DIR:-/host/opt/cni/bin}"
 CNI_CONF_DIR="${CNI_CONF_DIR:-/host/etc/cni/net.d}"
+mkdir -p "${CNI_BIN_DIR}" "${CNI_CONF_DIR}"
 cp /opt/cni/bin/straitgateway "${CNI_BIN_DIR}/straitgateway"
 cat > "${CNI_CONF_DIR}/10-straitgateway.conflist" << CNICONF
 {

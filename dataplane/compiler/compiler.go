@@ -297,9 +297,13 @@ func (c *Compiler) compileRoutes(_ context.Context, routes []ir.RouteIR) error {
 					nhs = append(nhs, net.ParseIP(nh.String()))
 				}
 			}
-			_ = c.router.AddECMPRoute(dstNet, nhs, r.Table)
+			if err := c.router.AddECMPRoute(dstNet, nhs, r.Table); err != nil {
+				return fmt.Errorf("add ecmp route: %w", err)
+			}
 		} else {
-			_ = c.router.AddRoute(dstNet, gw, r.IfIndex, r.Table)
+			if err := c.router.AddRoute(dstNet, gw, r.IfIndex, r.Table); err != nil {
+				return fmt.Errorf("add route: %w", err)
+			}
 		}
 	}
 	return nil

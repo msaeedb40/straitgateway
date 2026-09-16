@@ -43,16 +43,16 @@ spec:
           command: ["/install-cni.sh"]
           env:
             - name: CNI_CONF_DIR
-              value: {{ .Values.cni.confDir | quote }}
+              value: "/host{{ .Values.cni.confDir }}"
             - name: CNI_BIN_DIR
-              value: {{ .Values.cni.installDir | quote }}
+              value: "/host{{ .Values.cni.installDir }}"
           securityContext:
             privileged: true
           volumeMounts:
             - name: cni-bin-dir
-              mountPath: /host/opt/cni/bin
+              mountPath: "/host{{ .Values.cni.installDir }}"
             - name: cni-conf-dir
-              mountPath: /host/etc/cni/net.d
+              mountPath: "/host{{ .Values.cni.confDir }}"
       containers:
         - name: straitgatewayd
           image: {{ include "straitgateway.agent.image" . }}
@@ -105,10 +105,10 @@ spec:
               mountPath: /run/straitgateway
             # Host CNI binary directory.
             - name: cni-bin-dir
-              mountPath: /host/opt/cni/bin
+              mountPath: "/host{{ .Values.cni.installDir }}"
             # Host CNI config directory.
             - name: cni-conf-dir
-              mountPath: /host/etc/cni/net.d
+              mountPath: "/host{{ .Values.cni.confDir }}"
             # eBPF objects directory.
             - name: bpf-objects
               mountPath: /var/lib/straitgateway/bpf

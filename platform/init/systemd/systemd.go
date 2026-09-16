@@ -5,6 +5,7 @@
 package systemd
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"os"
@@ -46,7 +47,8 @@ func (n *Notifier) send(state string) error {
 		return nil // Not running under systemd with notification socket
 	}
 
-	conn, err := net.Dial("unixgram", n.socketPath)
+	var d net.Dialer
+	conn, err := d.DialContext(context.Background(), "unixgram", n.socketPath)
 	if err != nil {
 		return fmt.Errorf("dialing NOTIFY_SOCKET: %w", err)
 	}

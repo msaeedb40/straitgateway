@@ -136,7 +136,7 @@ func (m *Manager) buildServiceIR(svc corev1.Service, epss []discoveryv1.Endpoint
 	// Collect backends from EndpointSlices.
 	var backendID sgtypes.BackendID = 1
 	for _, eps := range epss {
-		var targetPort uint16 = svcIR.Port
+		targetPort := svcIR.Port
 		if len(eps.Ports) > 0 && eps.Ports[0].Port != nil {
 			targetPort = uint16(*eps.Ports[0].Port)
 		}

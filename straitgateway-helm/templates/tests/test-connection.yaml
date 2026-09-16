@@ -11,5 +11,5 @@ spec:
     - name: wget
       image: busybox
       command: ['wget']
-      args: ['{{ include "straitgateway.fullname" . }}-controller:{{ .Values.controller.metricsPort | default 9090 }}']
+      args: ['{{ include "straitgateway.fullname" . }}-controller-metrics:{{ .Values.controller.metricsPort | default 9090 }}']
   restartPolicy: Never
