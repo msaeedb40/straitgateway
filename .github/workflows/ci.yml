@@ -89,7 +89,13 @@ jobs:
     name: Security Scan
     runs-on: ubuntu-latest
     # Scan on pull requests (main or developer) or on push to main (developer → main merge)
-    if: (github.event_name == 'pull_request' && (github.base_ref == 'main' || github.base_ref == 'developer')) || (github.event_name == 'push' && github.ref == 'refs/heads/main')
+    if: |
+
+      (github.event_name == 'pull_request' &&
+      (github.base_ref == 'main' || github.base_ref == 'developer')) ||
+      (github.event_name == 'push' &&
+      (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/developer'))   
+
     steps:
       - name: security checkout
         uses: actions/checkout@v4

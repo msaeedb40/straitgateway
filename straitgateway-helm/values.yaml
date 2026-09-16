@@ -241,7 +241,7 @@ nodeSelector:
   kubernetes.io/os: linux
 
 affinity: {}
-tolerations: {} 
+tolerations: []
 labels: {}
   
 
