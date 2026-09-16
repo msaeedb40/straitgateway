@@ -92,11 +92,11 @@ type Endpoint struct {
 type LBAlgorithm string
 
 const (
-	LBAlgorithmMaglev          LBAlgorithm = "Maglev"
-	LBAlgorithmRoundRobin      LBAlgorithm = "RoundRobin"
-	LBAlgorithmLeastConn       LBAlgorithm = "LeastConnections"
-	LBAlgorithmIPHash          LBAlgorithm = "IPHash"
-	LBAlgorithmRandom          LBAlgorithm = "Random"
+	LBAlgorithmMaglev     LBAlgorithm = "Maglev"
+	LBAlgorithmRoundRobin LBAlgorithm = "RoundRobin"
+	LBAlgorithmLeastConn  LBAlgorithm = "LeastConnections"
+	LBAlgorithmIPHash     LBAlgorithm = "IPHash"
+	LBAlgorithmRandom     LBAlgorithm = "Random"
 )
 
 // Protocol defines the L4 protocol.

@@ -35,11 +35,11 @@ const (
 
 // Allocator manages the allocation and deallocation of security identities.
 type Allocator struct {
-	mu     sync.RWMutex
+	mu sync.RWMutex
 	// byLabelsHash maps label hash → identity.
 	byLabelsHash map[uint64]sgtypes.Identity
 	// byID maps identity → label hash + metadata.
-	byID   map[sgtypes.Identity]*IdentityEntry
+	byID map[sgtypes.Identity]*IdentityEntry
 	// nextID is the next available identity to allocate.
 	nextID sgtypes.Identity
 	// refCount tracks how many pods share each identity.

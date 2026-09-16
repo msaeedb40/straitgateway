@@ -80,16 +80,26 @@ func (e *Engine) Evaluate(srcSeg, dstSeg sgtypes.SegmentID, protocol uint8, dstP
 		if len(p.Protocols) > 0 {
 			matched := false
 			for _, proto := range p.Protocols {
-				if proto == protocol { matched = true; break }
+				if proto == protocol {
+					matched = true
+					break
+				}
 			}
-			if !matched { continue }
+			if !matched {
+				continue
+			}
 		}
 		if len(p.Ports) > 0 {
 			matched := false
 			for _, port := range p.Ports {
-				if port == dstPort { matched = true; break }
+				if port == dstPort {
+					matched = true
+					break
+				}
 			}
-			if !matched { continue }
+			if !matched {
+				continue
+			}
 		}
 		return p.Action
 	}

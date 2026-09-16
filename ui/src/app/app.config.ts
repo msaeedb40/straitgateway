@@ -1,31 +1,50 @@
-// Copyright 2026 straitgateway Authors
-// SPDX-License-Identifier: Apache-2.0
-
 import {
   ApplicationConfig,
+  provideBrowserGlobalErrorListeners,
   provideZonelessChangeDetection,
   APP_INITIALIZER,
-  inject,
 } from '@angular/core';
-import { provideRouter, withViewTransitions, withComponentInputBinding } from '@angular/router';
-import { provideHttpClient, withInterceptors } from '@angular/common/http';
-import { routes } from './app.routes';
-import { errorInterceptor } from './core/interceptors/error.interceptor';
-import { RuntimeConfigService } from './core/config/runtime-config';
+import { provideRouter, withComponentInputBinding, withViewTransitions } from '@angular/router';
+import { provideClientHydration, withEventReplay } from '@angular/platform-browser';
+import {
+  provideHttpClient,
+  withInterceptors,
+  withFetch,
+  withXsrfConfiguration,
+} from '@angular/common/http';
 
-function initRuntimeConfig() {
-  const config = inject(RuntimeConfigService);
-  return () => config.load();
+import { routes } from './app.routes';
+import { RuntimeConfigService } from './core/config/runtime-config.service';
+import { authInterceptor } from './core/interceptors/auth.interceptor';
+import { errorInterceptor } from './core/interceptors/error.interceptor';
+import { namespaceInterceptor } from './core/interceptors/namespace.interceptor';
+
+function initializeApp(runtimeConfig: RuntimeConfigService): () => Promise<void> {
+  return () => runtimeConfig.load();
 }
 
 export const appConfig: ApplicationConfig = {
   providers: [
+    provideBrowserGlobalErrorListeners(),
     provideZonelessChangeDetection(),
-    provideRouter(routes, withViewTransitions(), withComponentInputBinding()),
-    provideHttpClient(withInterceptors([errorInterceptor])),
+    provideRouter(
+      routes,
+      withComponentInputBinding(),
+      withViewTransitions()
+    ),
+    provideClientHydration(withEventReplay()),
+    provideHttpClient(
+      withFetch(),
+      withInterceptors([authInterceptor, namespaceInterceptor, errorInterceptor]),
+      withXsrfConfiguration({
+        cookieName: 'XSRF-TOKEN',
+        headerName: 'X-XSRF-TOKEN',
+      })
+    ),
     {
       provide: APP_INITIALIZER,
-      useFactory: initRuntimeConfig,
+      useFactory: initializeApp,
+      deps: [RuntimeConfigService],
       multi: true,
     },
   ],

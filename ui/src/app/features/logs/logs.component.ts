@@ -1,76 +1,148 @@
-// Copyright 2026 straitgateway Authors — SPDX-License-Identifier: Apache-2.0
-import { Component, inject, signal, OnInit, ViewChild, ElementRef } from '@angular/core';
-import { CommonModule } from '@angular/common';
-import { FormsModule } from '@angular/forms';
-import { ApiClient } from '../../core/api/api-client';
-import { catchError, of } from 'rxjs';
+import { Component, inject, signal, DestroyRef, PLATFORM_ID } from '@angular/core';
+import { isPlatformBrowser, SlicePipe } from '@angular/common';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { ReactiveFormsModule, FormBuilder } from '@angular/forms';
+import { LogsApiService } from '../../core/api/observability/logs.api';
+import { BreadcrumbsComponent } from '../../layout/breadcrumbs/breadcrumbs.component';
+import { SkeletonListComponent } from '../../shared/components/skeleton/skeleton.component';
+import { ErrorStateComponent } from '../../shared/components/error-state/error-state.component';
+import { ContextService } from '../../core/services/context.service';
+import { LogEntry, LogSeverity } from '../../core/models/log.model';
+import { ApiError } from '../../core/api/api-error';
 
-interface LogLine { timestamp: string; level: 'debug'|'info'|'warn'|'error'; caller: string; msg: string; fields: string; }
+const SEVERITIES: LogSeverity[] = ['DEBUG', 'INFO', 'WARN', 'ERROR', 'FATAL'];
 
 @Component({
-  selector: 'app-logs', standalone: true, imports: [CommonModule, FormsModule],
+  selector: 'sg-logs',
+  imports: [ReactiveFormsModule, SlicePipe, BreadcrumbsComponent, SkeletonListComponent, ErrorStateComponent],
   template: `
-<div class="sg-fade-in">
-  <div class="sg-page-header">
-    <div><h1 class="sg-page-title">Logs</h1><p class="sg-page-subtitle">Structured JSON logs from straitgatewayd (via zap)</p></div>
-    <div style="display:flex;gap:12px;align-items:center">
-      <select class="sg-select" style="height:34px;padding:0 12px" [(ngModel)]="levelFilter">
-        <option value="">All Levels</option><option>debug</option><option>info</option><option>warn</option><option>error</option>
-      </select>
-      <input class="sg-search-input" style="width:200px;height:34px;padding:0 12px" placeholder="Filter message…" [(ngModel)]="msgFilter">
-      <button class="sg-btn sg-btn-secondary" (click)="load()">↻ Refresh</button>
-    </div>
-  </div>
-  <div class="sg-card">
-    <div class="sg-card-body p-0">
-      <div #logContainer class="sg-log-container">
-        @if (loading()) {
-          @for(i of [1,2,3,4,5,6]; track i){<div class="sg-skeleton" style="height:12px;margin:4px 0"></div>}
-        } @else {
-          @for (line of filtered(); track line.timestamp+line.msg) {
-            <div class="sg-log-line" [class]="'level-'+line.level">
-              <span class="sg-log-ts">{{ line.timestamp }}</span>
-              <span class="sg-log-level" [class]="'level-'+line.level">{{ line.level.toUpperCase() }}</span>
-              <span class="sg-log-caller">{{ line.caller }}</span>
-              <span class="sg-log-msg">{{ line.msg }}</span>
-              @if (line.fields) { <span class="sg-log-fields">{{ line.fields }}</span> }
-            </div>
-          } @empty {
-            <div class="sg-empty"><p>No log lines match the current filter</p></div>
-          }
-        }
+    <div class="sg-logs-page">
+      <div class="sg-logs-toolbar">
+        <sg-breadcrumbs />
+        <h1 class="sg-page-title">Logs</h1>
+        <form [formGroup]="filterForm" (ngSubmit)="query()" class="sg-filter-bar" role="search" aria-label="Log filters">
+          <select class="sg-input sg-select" formControlName="severity" aria-label="Minimum severity">
+            <option value="">All severities</option>
+            @for (s of severities; track s) { <option [value]="s">{{ s }}</option> }
+          </select>
+          <input class="sg-input" formControlName="component" placeholder="Component" aria-label="Filter by component" />
+          <input class="sg-input" formControlName="nodeName" placeholder="Node" aria-label="Filter by node" />
+          <input class="sg-input" formControlName="podName" placeholder="Pod" aria-label="Filter by pod" />
+          <input class="sg-input" formControlName="search" placeholder="Search…" aria-label="Search log messages" />
+          <button class="sg-btn sg-btn-secondary" type="submit">Apply</button>
+          <button class="sg-btn sg-btn-secondary" [class.sg-btn-active]="tailing()" type="button" (click)="toggleTail()">
+            {{ tailing() ? '⏸ Stop Tail' : '▶ Tail' }}
+          </button>
+        </form>
       </div>
+
+      @if (loading()) {
+        <sg-skeleton-list [count]="10" label="Loading logs…" />
+      } @else if (loadError()) {
+        <sg-error-state [error]="loadError()" (retry)="query()" />
+      } @else {
+        <div class="sg-log-stream" role="log" aria-live="off" aria-label="Log output" aria-atomic="false">
+          @for (entry of entries(); track entry.id) {
+            <div class="sg-log-line sg-log-{{ entry.severity.toLowerCase() }}" [attr.aria-label]="entry.severity + ': ' + entry.message">
+              <span class="sg-log-time">{{ entry.timestamp | slice:0:23 }}</span>
+              <span class="sg-log-sev">{{ entry.severity }}</span>
+              <span class="sg-log-comp">{{ entry.component }}</span>
+              @if (entry.nodeName) { <span class="sg-log-node">{{ entry.nodeName }}</span> }
+              <span class="sg-log-msg">{{ entry.message }}</span>
+              @if (entry.traceId) { <span class="sg-log-trace sg-mono-value">{{ entry.traceId | slice:0:8 }}</span> }
+            </div>
+          }
+          @if (entries().length === 0) {
+            <p class="sg-empty-inline">No log entries found</p>
+          }
+        </div>
+      }
     </div>
-  </div>
-</div>`,
+  `,
   styles: [`
-    .sg-log-container { font-family:var(--sg-font-mono,monospace);font-size:11px;line-height:1.7;padding:12px;max-height:70vh;overflow-y:auto;background:var(--sg-surface-1); }
-    .sg-log-line { display:flex;gap:10px;padding:1px 0; }
-    .sg-log-line.level-error { background:rgba(239,68,68,.05); }
-    .sg-log-line.level-warn  { background:rgba(245,158,11,.05); }
-    .sg-log-ts { color:var(--sg-text-3);flex-shrink:0;width:170px; }
-    .sg-log-level { flex-shrink:0;width:44px;font-weight:600; }
-    .sg-log-level.level-error { color:var(--sg-danger); }
-    .sg-log-level.level-warn  { color:#f59e0b; }
-    .sg-log-level.level-info  { color:var(--sg-accent); }
-    .sg-log-level.level-debug { color:var(--sg-text-3); }
-    .sg-log-caller { color:var(--sg-text-3);flex-shrink:0;width:220px;overflow:hidden;text-overflow:ellipsis; }
-    .sg-log-msg { color:var(--sg-text-1);flex:1; }
-    .sg-log-fields { color:var(--sg-text-3); }
+    .sg-logs-page { display:flex;flex-direction:column;height:100%;overflow:hidden; }
+    .sg-logs-toolbar { padding:.75rem 1.5rem;border-bottom:1px solid var(--sg-border);flex-shrink:0;display:flex;flex-direction:column;gap:8px; }
+    .sg-filter-bar { display:flex;gap:6px;flex-wrap:wrap;align-items:center; }
+    .sg-filter-bar .sg-input { width:auto;min-width:100px; }
+    .sg-log-stream { flex:1;overflow-y:auto;padding:.5rem 1.5rem;font-family:var(--sg-font-mono);font-size:.75rem;background:var(--sg-bg-base); }
+    .sg-log-line { display:flex;gap:10px;padding:2px 0;align-items:baseline;border-bottom:1px solid rgba(148,163,184,.05); }
+    .sg-log-time { color:var(--sg-text-muted);flex-shrink:0;white-space:nowrap; }
+    .sg-log-sev  { width:42px;flex-shrink:0;font-weight:700; }
+    .sg-log-comp { color:var(--sg-indigo);flex-shrink:0;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap; }
+    .sg-log-node { color:var(--sg-teal);flex-shrink:0; }
+    .sg-log-msg  { color:var(--sg-text-primary);word-break:break-word; }
+    .sg-log-trace { color:var(--sg-text-muted);margin-left:auto; }
+    .sg-log-debug { opacity:.6; }
+    .sg-log-info  { }
+    .sg-log-warn  .sg-log-sev { color:var(--sg-degraded); }
+    .sg-log-error .sg-log-sev,.sg-log-fatal .sg-log-sev { color:var(--sg-failed); }
+    .sg-btn-active { border-color:var(--sg-accent);color:var(--sg-accent); }
+    .sg-empty-inline { color:var(--sg-text-muted);padding:1rem 0; }
   `],
 })
-export class LogsComponent implements OnInit {
-  private api = inject(ApiClient);
-  @ViewChild('logContainer') logContainer?: ElementRef;
-  lines = signal<LogLine[]>([]);
-  loading = signal(true);
-  levelFilter = '';
-  msgFilter = '';
-  filtered() { return this.lines().filter(l => (!this.levelFilter || l.level === this.levelFilter) && (!this.msgFilter || l.msg.includes(this.msgFilter))); }
-  ngOnInit() { this.load(); }
-  load() {
+export class LogsComponent {
+  private readonly logsApi    = inject(LogsApiService);
+  readonly context            = inject(ContextService);
+  private readonly destroyRef = inject(DestroyRef);
+  private readonly platformId = inject(PLATFORM_ID);
+  private readonly fb         = inject(FormBuilder);
+
+  readonly severities = SEVERITIES;
+  readonly loading    = signal(false);
+  readonly loadError  = signal<ApiError | null>(null);
+  readonly entries    = signal<LogEntry[]>([]);
+  readonly tailing    = signal(false);
+  private eventSource: EventSource | null = null;
+
+  readonly filterForm = this.fb.nonNullable.group({
+    severity:  [''],
+    component: [''],
+    nodeName:  [''],
+    podName:   [''],
+    search:    [''],
+  });
+
+  constructor() { this.query(); }
+
+  query(): void {
     this.loading.set(true);
-    this.api.getLogs?.().pipe(catchError(() => of([]))).subscribe((d: any[]) => { this.lines.set(d); this.loading.set(false); });
-    setTimeout(() => { if (this.loading()) this.loading.set(false); }, 800);
+    this.loadError.set(null);
+    const f = this.filterForm.getRawValue();
+    this.logsApi.query({
+      namespace:  this.context.selectedNamespace() || undefined,
+      severity:   (f.severity as LogSeverity) || undefined,
+      component:  f.component || undefined,
+      nodeName:   f.nodeName  || undefined,
+      podName:    f.podName   || undefined,
+      search:     f.search    || undefined,
+      tailLines:  500,
+    }).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+      next:  (r)   => { this.entries.set(r.items); this.loading.set(false); },
+      error: (err) => { this.loadError.set(err);   this.loading.set(false); },
+    });
+  }
+
+  toggleTail(): void {
+    if (this.tailing()) { this.closeTail(); return; }
+    if (!isPlatformBrowser(this.platformId)) return;
+    this.tailing.set(true);
+    const f = this.filterForm.getRawValue();
+    const url = this.logsApi.tailUrl({
+      namespace: this.context.selectedNamespace() || undefined,
+      severity:  (f.severity as LogSeverity) || undefined,
+      component: f.component || undefined,
+    });
+    this.eventSource = new EventSource(url);
+    this.eventSource.onmessage = (e) => {
+      const entry: LogEntry = JSON.parse(e.data);
+      this.entries.update((list) => [...list, entry].slice(-2000));
+    };
+    this.eventSource.onerror = () => this.closeTail();
+  }
+
+  private closeTail(): void {
+    this.eventSource?.close();
+    this.eventSource = null;
+    this.tailing.set(false);
   }
 }

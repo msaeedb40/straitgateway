@@ -12,14 +12,14 @@ import (
 type TransitTopology string
 
 const (
-	TopologyHubAndSpoke       TransitTopology = "HubAndSpoke"
-	TopologyMesh              TransitTopology = "Mesh"
-	TopologyPeerToPeer        TransitTopology = "PeerToPeer"
-	TopologyGatewayToGateway  TransitTopology = "GatewayToGateway"
+	TopologyHubAndSpoke      TransitTopology = "HubAndSpoke"
+	TopologyMesh             TransitTopology = "Mesh"
+	TopologyPeerToPeer       TransitTopology = "PeerToPeer"
+	TopologyGatewayToGateway TransitTopology = "GatewayToGateway"
 
-	TransitTopologyHubSpoke      = TopologyHubAndSpoke
-	TransitTopologyMesh          = TopologyMesh
-	TransitTopologyPeerToPeer    = TopologyPeerToPeer
+	TransitTopologyHubSpoke         = TopologyHubAndSpoke
+	TransitTopologyMesh             = TopologyMesh
+	TransitTopologyPeerToPeer       = TopologyPeerToPeer
 	TransitTopologyGatewayToGateway = TopologyGatewayToGateway
 )
 

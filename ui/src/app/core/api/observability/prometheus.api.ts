@@ -1,81 +1,107 @@
-// Copyright 2026 straitgateway Authors
-// SPDX-License-Identifier: Apache-2.0
+import { inject, Injectable } from '@angular/core';
+import { Observable } from 'rxjs';
+import { ApiClient } from '../api-client';
+import { RuntimeConfigService } from '../../config/runtime-config.service';
+import {
+  MetricQueryParams,
+  MetricQueryResult,
+  InstantQueryResult,
+} from '../../models/metric.model';
 
-import { Injectable, inject } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
-import { Observable, of } from 'rxjs';
-import { catchError } from 'rxjs/operators';
-import { RuntimeConfigService } from '../../config/runtime-config';
-import { MetricSample } from '../api.types';
+interface PrometheusRangeResponse {
+  status: string;
+  data: {
+    resultType: 'matrix';
+    result: Array<{
+      metric: Record<string, string>;
+      values: [number, string][];
+    }>;
+  };
+}
 
-export interface PrometheusQueryResult {
-  metricName: string;
-  labels: Record<string, string>;
-  values: Array<[number, string]>;
+interface PrometheusInstantResponse {
+  status: string;
+  data: {
+    resultType: 'vector';
+    result: Array<{
+      metric: Record<string, string>;
+      value: [number, string];
+    }>;
+  };
 }
 
 @Injectable({ providedIn: 'root' })
-export class PrometheusApi {
-  private http = inject(HttpClient);
-  private config = inject(RuntimeConfigService);
+export class PrometheusApiService {
+  private readonly client = inject(ApiClient);
+  private readonly runtimeConfig = inject(RuntimeConfigService);
 
-  private get base() { return this.config.prometheusBase(); }
-
-  query(promQL: string): Observable<any> {
-    const params = new URLSearchParams({ query: promQL });
-    return this.http.get<any>(`${this.base}/api/v1/query?${params.toString()}`).pipe(
-      catchError(() => of(this.getMockQueryResult(promQL)))
-    );
-  }
-
-  queryRange(promQL: string, start: number, end: number, step: string): Observable<any> {
-    const params = new URLSearchParams({
-      query: promQL,
-      start: start.toString(),
-      end: end.toString(),
-      step,
+  queryRange(params: MetricQueryParams): Observable<MetricQueryResult> {
+    return new Observable((observer) => {
+      this.client
+        .external<PrometheusRangeResponse>(
+          this.runtimeConfig.prometheusBase,
+          '/api/v1/query_range',
+          {
+            params: {
+              query: params.query,
+              start: params.start,
+              end: params.end,
+              step: params.step,
+            },
+          }
+        )
+        .subscribe({
+          next: (res) => {
+            const result: MetricQueryResult = {
+              metric: params.query,
+              series: res.data.result.map((r) => ({
+                labels: r.metric,
+                samples: r.values.map(([ts, val]) => ({
+                  timestamp: ts,
+                  value: parseFloat(val),
+                })),
+              })),
+            };
+            observer.next(result);
+            observer.complete();
+          },
+          error: (err) => observer.error(err),
+        });
     });
-    return this.http.get<any>(`${this.base}/api/v1/query_range?${params.toString()}`).pipe(
-      catchError(() => of(this.getMockRangeResult(promQL, start, end)))
-    );
   }
 
-  private getMockQueryResult(query: string): any {
-    return {
-      status: 'success',
-      data: {
-        resultType: 'vector',
-        result: [
-          {
-            metric: { __name__: query, instance: 'straitgateway-controller' },
-            value: [Date.now() / 1000, '4820.5'],
+  queryInstant(query: string): Observable<InstantQueryResult[]> {
+    return new Observable((observer) => {
+      this.client
+        .external<PrometheusInstantResponse>(
+          this.runtimeConfig.prometheusBase,
+          '/api/v1/query',
+          { params: { query } }
+        )
+        .subscribe({
+          next: (res) => {
+            const results: InstantQueryResult[] = res.data.result.map((r) => ({
+              metric: query,
+              labels: r.metric,
+              timestamp: r.value[0],
+              value: parseFloat(r.value[1]),
+            }));
+            observer.next(results);
+            observer.complete();
           },
-        ],
-      },
-    };
+          error: (err) => observer.error(err),
+        });
+    });
   }
 
-  private getMockRangeResult(query: string, start: number, end: number): any {
-    const points: Array<[number, string]> = [];
-    const count = 20;
-    const step = (end - start) / count;
-    for (let i = 0; i <= count; i++) {
-      const t = start + i * step;
-      const val = 4000 + Math.sin(i / 2) * 800 + Math.random() * 200;
-      points.push([t, val.toFixed(1)]);
-    }
-
-    return {
-      status: 'success',
-      data: {
-        resultType: 'matrix',
-        result: [
-          {
-            metric: { __name__: query, job: 'straitgateway' },
-            values: points,
-          },
-        ],
-      },
-    };
+  healthCheck(): Observable<boolean> {
+    return new Observable((observer) => {
+      this.client
+        .external<string>(this.runtimeConfig.prometheusBase, '/-/healthy')
+        .subscribe({
+          next: () => { observer.next(true); observer.complete(); },
+          error: () => { observer.next(false); observer.complete(); },
+        });
+    });
   }
 }

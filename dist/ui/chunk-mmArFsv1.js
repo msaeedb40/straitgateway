@@ -1,0 +1,1 @@
+var t=[{path:``,loadComponent:()=>import(`./chunk-BqJWkpez2.js`).then(e=>e.TraceListComponent),title:`Traces — StraitGateway`},{path:`:traceId`,loadComponent:()=>import(`./chunk-8pqThF24.js`).then(e=>e.TraceDetailComponent),title:`Trace Detail — StraitGateway`}];export{t as TRACES_ROUTES};

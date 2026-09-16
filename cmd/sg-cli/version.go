@@ -6,8 +6,8 @@ package main
 import (
 	"fmt"
 
-	"github.com/spf13/cobra"
 	"github.com/msaeedb40/straitgateway/internal/version"
+	"github.com/spf13/cobra"
 )
 
 func newVersionCmd() *cobra.Command {

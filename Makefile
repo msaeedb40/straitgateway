@@ -6,7 +6,7 @@
 # ============================================================
 MODULE      := github.com/msaeedb40/straitgateway
 REGISTRY    := ghcr.io/msaeedb40
-VERSION     ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
+VERSION     ?= $(shell git describe --tags --always  2>/dev/null || echo "dev")
 COMMIT      ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo "none")
 BUILD_DATE  ?= $(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
 GOARCH      ?= $(shell go env GOARCH)
@@ -26,8 +26,8 @@ PLATFORMS   := linux/amd64 linux/arm64
 HELM_CHART  := straitgateway-helm
 HELM_DIST   := dist/charts
 
-KIND_CLUSTER   := straitgateway-dev
-MINIKUBE_PROFILE := straitgateway-dev
+KIND_CLUSTER   := straitgateway-kind-cluster # Kind cluster name
+MINIKUBE_PROFILE := straitgateway-minikube-profile # Minikube profile name
 
 IMAGE_CONTROLLER := $(REGISTRY)/straitgateway-controller:$(VERSION)
 IMAGE_DAEMON     := $(REGISTRY)/straitgatewayd:$(VERSION)
@@ -47,21 +47,28 @@ help: ## Show this help
 # ============================================================
 # Generate
 # ============================================================
+CONTROLLER_GEN ?= $(shell which controller-gen 2>/dev/null || echo $(HOME)/go/bin/controller-gen)
+
 .PHONY: generate
 generate: generate-deepcopy generate-crds generate-bpf ## Run all code generators
 
 .PHONY: generate-deepcopy
 generate-deepcopy: ## Generate DeepCopy methods
-	go run sigs.k8s.io/controller-tools/cmd/controller-gen \
+	$(CONTROLLER_GEN) \
 	  object:headerFile=hack/boilerplate/license_header.txt \
 	  paths="./api/..."
 
 .PHONY: generate-crds
 generate-crds: ## Generate CRD YAML manifests
-	go run sigs.k8s.io/controller-tools/cmd/controller-gen \
+	$(CONTROLLER_GEN) \
 	  crd:maxDescLen=0 \
 	  paths="./api/..." \
-	  output:crd:dir=$(HELM_CHART)/charts/crds
+	  output:crd:dir=$(HELM_CHART)/charts/crds/templates
+	@for f in $(HELM_CHART)/charts/crds/templates/straitgateway.io_*.yaml; do \
+	  if [ -f "$$f" ]; then \
+	    mv "$$f" "$$(echo $$f | sed 's/straitgateway.io_//')"; \
+	  fi; \
+	done
 
 .PHONY: generate-bpf
 generate-bpf: ## Generate eBPF Go bindings with bpf2go
@@ -71,7 +78,7 @@ generate-bpf: ## Generate eBPF Go bindings with bpf2go
 # Build
 # ============================================================
 .PHONY: build
-build: build-controller build-daemon build-cli ## Build all Go binaries
+build: build-controller build-daemon build-cli build-cni ## Build all Go binaries
 
 .PHONY: build-controller
 build-controller: ## Build sg-controller binary
@@ -93,6 +100,13 @@ build-cli: ## Build sg-cli binary
 	  -ldflags "$(LDFLAGS)" \
 	  -o bin/sg-cli \
 	  ./cmd/sg-cli
+
+.PHONY: build-cni
+build-cni: ## Build straitgateway-cni binary
+	CGO_ENABLED=0 GOOS=$(GOOS) GOARCH=$(GOARCH) go build \
+	  -ldflags "$(LDFLAGS)" \
+	  -o bin/straitgateway-cni \
+	  ./cni
 
 .PHONY: build-bpf
 build-bpf: ## Compile eBPF C programs
@@ -243,7 +257,7 @@ kind-delete: ## Delete kind development cluster
 
 .PHONY: kind-load
 kind-load: docker-build ## Load images into kind cluster
-	bash scripts/kind/load-image.sh $(IMAGE_CONTROLLER) $(IMAGE_DAEMON) $(IMAGE_CLI)
+	bash scripts/kind/load-image.sh $(IMAGE_CONTROLLER) $(IMAGE_DAEMON) $(IMAGE_CLI) $(IMAGE_UI)
 
 .PHONY: kind-install
 kind-install: kind-load ## Install straitgateway into kind cluster
@@ -266,7 +280,7 @@ minikube-create: ## Create minikube development cluster
 
 .PHONY: minikube-load
 minikube-load: docker-build ## Load images into minikube
-	bash scripts/minikube/load-image.sh $(IMAGE_CONTROLLER) $(IMAGE_DAEMON) $(IMAGE_CLI)
+	bash scripts/minikube/load-image.sh $(IMAGE_CONTROLLER) $(IMAGE_DAEMON) $(IMAGE_CLI) $(IMAGE_UI)
 
 .PHONY: minikube-install
 minikube-install: minikube-load ## Install straitgateway into minikube
@@ -298,12 +312,49 @@ install-clang: ## Install clang-22 / llvm-22
 	bash hack/install/install-clang.sh
 
 # ============================================================
+# Distribution & UI
+# ============================================================
+.PHONY: ui-build
+ui-build: ## Build Angular 22 Dashboard UI
+	npm --prefix ui run build
+
+.PHONY: dist-crds
+dist-crds: ## Build standalone all-in-one CRD bundle
+	mkdir -p dist/crds
+	@echo "# Copyright 2026 straitgateway Authors — SPDX-License-Identifier: Apache-2.0" > dist/crds/straitgateway-crds.yaml
+	@echo "# Straitgateway CustomResourceDefinitions (All-in-One Standalone Bundle)" >> dist/crds/straitgateway-crds.yaml
+	@echo "# Apply directly via: kubectl apply -f straitgateway-crds.yaml" >> dist/crds/straitgateway-crds.yaml
+	@for crd in $(HELM_CHART)/charts/crds/templates/*.yaml; do \
+	  echo "---" >> dist/crds/straitgateway-crds.yaml; \
+	  cat "$$crd" >> dist/crds/straitgateway-crds.yaml; \
+	done
+
+.PHONY: dist-bin
+dist-bin: ## Build multi-arch binaries and release tarballs
+	bash hack/build/build-all.sh
+
+.PHONY: dist-ui
+dist-ui: ## Stage compiled UI into dist/ui/
+	mkdir -p dist/ui
+	@if [ -d ui/dist/ui/browser ]; then \
+	  cp -r ui/dist/ui/browser/* dist/ui/; \
+	  cp dist/ui/index.csr.html dist/ui/index.html 2>/dev/null || true; \
+	fi
+
+.PHONY: dist-charts
+dist-charts: ## Package Helm chart and generate repo pages
+	bash hack/pages/generate-pages.sh
+
+.PHONY: dist
+dist: dist-crds dist-bin dist-charts dist-ui ## Build complete distribution (charts, crds, binaries, ui)
+
+# ============================================================
 # Clean
 # ============================================================
 .PHONY: clean
 clean: ## Remove build artifacts
-	rm -rf bin/ dist/ bpf/*.o ebpf/*_bpfel.go ebpf/*_bpfeb.go
+	rm -rf bin/ dist/bin/ dist/releases/ dist/ui/ bpf/*.o ebpf/*_bpfel.go ebpf/*_bpfeb.go
 
 .PHONY: clean-all
 clean-all: clean ## Remove all generated files
-	rm -rf straitgateway-helm/charts/crds/*.yaml
+	rm -rf straitgateway-helm/charts/crds/*.yaml dist/charts/*.tgz

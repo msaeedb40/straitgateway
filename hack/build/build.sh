@@ -4,7 +4,7 @@
 set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "${REPO_ROOT}"
-OUTPUT="${OUTPUT:-dist}"
+OUTPUT="${OUTPUT:-bin}"
 mkdir -p "${OUTPUT}"
 VERSION="${VERSION:-$(git describe --tags --always --dirty 2>/dev/null || echo dev)}"
 COMMIT="${COMMIT:-$(git rev-parse --short HEAD 2>/dev/null || echo none)}"
@@ -18,4 +18,7 @@ for cmd in straitgatewayd sg-controller sg-cli; do
   echo "→ Building ${cmd}..."
   CGO_ENABLED=0 go build -ldflags="${LDFLAGS}" -o "${OUTPUT}/${cmd}" "./cmd/${cmd}/"
 done
+
+echo "→ Building straitgateway-cni..."
+CGO_ENABLED=0 go build -ldflags="${LDFLAGS}" -o "${OUTPUT}/straitgateway-cni" "./cni"
 echo "✓ Binaries written to ${OUTPUT}/"

@@ -1,7 +1,7 @@
 version: v2
-name: buf.build/msaeedb40/straitgateway
 modules:
   - path: .
+    name: buf.build/msaeedb40/straitgateway
 lint:
   use:
     - STANDARD

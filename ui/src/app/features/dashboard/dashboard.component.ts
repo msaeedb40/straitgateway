@@ -1,325 +1,296 @@
-// Copyright 2026 straitgateway Authors
-// SPDX-License-Identifier: Apache-2.0
-
-import { Component, inject, signal, computed, OnInit } from '@angular/core';
-import { CommonModule } from '@angular/common';
-import { ApiClient, DashboardSummary, KubeEvent } from '../../core/api/api-client';
-import { NamespaceService } from '../../core/services/namespace.service';
-import { TopologyGraphComponent } from '../../shared/topology/topology-graph.component';
-import { SparklineComponent } from '../../shared/charts/sparkline.component';
-import { calculateClusterHealth, getHealthStatusInfo, formatRate } from '../../shared/utilities';
-import { catchError, of } from 'rxjs';
+import { Component, inject, OnInit, signal, computed, DestroyRef } from '@angular/core';
+import { DecimalPipe, SlicePipe } from '@angular/common';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { RouterLink } from '@angular/router';
+import { forkJoin } from 'rxjs';
+import { GatewayApiService } from '../../core/api/resources/gateway.api';
+import { NodeApiService } from '../../core/api/resources/node.api';
+import { TunnelApiService } from '../../core/api/resources/tunnel.api';
+import { EventApiService } from '../../core/api/resources/event.api';
+import { FlowApiService } from '../../core/api/resources/flow.api';
+import { TopologyApiService } from '../../core/api/resources/topology.api';
+import { ContextService } from '../../core/services/context.service';
+import { ConnectionService } from '../../core/services/connection.service';
+import { RuntimeConfigService } from '../../core/config/runtime-config.service';
+import { PrometheusApiService } from '../../core/api/observability/prometheus.api';
+import { SkeletonComponent, SkeletonListComponent } from '../../shared/components/skeleton/skeleton.component';
+import { ErrorStateComponent } from '../../shared/components/error-state/error-state.component';
+import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
+import { LineChartComponent } from '../../shared/charts/line-chart/line-chart.component';
+import { TopologyGraphComponent } from '../../shared/topology/topology-graph/topology-graph.component';
+import { BreadcrumbsComponent } from '../../layout/breadcrumbs/breadcrumbs.component';
+import { ApiError } from '../../core/api/api-error';
+import { Gateway } from '../../core/models/gateway.model';
+import { StraitEvent } from '../../core/models/event.model';
+import { Flow } from '../../core/models/flow.model';
+import { TopologyGraph } from '../../core/models/topology.model';
+import { MetricQueryResult } from '../../core/models/metric.model';
 
 @Component({
-  selector: 'app-dashboard',
-  standalone: true,
-  imports: [CommonModule, TopologyGraphComponent, SparklineComponent],
+  selector: 'sg-dashboard',
+  imports: [
+    RouterLink, BreadcrumbsComponent, DecimalPipe, SlicePipe,
+    SkeletonComponent, SkeletonListComponent, ErrorStateComponent,
+    StatusBadgeComponent, LineChartComponent, TopologyGraphComponent,
+  ],
   template: `
-<div class="sg-fade-in">
-  <!-- Page Header -->
-  <div class="sg-page-header">
-    <div>
-      <h1 class="sg-page-title">
-        Gateway Overview
-      </h1>
-      <p class="sg-page-subtitle">
-        Real-time cluster networking, eBPF dataplane status, and traffic topology · Namespace: <span class="mono text-accent">{{ ns.active() || 'all' }}</span>
-      </p>
-    </div>
-    <div style="display:flex;align-items:center;gap:10px">
-      <span class="sg-badge active" style="display:flex;align-items:center;gap:6px">
-        <span style="width:6px;height:6px;border-radius:50%;background:var(--sg-success);animation:pulse 2s infinite"></span>
-        eBPF RingBuffer Active
-      </span>
-      <button class="sg-btn sg-btn-secondary" (click)="refresh()">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
-        </svg>
-        <span>Refresh</span>
-      </button>
-    </div>
-  </div>
+    <div class="sg-page">
+      <sg-breadcrumbs />
 
-  <!-- Stat Cards: Nodes, Gateways, Tunnels, Dynamic Health -->
-  @if (summary(); as s) {
-    <div class="sg-stat-grid">
-      <!-- Nodes Card -->
-      <div class="sg-stat-card" style="border-top:3px solid #6366f1">
-        <div class="sg-stat-label">Nodes</div>
-        <div class="sg-stat-value text-accent">
-          {{ s.readyNodes }}<span style="font-size:16px;font-weight:400;color:var(--sg-text-2)">/{{ s.totalNodes }}</span>
-        </div>
-        <div class="sg-stat-meta">
-          <span class="good" style="display:flex;align-items:center;gap:6px">
-            <span style="width:6px;height:6px;border-radius:50%;background:var(--sg-success);box-shadow:0 0 8px var(--sg-success)"></span>
-            {{ s.readyNodes === s.totalNodes ? 'All Healthy' : 'Partially Ready' }}
-          </span>
-        </div>
-      </div>
+      <header class="sg-page-header">
+        <h1 class="sg-page-title">Dashboard</h1>
+        <span class="sg-context-chip" role="status" aria-live="polite">
+          {{ context.selectedCluster() ?? '—' }} / {{ context.selectedNamespace() || '—' }}
+        </span>
+      </header>
 
-      <!-- Gateways Card -->
-      <div class="sg-stat-card" style="border-top:3px solid #818cf8">
-        <div class="sg-stat-label">Gateways</div>
-        <div class="sg-stat-value">{{ s.activeGateways }}</div>
-        <div class="sg-stat-meta">
-          <span class="good" style="display:flex;align-items:center;gap:6px">
-            <span style="width:6px;height:6px;border-radius:50%;background:var(--sg-accent-light);box-shadow:0 0 8px var(--sg-accent-light)"></span>
-            Online (v1.6.1)
-          </span>
+      <!-- Summary counters -->
+      <section aria-labelledby="dashboard-summary-heading">
+        <h2 id="dashboard-summary-heading" class="sg-sr-only">Resource summary</h2>
+        <div class="sg-summary-grid">
+          @for (card of summaryCards(); track card.label) {
+            <a [routerLink]="card.route" class="sg-summary-card sg-card" [attr.aria-label]="card.label + ': ' + card.count">
+              @if (loading()) {
+                <sg-skeleton variant="line" width="40px" height="28px" />
+                <sg-skeleton variant="line" width="80px" />
+              } @else {
+                <span class="sg-summary-count">{{ card.count }}</span>
+                <span class="sg-summary-label">{{ card.label }}</span>
+              }
+            </a>
+          }
         </div>
-      </div>
+      </section>
 
-      <!-- Tunnels Card -->
-      <div class="sg-stat-card" style="border-top:3px solid #22c55e">
-        <div class="sg-stat-label">Tunnels</div>
-        <div class="sg-stat-value">{{ s.activeTunnels }}</div>
-        <div class="sg-stat-meta">
-          <span class="good" style="display:flex;align-items:center;gap:6px">
-            <span style="width:6px;height:6px;border-radius:50%;background:var(--sg-success);box-shadow:0 0 8px var(--sg-success)"></span>
-            Active Mesh
-          </span>
-        </div>
-      </div>
+      <div class="sg-dashboard-grid">
+        <!-- Mini topology -->
+        <section class="sg-card sg-dashboard-topology" aria-labelledby="dashboard-topology-heading">
+          <h2 id="dashboard-topology-heading" class="sg-section-title">Network Topology</h2>
+          @if (topologyLoading()) {
+            <sg-skeleton variant="block" height="260px" />
+          } @else if (topology()) {
+            <div class="sg-mini-topology-canvas">
+              <sg-topology-graph [graph]="topology()!" />
+            </div>
+          }
+          <a routerLink="/topology" class="sg-card-link">View full topology →</a>
+        </section>
 
-      <!-- Dynamically Computed Health Card -->
-      <div
-        class="sg-stat-card"
-        [style.border-top]="'3px solid ' + (healthInfo().status === 'Good' ? 'var(--sg-success)' : healthInfo().status === 'Degraded' ? 'var(--sg-warn)' : 'var(--sg-danger)')"
-      >
-        <div class="sg-stat-label">Health</div>
-        <div
-          class="sg-stat-value"
-          [style.color]="healthInfo().status === 'Good' ? 'var(--sg-success)' : healthInfo().status === 'Degraded' ? 'var(--sg-warn)' : 'var(--sg-danger)'"
-        >
-          {{ s.healthPercentage | number:'1.0-1' }}%
-        </div>
-        <div class="sg-stat-meta">
-          <span [class]="healthInfo().status === 'Good' ? 'good' : 'warn'" style="display:flex;align-items:center;gap:6px">
-            <span
-              [style.background]="healthInfo().status === 'Good' ? 'var(--sg-success)' : healthInfo().status === 'Degraded' ? 'var(--sg-warn)' : 'var(--sg-danger)'"
-              [style.box-shadow]="'0 0 8px ' + (healthInfo().status === 'Good' ? 'var(--sg-success)' : 'var(--sg-warn)')"
-              style="width:6px;height:6px;border-radius:50%"
-            ></span>
-            ● {{ healthInfo().status }}
-          </span>
-        </div>
-      </div>
-    </div>
+        <!-- Traffic chart -->
+        <section class="sg-card sg-dashboard-traffic" aria-labelledby="dashboard-traffic-heading">
+          <h2 id="dashboard-traffic-heading" class="sg-section-title">Traffic Overview</h2>
+          @if (trafficLoading()) {
+            <sg-skeleton variant="block" height="180px" />
+          } @else {
+            <sg-line-chart
+              [series]="trafficSeries()"
+              label="Network traffic RX/TX bytes per second"
+              unit="B/s"
+            />
+          }
+          <a routerLink="/metrics" class="sg-card-link">View metrics →</a>
+        </section>
 
-    <!-- Live Telemetry Sparkline Strip -->
-    <div class="sg-card" style="margin-bottom:20px;padding:12px 18px">
-      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:16px">
-        <div style="display:flex;align-items:center;gap:24px">
-          <div>
-            <span style="font-size:11px;color:var(--sg-text-3);text-transform:uppercase;letter-spacing:0.05em">Flow Rate</span>
-            <div style="font-size:17px;font-weight:700;color:var(--sg-text)">{{ formatFlowRate(s.totalFlowsPerSec) }}</div>
-          </div>
-          <sg-sparkline [data]="flowThroughputHistory()" [color]="'var(--sg-accent-light)'" [width]="140" [height]="32" />
-        </div>
-
-        <div style="display:flex;align-items:center;gap:24px">
-          <div>
-            <span style="font-size:11px;color:var(--sg-text-3);text-transform:uppercase;letter-spacing:0.05em">Drop Rate</span>
-            <div style="font-size:17px;font-weight:700;color:var(--sg-success)">{{ formatFlowRate(s.droppedFlowsPerSec) }}</div>
-          </div>
-          <sg-sparkline [data]="dropRateHistory()" [color]="'var(--sg-success)'" [width]="140" [height]="32" />
-        </div>
-
-        <div style="display:flex;align-items:center;gap:12px">
-          <span class="mono text-xs" style="color:var(--sg-text-3)">Kernel: 6.6+ LTS</span>
-          <span class="mono text-xs" style="color:var(--sg-text-3)">BPF Maps: Synced</span>
-        </div>
-      </div>
-    </div>
-  } @else {
-    <div class="sg-stat-grid">
-      @for (i of [1,2,3,4]; track i) {
-        <div class="sg-stat-card">
-          <div class="sg-skeleton" style="height:12px;width:60%;margin-bottom:8px"></div>
-          <div class="sg-skeleton" style="height:34px;width:40%;margin-bottom:8px"></div>
-          <div class="sg-skeleton" style="height:12px;width:80%"></div>
-        </div>
-      }
-    </div>
-  }
-
-  <!-- Topology Card with D3 Real Traffic Flow -->
-  <div class="sg-card">
-    <div class="sg-card-header">
-      <div style="display:flex;align-items:center;gap:10px">
-        <span class="sg-card-title">Topology</span>
-        <span style="font-size:12px;color:var(--sg-text-3)">real traffic flow</span>
-      </div>
-      <span class="text-muted text-xs">Right-click nodes for actions</span>
-    </div>
-    <div style="padding:16px">
-      <sg-topology-graph [height]="380" />
-    </div>
-  </div>
-
-  <!-- Two Column Layout: Events + Dataplane Subsystems -->
-  <div class="grid-2">
-    <!-- Recent Events -->
-    <div class="sg-card" style="margin-bottom:0">
-      <div class="sg-card-header">
-        <span class="sg-card-title">Recent Events</span>
-        <span class="text-muted text-sm">{{ filteredEvents().length }} Events</span>
-      </div>
-      <div class="sg-card-body p-0">
-        <div class="sg-table-wrap">
-          <table class="sg-table">
-            <thead>
-              <tr>
-                <th>Type</th>
-                <th>Namespace</th>
-                <th>Reason</th>
-                <th>Message</th>
-                <th>Age</th>
-              </tr>
-            </thead>
-            <tbody>
-              @if (filteredEvents().length) {
-                @for (ev of filteredEvents(); track ev.name) {
+        <!-- Active flows -->
+        <section class="sg-card sg-dashboard-flows" aria-labelledby="dashboard-flows-heading">
+          <h2 id="dashboard-flows-heading" class="sg-section-title">Active Flows</h2>
+          @if (loading()) {
+            <sg-skeleton-list [count]="5" />
+          } @else if (flows().length === 0) {
+            <p class="sg-empty-inline">No active flows</p>
+          } @else {
+            <table class="sg-table" aria-label="Active flows">
+              <thead><tr>
+                <th scope="col">Source</th>
+                <th scope="col">Destination</th>
+                <th scope="col">Protocol</th>
+                <th scope="col">Rate</th>
+                <th scope="col">State</th>
+              </tr></thead>
+              <tbody>
+                @for (f of flows(); track f.id) {
                   <tr>
-                    <td>
-                      <span class="sg-badge" [class]="ev.type === 'Warning' ? 'warn' : 'active'">
-                        {{ ev.type }}
-                      </span>
-                    </td>
-                    <td class="mono">{{ ev.namespace }}</td>
-                    <td style="font-weight:500">{{ ev.reason }}</td>
-                    <td class="truncate" style="max-width:260px" [title]="ev.message">{{ ev.message }}</td>
-                    <td class="text-muted">{{ ev.lastSeen }}</td>
+                    <td class="sg-mono-value">{{ f.sourceIP }}:{{ f.sourcePort }}</td>
+                    <td class="sg-mono-value">{{ f.destinationIP }}:{{ f.destinationPort }}</td>
+                    <td>{{ f.protocol }}</td>
+                    <td class="sg-mono-value">{{ f.bytesPerSecond | number:'1.0-0' }} B/s</td>
+                    <td><sg-status-badge [variant]="f.state === 'Active' ? 'healthy' : 'degraded'" /></td>
                   </tr>
                 }
-              } @else {
-                <tr>
-                  <td colspan="5">
-                    <div class="sg-empty">
-                      <p>No recent events recorded in this namespace.</p>
-                    </div>
-                  </td>
-                </tr>
-              }
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </div>
+              </tbody>
+            </table>
+          }
+          <a routerLink="/flows" class="sg-card-link">View all flows →</a>
+        </section>
 
-    <!-- Dataplane Subsystem Status -->
-    <div class="sg-card" style="margin-bottom:0">
-      <div class="sg-card-header">
-        <span class="sg-card-title">Dataplane Subsystems</span>
-        <span class="text-muted text-sm">{{ activeSubsystemsCount() }} Active</span>
+        <!-- Gateway health -->
+        <section class="sg-card sg-dashboard-gateways" aria-labelledby="dashboard-gw-heading">
+          <h2 id="dashboard-gw-heading" class="sg-section-title">Gateway Health</h2>
+          @if (loading()) {
+            <sg-skeleton-list [count]="4" />
+          } @else {
+            @for (gw of gateways(); track gw.metadata.name) {
+              <div class="sg-gw-row">
+                <a [routerLink]="['/gateways', gw.metadata.name]" class="sg-gw-name">{{ gw.metadata.name }}</a>
+                <sg-status-badge [phase]="gw.status.phase" />
+              </div>
+            }
+          }
+          <a routerLink="/gateways" class="sg-card-link">View all gateways →</a>
+        </section>
+
+        <!-- Events feed -->
+        <section class="sg-card sg-dashboard-events" aria-labelledby="dashboard-events-heading">
+          <h2 id="dashboard-events-heading" class="sg-section-title">Recent Events</h2>
+          @if (loading()) {
+            <sg-skeleton-list [count]="5" />
+          } @else {
+            @for (ev of events(); track ev.uid) {
+              <div class="sg-event-row">
+                <time class="sg-event-time" [attr.datetime]="ev.timestamp">{{ ev.timestamp | slice:11:19 }}</time>
+                <span class="sg-event-kind">{{ ev.resourceKind }}</span>
+                <span class="sg-event-name">{{ ev.resourceName }}</span>
+                <span class="sg-event-msg sg-truncate">{{ ev.message }}</span>
+              </div>
+            }
+          }
+          <a routerLink="/events" class="sg-card-link">View all events →</a>
+        </section>
       </div>
-      <div class="sg-card-body" style="display:flex;flex-direction:column;gap:10px">
-        @for (subsystem of dataplaneSubsystems(); track subsystem.name) {
-          <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--sg-surface-2);border-radius:var(--sg-radius-sm);border:1px solid var(--sg-border)">
-            <div style="display:flex;align-items:center;gap:10px">
-              <span [style.background]="subsystem.status === 'Active' ? 'var(--sg-success)' : 'var(--sg-warn)'" style="display:inline-block;width:7px;height:7px;border-radius:50%"></span>
-              <span style="font-size:13px;font-weight:500;color:var(--sg-text)">{{ subsystem.name }}</span>
-            </div>
-            <span class="sg-badge" [class]="subsystem.status === 'Active' ? 'active' : 'warn'">{{ subsystem.status }}</span>
-          </div>
-        }
-      </div>
+
+      @if (loadError()) {
+        <sg-error-state [error]="loadError()" (retry)="load()" />
+      }
     </div>
-  </div>
-</div>
   `,
   styles: [`
-    @keyframes pulse {
-      0% { opacity: 0.4; }
-      50% { opacity: 1; }
-      100% { opacity: 0.4; }
+    .sg-context-chip {
+      font-size: 0.75rem; color: var(--sg-text-muted);
+      background: var(--sg-bg-elevated);
+      border: 1px solid var(--sg-border);
+      border-radius: 999px;
+      padding: 3px 10px;
     }
+    .sg-summary-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+      gap: 12px;
+    }
+    .sg-summary-card {
+      display: flex; flex-direction: column; gap: 4px;
+      text-decoration: none;
+      transition: transform var(--sg-transition-fast), border-color var(--sg-transition-fast);
+    }
+    .sg-summary-card:hover { transform: translateY(-2px); }
+    .sg-summary-count { font-size: 1.75rem; font-weight: 700; color: var(--sg-accent); font-family: var(--sg-font-mono); }
+    .sg-summary-label { font-size: 0.75rem; color: var(--sg-text-secondary); font-weight: 500; }
+
+    .sg-dashboard-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      grid-template-rows: auto;
+      gap: 16px;
+    }
+    @media (max-width: 900px) { .sg-dashboard-grid { grid-template-columns: 1fr; } }
+
+    .sg-dashboard-topology { grid-column: 1; }
+    .sg-dashboard-traffic  { grid-column: 2; }
+    .sg-dashboard-flows    { grid-column: 1; }
+    .sg-dashboard-gateways { grid-column: 2; }
+    .sg-dashboard-events   { grid-column: 1 / -1; }
+
+    .sg-section-title { font-size: 0.8125rem; font-weight: 600; color: var(--sg-text-secondary); margin-bottom: 12px; text-transform: uppercase; letter-spacing: 0.05em; }
+    .sg-mini-topology-canvas { height: 260px; }
+    .sg-card-link { display: block; margin-top: 12px; font-size: 0.75rem; color: var(--sg-accent); text-decoration: none; }
+    .sg-card-link:hover { text-decoration: underline; }
+    .sg-gw-row { display: flex; align-items: center; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid var(--sg-border); }
+    .sg-gw-name { font-size: 0.8125rem; color: var(--sg-text-primary); text-decoration: none; }
+    .sg-gw-name:hover { color: var(--sg-accent); }
+    .sg-event-row { display: grid; grid-template-columns: 60px 90px 1fr 2fr; gap: 8px; padding: 5px 0; border-bottom: 1px solid var(--sg-border); font-size: 0.75rem; align-items: center; }
+    .sg-event-time { color: var(--sg-text-muted); font-family: var(--sg-font-mono); }
+    .sg-event-kind { color: var(--sg-accent); font-weight: 500; }
+    .sg-event-name { color: var(--sg-text-secondary); }
+    .sg-event-msg  { color: var(--sg-text-muted); }
+    .sg-empty-inline { color: var(--sg-text-muted); font-size: 0.8125rem; padding: 1rem 0; }
   `],
 })
 export class DashboardComponent implements OnInit {
-  private api = inject(ApiClient);
-  readonly ns = inject(NamespaceService);
+  readonly context    = inject(ContextService);
+  readonly connection = inject(ConnectionService);
+  private readonly runtimeConfig  = inject(RuntimeConfigService);
+  private readonly gatewayApi     = inject(GatewayApiService);
+  private readonly nodeApi        = inject(NodeApiService);
+  private readonly tunnelApi      = inject(TunnelApiService);
+  private readonly flowApi        = inject(FlowApiService);
+  private readonly eventApi       = inject(EventApiService);
+  private readonly topologyApi    = inject(TopologyApiService);
+  private readonly prometheusApi  = inject(PrometheusApiService);
+  private readonly destroyRef     = inject(DestroyRef);
 
-  summary = signal<DashboardSummary | null>(null);
-  events = signal<KubeEvent[]>([]);
-  loading = signal<boolean>(false);
+  readonly loading        = signal(false);
+  readonly topologyLoading = signal(false);
+  readonly trafficLoading = signal(false);
+  readonly loadError      = signal<ApiError | null>(null);
 
-  // Sparkline history buffers
-  flowThroughputHistory = signal<number[]>([120, 145, 138, 160, 185, 172, 195, 210, 204, 220]);
-  dropRateHistory = signal<number[]>([4, 2, 5, 1, 0, 2, 0, 1, 0, 0]);
+  readonly gateways  = signal<Gateway[]>([]);
+  readonly flows     = signal<Flow[]>([]);
+  readonly events    = signal<StraitEvent[]>([]);
+  readonly topology  = signal<TopologyGraph | null>(null);
+  readonly trafficSeries = signal<MetricQueryResult['series']>([]);
 
-  dataplaneSubsystems = signal<Array<{ name: string; status: string }>>([
-    { name: 'CNI / NetKit', status: 'Active' },
-    { name: 'Service LB (Maglev)', status: 'Active' },
-    { name: 'kube-proxy Replacement', status: 'Active' },
-    { name: 'NetworkPolicy (eBPF)', status: 'Active' },
-    { name: 'Gateway API v1.6.1', status: 'Active' },
-    { name: 'Transit Gateway', status: 'Active' },
-    { name: 'BGP / BFD', status: 'Active' },
+  readonly summaryCards = computed(() => [
+    { label: 'Gateways', count: this.gateways().length,    route: '/gateways' },
+    { label: 'Flows',    count: this.flows().length,       route: '/flows' },
+    { label: 'Events',   count: this.events().length,      route: '/events' },
   ]);
 
-  filteredEvents = computed(() => {
-    const activeNs = this.ns.active();
-    const all = this.events();
-    if (!activeNs || activeNs === '') return all;
-    return all.filter(e => e.namespace === activeNs);
-  });
+  ngOnInit(): void { this.load(); }
 
-  healthInfo = computed(() => {
-    const s = this.summary();
-    return getHealthStatusInfo(s?.healthPercentage ?? 100);
-  });
-
-  activeSubsystemsCount() {
-    return this.dataplaneSubsystems().filter(s => s.status === 'Active').length;
-  }
-
-  formatFlowRate(rate: number): string {
-    return formatRate(rate, 'flows/s');
-  }
-
-  ngOnInit() {
-    this.refresh();
-  }
-
-  refresh() {
+  load(): void {
+    const ns  = this.context.selectedNamespace();
+    const cl  = this.context.selectedCluster() ?? undefined;
     this.loading.set(true);
+    this.loadError.set(null);
 
-    // Fetch dashboard summary and dynamically compute health
-    this.api.getDashboard().pipe(catchError(() => of(null))).subscribe(s => {
-      if (s) {
-        const dynamicHealth = calculateClusterHealth({
-          readyNodes: s.readyNodes,
-          totalNodes: s.totalNodes,
-          activeGateways: s.activeGateways,
-          totalGateways: s.totalGateways,
-          activeTunnels: s.activeTunnels,
-          totalTunnels: s.totalTunnels,
-          droppedFlowsPerSec: s.droppedFlowsPerSec,
-          totalFlowsPerSec: s.totalFlowsPerSec,
-        });
-
-        this.summary.set({
-          ...s,
-          healthPercentage: dynamicHealth,
-        });
-
-        // Update live sparklines
-        this.flowThroughputHistory.update(arr => [...arr.slice(1), s.totalFlowsPerSec || 200]);
-        this.dropRateHistory.update(arr => [...arr.slice(1), s.droppedFlowsPerSec || 0]);
-      }
-      this.loading.set(false);
+    forkJoin({
+      gateways: this.gatewayApi.list({ namespace: ns, cluster: cl, pageSize: 20 }),
+      flows:    this.flowApi.list({ namespace: ns, cluster: cl, state: 'Active', pageSize: 10 }),
+      events:   this.eventApi.list({ namespace: ns, cluster: cl, pageSize: 10 }),
+    }).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+      next: (res) => {
+        this.gateways.set(res.gateways.items);
+        this.flows.set(res.flows.items);
+        this.events.set(res.events.items);
+        this.loading.set(false);
+        this.loadTopology(ns, cl);
+        this.loadTraffic();
+      },
+      error: (err) => { this.loadError.set(err); this.loading.set(false); },
     });
+  }
 
-    this.api.getEvents().pipe(catchError(() => of([]))).subscribe(e => this.events.set(e));
+  private loadTopology(ns: string, cl?: string): void {
+    if (!cl) return;
+    this.topologyLoading.set(true);
+    this.topologyApi.getGraph(cl, ns)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (g)  => { this.topology.set(g); this.topologyLoading.set(false); },
+        error: ()  => this.topologyLoading.set(false),
+      });
+  }
 
-    // Verify CNI status from live controller API
-    this.api.getCniStatus().pipe(catchError(() => of([]))).subscribe(nodes => {
-      const cniActive = nodes.length > 0 ? nodes.every(n => n.status === 'Ready') : true;
-      this.dataplaneSubsystems.update(list => list.map(item => {
-        if (item.name === 'CNI / NetKit') return { ...item, status: cniActive ? 'Active' : 'Degraded' };
-        return item;
-      }));
+  private loadTraffic(): void {
+    this.trafficLoading.set(true);
+    const now   = new Date();
+    const start = new Date(now.getTime() - 30 * 60 * 1000).toISOString();
+    const end   = now.toISOString();
+    this.prometheusApi.queryRange({
+      query: 'sum(rate(straitgateway_traffic_bytes_total[1m]))',
+      start, end, step: '60s',
+    }).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+      next: (r)  => { this.trafficSeries.set(r.series); this.trafficLoading.set(false); },
+      error: ()  => this.trafficLoading.set(false),
     });
   }
 }

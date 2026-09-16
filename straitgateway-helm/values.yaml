@@ -33,6 +33,8 @@ images:
 cni:
   ## enabled controls CNI plugin installation.
   enabled: true
+  ## disableDefaultCNI disables any pre-existing default CNI plugin.
+  disableDefaultCNI: true
   ## installDir is the host path where the CNI binary is installed.
   installDir: /opt/cni/bin
   ## confDir is the host path for the CNI configuration file.
@@ -157,8 +159,8 @@ observability:
 
 ## ─── UI Dashboard ─────────────────────────────────────────────────────────────
 ui:
-  ## enabled deploys the Angular UI dashboard.
-  enabled: true
+  ## enabled deploys the Angular UI dashboard (disabled by default).
+  enabled: false
   replicaCount: 1
   service:
     type: ClusterIP
@@ -201,10 +203,6 @@ agent:
       maxUnavailable: 2
 
       
-
-
-
-
 
 ## ─── RBAC ─────────────────────────────────────────────────────────────────────
 rbac:

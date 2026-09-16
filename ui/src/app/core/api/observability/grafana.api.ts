@@ -1,42 +1,48 @@
-// Copyright 2026 straitgateway Authors
-// SPDX-License-Identifier: Apache-2.0
+import { inject, Injectable } from '@angular/core';
+import { Observable } from 'rxjs';
+import { ApiClient } from '../api-client';
+import { RuntimeConfigService } from '../../config/runtime-config.service';
 
-import { Injectable, inject } from '@angular/core';
-import { RuntimeConfigService } from '../../config/runtime-config';
-
-export interface GrafanaDashboardRef {
-  id: string;
-  title: string;
-  url: string;
-  embedUrl: string;
+export interface GrafanaDashboard {
+  readonly uid: string;
+  readonly title: string;
+  readonly url: string;
+  readonly tags: string[];
 }
 
 @Injectable({ providedIn: 'root' })
-export class GrafanaApi {
-  private config = inject(RuntimeConfigService);
+export class GrafanaApiService {
+  private readonly client = inject(ApiClient);
+  private readonly runtimeConfig = inject(RuntimeConfigService);
 
-  private get base() { return this.config.grafanaBase(); }
+  listDashboards(): Observable<GrafanaDashboard[]> {
+    return this.client.external<GrafanaDashboard[]>(
+      this.runtimeConfig.grafanaBase,
+      '/api/search?type=dash-db'
+    );
+  }
 
-  getDashboards(): GrafanaDashboardRef[] {
-    return [
-      {
-        id: 'sg-cluster-overview',
-        title: 'StraitGateway Cluster Networking',
-        url: `${this.base}/d/sg-cluster-overview/straitgateway-cluster-networking`,
-        embedUrl: `${this.base}/d-solo/sg-cluster-overview?orgId=1&panelId=1`,
-      },
-      {
-        id: 'sg-ebpf-dataplane',
-        title: 'eBPF Dataplane & Map Limits',
-        url: `${this.base}/d/sg-ebpf/straitgateway-ebpf-dataplane`,
-        embedUrl: `${this.base}/d-solo/sg-ebpf?orgId=1&panelId=2`,
-      },
-      {
-        id: 'sg-transit-tunnels',
-        title: 'Transit Gateway WireGuard Latency',
-        url: `${this.base}/d/sg-transit/straitgateway-transit-tunnels`,
-        embedUrl: `${this.base}/d-solo/sg-transit?orgId=1&panelId=3`,
-      },
-    ];
+  /** Returns the deep-link URL to a specific dashboard, optionally scoped to time range */
+  dashboardUrl(uid: string, params?: { from?: string; to?: string; vars?: Record<string, string> }): string {
+    const base = `${this.runtimeConfig.grafanaBase}/d/${uid}`;
+    const qs = new URLSearchParams();
+    if (params?.from) qs.set('from', params.from);
+    if (params?.to) qs.set('to', params.to);
+    for (const [k, v] of Object.entries(params?.vars ?? {})) {
+      qs.set(`var-${k}`, v);
+    }
+    const query = qs.toString();
+    return query ? `${base}?${query}` : base;
+  }
+
+  healthCheck(): Observable<boolean> {
+    return new Observable((observer) => {
+      this.client
+        .external<unknown>(this.runtimeConfig.grafanaBase, '/api/health')
+        .subscribe({
+          next: () => { observer.next(true); observer.complete(); },
+          error: () => { observer.next(false); observer.complete(); },
+        });
+    });
   }
 }

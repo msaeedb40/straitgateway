@@ -1,98 +1,112 @@
-// Copyright 2026 straitgateway Authors
-// SPDX-License-Identifier: Apache-2.0
-
-import { Component, HostListener, inject, signal } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { Component, inject, OnInit, OnDestroy, signal, computed } from '@angular/core';
 import { RouterOutlet } from '@angular/router';
+import { ConnectionService } from '../../core/services/connection.service';
 import { HeaderComponent } from '../header/header.component';
 import { SidebarComponent } from '../sidebar/sidebar.component';
-import { BreadcrumbsComponent } from '../breadcrumbs/breadcrumbs.component';
-import { CommandBarComponent } from '../command-bar/command-bar.component';
-import { ContextMenuComponent } from '../context-menu/context-menu.component';
-import { NotificationService } from '../../core/services/notification.service';
+import { ConnectionStatusComponent } from '../overlays/connection-status.component';
+import { PreferencesService } from '../../core/services/preferences.service';
 
 @Component({
   selector: 'sg-shell',
-  standalone: true,
-  imports: [
-    CommonModule,
-    RouterOutlet,
-    HeaderComponent,
-    SidebarComponent,
-    BreadcrumbsComponent,
-    CommandBarComponent,
-    ContextMenuComponent,
-  ],
+  imports: [RouterOutlet, HeaderComponent, SidebarComponent, ConnectionStatusComponent],
   template: `
-    <div class="sg-shell">
-      <!-- Header -->
+    <div class="sg-shell" [class.sg-sidebar-collapsed]="sidebarCollapsed()">
+      <!-- Skip to main content for accessibility -->
+      <a href="#sg-main-content" class="sg-skip-link">Skip to main content</a>
+
       <sg-header
-        (openCommandBar)="showCommandBar.set(true)"
-        (toggleSidebar)="sidebarOpen.update(v => !v)"
+        (toggleSidebar)="toggleSidebar()"
+        [sidebarCollapsed]="sidebarCollapsed()"
       />
 
-      <!-- Sidebar -->
-      <sg-sidebar [class.open]="sidebarOpen()" />
+      <div class="sg-shell-body">
+        <sg-sidebar [collapsed]="sidebarCollapsed()" />
 
-      <!-- Backdrop overlay on mobile when sidebar open -->
-      @if (sidebarOpen()) {
-        <div
-          (click)="sidebarOpen.set(false)"
-          style="position:fixed;inset:var(--sg-header-h) 0 0 0;background:rgba(0,0,0,0.6);z-index:998"
-        ></div>
-      }
-
-      <!-- Main Workspace -->
-      <main
-        class="sg-main"
-        (click)="sidebarOpen.set(false)"
-        style="overflow-y:auto;height:calc(100vh - var(--sg-header-h))"
-      >
-        <div class="sg-main-inner">
-          <sg-breadcrumbs />
+        <main
+          id="sg-main-content"
+          class="sg-main-content"
+          tabindex="-1"
+          role="main"
+        >
           <router-outlet />
-        </div>
-      </main>
+        </main>
+      </div>
 
-      <!-- Command Bar Modal -->
-      @if (showCommandBar()) {
-        <sg-command-bar (close)="showCommandBar.set(false)" />
-      }
-
-      <!-- Global Context Menu -->
-      <sg-context-menu />
-
-      <!-- Toast Notifications Container -->
-      <aside aria-label="Notifications" class="sg-toast-container">
-        @for (item of notif.notifications(); track item.id) {
-          <div
-            class="sg-toast"
-            [style.border-left-color]="item.type === 'danger' ? 'var(--sg-danger)' : item.type === 'warn' ? 'var(--sg-warn)' : item.type === 'success' ? 'var(--sg-success)' : 'var(--sg-accent)'"
-          >
-            <div>
-              <div style="font-size:13px;font-weight:600;color:var(--sg-text)">{{ item.title }}</div>
-              <div style="font-size:12px;color:var(--sg-text-2);margin-top:4px">{{ item.message }}</div>
-            </div>
-            <button
-              (click)="notif.dismiss(item.id)"
-              style="color:var(--sg-text-3);font-size:16px;line-height:1;padding:4px;cursor:pointer"
-            >×</button>
-          </div>
-        }
-      </aside>
+      <sg-connection-status />
     </div>
   `,
-})
-export class ShellComponent {
-  readonly notif = inject(NotificationService);
-  showCommandBar = signal<boolean>(false);
-  sidebarOpen = signal<boolean>(false);
-
-  @HostListener('window:keydown', ['$event'])
-  handleKeyboardEvent(event: KeyboardEvent) {
-    if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k') {
-      event.preventDefault();
-      this.showCommandBar.update((open) => !open);
+  styles: [`
+    .sg-shell {
+      display: grid;
+      grid-template-rows: var(--sg-header-height) 1fr;
+      grid-template-columns: 1fr;
+      height: 100dvh;
+      overflow: hidden;
+      background: var(--sg-bg-base);
     }
+
+    .sg-shell-body {
+      display: grid;
+      grid-template-columns: var(--sg-sidebar-width) 1fr;
+      grid-row: 2;
+      min-height: 0;
+      transition: grid-template-columns var(--sg-transition);
+    }
+
+    .sg-shell.sg-sidebar-collapsed .sg-shell-body {
+      grid-template-columns: var(--sg-sidebar-collapsed) 1fr;
+    }
+
+    .sg-main-content {
+      overflow-y: auto;
+      overflow-x: hidden;
+      background: var(--sg-bg-base);
+      min-width: 0;
+    }
+
+    .sg-skip-link {
+      position: absolute;
+      top: -100%;
+      left: 1rem;
+      z-index: 9999;
+      background: var(--sg-accent);
+      color: #0a0e1a;
+      padding: 8px 16px;
+      border-radius: 0 0 var(--sg-radius) var(--sg-radius);
+      font-weight: 600;
+      text-decoration: none;
+      transition: top var(--sg-transition-fast);
+    }
+    .sg-skip-link:focus { top: 0; }
+
+    @media (max-width: 768px) {
+      .sg-shell-body {
+        grid-template-columns: 0 1fr;
+      }
+      .sg-shell.sg-sidebar-collapsed .sg-shell-body {
+        grid-template-columns: 0 1fr;
+      }
+    }
+  `],
+})
+export class ShellComponent implements OnInit, OnDestroy {
+  private readonly connection = inject(ConnectionService);
+  private readonly preferences = inject(PreferencesService);
+
+  readonly sidebarCollapsed = signal<boolean>(
+    this.preferences.get<boolean>('sidebarCollapsed', false)
+  );
+
+  toggleSidebar(): void {
+    this.sidebarCollapsed.update((v) => !v);
+    this.preferences.set('sidebarCollapsed', this.sidebarCollapsed());
+  }
+
+  ngOnInit(): void {
+    this.connection.startPolling();
+  }
+
+  ngOnDestroy(): void {
+    this.connection.stopPolling();
   }
 }

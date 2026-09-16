@@ -10,6 +10,8 @@ import (
 
 	"github.com/vishvananda/netlink"
 	"golang.org/x/sys/unix"
+
+	"github.com/msaeedb40/straitgateway/pkg/linux"
 )
 
 const (
@@ -30,8 +32,9 @@ type HostInterface struct {
 // side into the pod network namespace. Returns the host-side interface info.
 //
 // NetKit device pair:
-//   host namespace   │   pod namespace
-//   sgk<id>     ←→  │   <ifName> (e.g. eth0)
+//
+//	host namespace   │   pod namespace
+//	sgk<id>     ←→  │   <ifName> (e.g. eth0)
 func setupNetKit(netns, ifName string, alloc *IPAllocation, mtu int) (*HostInterface, error) {
 	_ = alloc
 	if mtu == 0 {
@@ -148,9 +151,7 @@ func openNetNS(netns string) int {
 	return fd
 }
 
-// withNetNS executes fn inside the given network namespace.
+// withNetNS executes fn inside the given network namespace path.
 func withNetNS(netns string, fn func() error) error {
-	// Production implementation uses runtime/NS package to lock OS thread.
-	// Simplified for compilation — full implementation uses netns.Do().
-	return fn()
+	return linux.WithNetNS(netns, fn)
 }

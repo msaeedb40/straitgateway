@@ -1,0 +1,1 @@
+var t=[{path:``,loadComponent:()=>import(`./chunk-C7Oxq-WE2.js`).then(e=>e.FlowListComponent),title:`Flows — StraitGateway`},{path:`:id`,loadComponent:()=>import(`./chunk-B0hB0a_m.js`).then(e=>e.FlowDetailComponent),title:`Flow Detail — StraitGateway`}];export{t as FLOWS_ROUTES};

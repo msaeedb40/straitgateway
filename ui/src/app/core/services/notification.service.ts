@@ -1,55 +1,49 @@
-// Copyright 2026 straitgateway Authors
-// SPDX-License-Identifier: Apache-2.0
-
 import { Injectable, signal } from '@angular/core';
 
-export interface NotificationItem {
-  id: string;
-  type: 'success' | 'info' | 'warn' | 'danger';
-  title: string;
-  message: string;
-  timestamp: number;
-  durationMs?: number;
+export type NotificationSeverity = 'info' | 'success' | 'warning' | 'error';
+
+export interface Notification {
+  readonly id: string;
+  readonly severity: NotificationSeverity;
+  readonly title: string;
+  readonly message?: string;
+  readonly durationMs?: number;
 }
 
 @Injectable({ providedIn: 'root' })
 export class NotificationService {
-  private readonly _notifications = signal<NotificationItem[]>([]);
-  readonly notifications = this._notifications.asReadonly();
+  readonly notifications = signal<Notification[]>([]);
 
-  show(notif: Omit<NotificationItem, 'id' | 'timestamp'>) {
-    const id = `notif-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`;
-    const item: NotificationItem = {
-      ...notif,
-      id,
-      timestamp: Date.now(),
-      durationMs: notif.durationMs ?? 4000,
-    };
-
-    this._notifications.update((list) => [item, ...list]);
-
-    if (item.durationMs && item.durationMs > 0) {
-      setTimeout(() => this.dismiss(id), item.durationMs);
+  push(n: Omit<Notification, 'id'>): string {
+    const id = crypto.randomUUID();
+    this.notifications.update((list) => [...list, { ...n, id }]);
+    if (n.durationMs) {
+      setTimeout(() => this.dismiss(id), n.durationMs);
     }
+    return id;
   }
 
-  success(title: string, message: string) {
-    this.show({ type: 'success', title, message });
+  dismiss(id: string): void {
+    this.notifications.update((list) => list.filter((n) => n.id !== id));
   }
 
-  info(title: string, message: string) {
-    this.show({ type: 'info', title, message });
+  clear(): void {
+    this.notifications.set([]);
   }
 
-  warn(title: string, message: string) {
-    this.show({ type: 'warn', title, message });
+  info(title: string, message?: string): string {
+    return this.push({ severity: 'info', title, message, durationMs: 5000 });
   }
 
-  danger(title: string, message: string) {
-    this.show({ type: 'danger', title, message, durationMs: 7000 });
+  success(title: string, message?: string): string {
+    return this.push({ severity: 'success', title, message, durationMs: 4000 });
   }
 
-  dismiss(id: string) {
-    this._notifications.update((list) => list.filter((n) => n.id !== id));
+  warning(title: string, message?: string): string {
+    return this.push({ severity: 'warning', title, message, durationMs: 7000 });
+  }
+
+  error(title: string, message?: string): string {
+    return this.push({ severity: 'error', title, message });
   }
 }

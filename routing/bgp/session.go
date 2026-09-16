@@ -30,8 +30,8 @@ const (
 
 // Session represents a BGP peering session with a single peer.
 type Session struct {
-	mu     sync.RWMutex
-	log    *zap.Logger
+	mu  sync.RWMutex
+	log *zap.Logger
 
 	PeerAddress  netip.Addr
 	PeerASN      uint32
@@ -42,7 +42,7 @@ type Session struct {
 	// PrefixesAdvertised tracks prefixes we advertise to this peer.
 	PrefixesAdvertised []netip.Prefix
 	// PrefixesReceived tracks prefixes received from this peer.
-	PrefixesReceived   []netip.Prefix
+	PrefixesReceived []netip.Prefix
 
 	// BFD integration for fast failover.
 	BFDEnabled bool

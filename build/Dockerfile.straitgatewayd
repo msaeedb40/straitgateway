@@ -5,6 +5,7 @@
 ARG GO_VERSION=1.26
 ARG ALPINE_VERSION=3.24.1
 ARG CLANG_VERSION=22
+ARG LLVM_VERSION=22
 
 # ── BPF build stage ───────────────────────────────────────────────────────────
 FROM alpine:${ALPINE_VERSION} AS bpf-builder
@@ -23,7 +24,7 @@ RUN apk add --no-cache \
     bash
 WORKDIR /src
 COPY bpf/ bpf/
-RUN make -C bpf all CLANG=clang-${CLANG_VERSION} 2>/dev/null || true
+RUN make -C bpf all CLANG=clang${CLANG_VERSION} 2>/dev/null || true
 RUN mkdir -p /out/bpf && find bpf -name '*.o' -exec cp {} /out/bpf/ \; 2>/dev/null || true
 
 # ── Go build stage ────────────────────────────────────────────────────────────

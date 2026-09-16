@@ -63,15 +63,15 @@ type BackendIR struct {
 // PolicyIR is the intermediate representation of a compiled network policy.
 // Produced by the Policy controller from StraitNetworkPolicy + NetworkPolicy CRDs.
 type PolicyIR struct {
-	Generation     Generation
-	ID             sgtypes.PolicyID
-	SrcIdentity    sgtypes.Identity
-	DstIdentity    sgtypes.Identity
-	DstPort        uint16
-	Protocol       sgtypes.Protocol
-	Action         PolicyAction
-	Priority       int32  // 0=highest, 255=lowest
-	Direction      PolicyDirection
+	Generation  Generation
+	ID          sgtypes.PolicyID
+	SrcIdentity sgtypes.Identity
+	DstIdentity sgtypes.Identity
+	DstPort     uint16
+	Protocol    sgtypes.Protocol
+	Action      PolicyAction
+	Priority    int32 // 0=highest, 255=lowest
+	Direction   PolicyDirection
 }
 
 // PolicyAction defines the compiled policy action.
@@ -109,8 +109,8 @@ type RouteIR struct {
 type NatIR struct {
 	Generation Generation
 	// SNAT rules
-	SrcCIDR   netip.Prefix
-	SnatToIP  netip.Addr
+	SrcCIDR  netip.Prefix
+	SnatToIP netip.Addr
 	// DNAT rules
 	DstIP     netip.Addr
 	DstPort   uint16
@@ -182,23 +182,23 @@ type TransitPeerIR struct {
 // IdentityIR is the IR for a security identity assignment.
 // Produced by the Identity controller; compiled to identity_map entries.
 type IdentityIR struct {
-	Generation  Generation
-	Identity    sgtypes.Identity
-	LabelsHash  uint64
-	SegmentID   sgtypes.SegmentID
-	Namespace   string
-	PodName     string
+	Generation Generation
+	Identity   sgtypes.Identity
+	LabelsHash uint64
+	SegmentID  sgtypes.SegmentID
+	Namespace  string
+	PodName    string
 }
 
 // DataplaneState is the complete desired state produced by merging all IR sources.
 // This is what the Compiler consumes to produce the final BPF map state.
 type DataplaneState struct {
-	Generation  Generation
-	Services    []ServiceIR
-	Policies    []PolicyIR
-	Routes      []RouteIR
-	NatRules    []NatIR
-	Gateways    []GatewayIR
-	Transit     []TransitIR
-	Identities  []IdentityIR
+	Generation Generation
+	Services   []ServiceIR
+	Policies   []PolicyIR
+	Routes     []RouteIR
+	NatRules   []NatIR
+	Gateways   []GatewayIR
+	Transit    []TransitIR
+	Identities []IdentityIR
 }

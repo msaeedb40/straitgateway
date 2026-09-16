@@ -24,11 +24,16 @@ const (
 
 func (a Action) String() string {
 	switch a {
-	case ActionAllow: return "ALLOW"
-	case ActionDrop:  return "DROP"
-	case ActionSNAT:  return "SNAT"
-	case ActionDNAT:  return "DNAT"
-	default:          return "UNKNOWN"
+	case ActionAllow:
+		return "ALLOW"
+	case ActionDrop:
+		return "DROP"
+	case ActionSNAT:
+		return "SNAT"
+	case ActionDNAT:
+		return "DNAT"
+	default:
+		return "UNKNOWN"
 	}
 }
 
@@ -50,10 +55,10 @@ type PacketEvent struct {
 
 // Recorder buffers packet events from the eBPF ring buffer.
 type Recorder struct {
-	log      *zap.Logger
-	mu       sync.RWMutex
-	events   []*PacketEvent
-	cap      int
+	log    *zap.Logger
+	mu     sync.RWMutex
+	events []*PacketEvent
+	cap    int
 	// Counters for metrics.
 	totalDrops  uint64
 	totalAllows uint64
@@ -74,9 +79,12 @@ func (r *Recorder) Record(ev *PacketEvent) {
 	}
 	r.events = append(r.events, ev)
 	switch ev.Action {
-	case ActionDrop:  r.totalDrops++
-	case ActionAllow: r.totalAllows++
-	case ActionSNAT, ActionDNAT: r.totalNATs++
+	case ActionDrop:
+		r.totalDrops++
+	case ActionAllow:
+		r.totalAllows++
+	case ActionSNAT, ActionDNAT:
+		r.totalNATs++
 	}
 }
 
@@ -88,7 +96,9 @@ func (r *Recorder) Recent(n int) []*PacketEvent {
 		return nil
 	}
 	start := len(r.events) - n
-	if start < 0 { start = 0 }
+	if start < 0 {
+		start = 0
+	}
 	out := make([]*PacketEvent, len(r.events)-start)
 	copy(out, r.events[start:])
 	for i, j := 0, len(out)-1; i < j; i, j = i+1, j-1 {

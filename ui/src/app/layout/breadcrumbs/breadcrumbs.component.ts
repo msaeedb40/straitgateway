@@ -1,47 +1,91 @@
-// Copyright 2026 straitgateway Authors
-// SPDX-License-Identifier: Apache-2.0
-
-import { Component, inject } from '@angular/core';
-import { CommonModule } from '@angular/common';
-import { Router, NavigationEnd, RouterLink } from '@angular/router';
-import { filter } from 'rxjs/operators';
+import { Component, inject, computed } from '@angular/core';
+import { RouterLink } from '@angular/router';
+import { ActivatedRoute, Router, NavigationEnd } from '@angular/router';
+import { filter, map } from 'rxjs/operators';
 import { toSignal } from '@angular/core/rxjs-interop';
+
+interface Crumb {
+  readonly label: string;
+  readonly path: string | null;
+}
 
 @Component({
   selector: 'sg-breadcrumbs',
-  standalone: true,
-  imports: [CommonModule, RouterLink],
+  imports: [RouterLink],
   template: `
-    <nav aria-label="Breadcrumb" class="sg-breadcrumbs">
-      <a routerLink="/" style="color:var(--sg-text-2);display:flex;align-items:center;gap:4px">
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
-          <polyline points="9 22 9 12 15 12 15 22"/>
-        </svg>
-        <span>Home</span>
-      </a>
-      @if (currentRoute()?.urlAfterRedirects && currentRoute()?.urlAfterRedirects !== '/') {
-        <span>/</span>
-        <span style="color:var(--sg-text);text-transform:capitalize;font-weight:500">
-          {{ formatSegment(currentRoute()) }}
-        </span>
-      }
-    </nav>
+    @if (crumbs().length > 1) {
+      <nav class="sg-breadcrumbs" aria-label="Breadcrumb">
+        <ol class="sg-crumb-list" role="list">
+          @for (crumb of crumbs(); track crumb.path; let last = $last) {
+            <li class="sg-crumb-item" role="listitem">
+              @if (crumb.path && !last) {
+                <a [routerLink]="crumb.path" class="sg-crumb-link">{{ crumb.label }}</a>
+              } @else {
+                <span class="sg-crumb-current" [attr.aria-current]="last ? 'page' : null">
+                  {{ crumb.label }}
+                </span>
+              }
+              @if (!last) {
+                <span class="sg-crumb-sep" aria-hidden="true">/</span>
+              }
+            </li>
+          }
+        </ol>
+      </nav>
+    }
   `,
+  styles: [`
+    .sg-breadcrumbs { padding: 0 1.5rem; }
+    .sg-crumb-list {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      list-style: none;
+      margin: 0;
+      padding: 8px 0;
+      font-size: 0.75rem;
+    }
+    .sg-crumb-item { display: flex; align-items: center; gap: 6px; }
+    .sg-crumb-link {
+      color: var(--sg-text-secondary);
+      text-decoration: none;
+      transition: color var(--sg-transition-fast);
+    }
+    .sg-crumb-link:hover { color: var(--sg-accent); }
+    .sg-crumb-current { color: var(--sg-text-primary); font-weight: 500; }
+    .sg-crumb-sep { color: var(--sg-text-muted); }
+  `],
 })
 export class BreadcrumbsComponent {
-  private router = inject(Router);
+  private readonly router = inject(Router);
+  private readonly route = inject(ActivatedRoute);
 
-  readonly currentRoute = toSignal(
+  private readonly url$ = toSignal(
     this.router.events.pipe(
       filter((e): e is NavigationEnd => e instanceof NavigationEnd),
-      filter(e => !!e.urlAfterRedirects)
+      map((e) => e.urlAfterRedirects)
     ),
-    { initialValue: { urlAfterRedirects: this.router.url } as NavigationEnd }
+    { initialValue: this.router.url }
   );
 
-  formatSegment(nav?: NavigationEnd | null): string {
-    const raw = (nav?.urlAfterRedirects || this.router.url || '').split('?')[0].replace(/^\//, '');
-    return raw ? raw.replace(/-/g, ' ') : 'Dashboard';
+  readonly crumbs = computed<Crumb[]>(() => {
+    const url = this.url$() ?? '/';
+    const segments = url.split('/').filter(Boolean);
+    const crumbs: Crumb[] = [{ label: 'StraitGateway', path: '/dashboard' }];
+    let path = '';
+    for (const seg of segments) {
+      path += `/${seg}`;
+      crumbs.push({
+        label: this.formatLabel(seg),
+        path,
+      });
+    }
+    return crumbs;
+  });
+
+  private formatLabel(segment: string): string {
+    // UUID-like segments shown as IDs, others title-cased
+    if (/^[0-9a-f-]{32,}$/i.test(segment)) return segment.slice(0, 8) + '…';
+    return segment.charAt(0).toUpperCase() + segment.slice(1).replace(/-/g, ' ');
   }
 }

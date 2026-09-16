@@ -66,6 +66,9 @@ spec:
             - name: agent-metrics
               containerPort: 9091
               protocol: TCP
+            - name: health
+              containerPort: 8084
+              protocol: TCP
           env:
             - name: NODE_NAME
               valueFrom:
@@ -123,10 +126,17 @@ spec:
           livenessProbe:
             httpGet:
               path: /healthz
-              port: 8082
+              port: 8084
             initialDelaySeconds: 30
             periodSeconds: 30
             failureThreshold: 5
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: 8084
+            initialDelaySeconds: 15
+            periodSeconds: 15
+            failureThreshold: 3
       volumes:
         - name: bpffs
           hostPath:

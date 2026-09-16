@@ -1,80 +1,39 @@
-// Copyright 2026 straitgateway Authors
-// SPDX-License-Identifier: Apache-2.0
+import { inject, Injectable } from '@angular/core';
+import { Observable } from 'rxjs';
+import { ApiClient } from '../api-client';
 
-import { Injectable, inject } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
-import { Observable, of } from 'rxjs';
-import { catchError } from 'rxjs/operators';
-import { RuntimeConfigService } from '../../config/runtime-config';
-import { StraitNetworkPolicy } from '../api.types';
+export interface Configuration {
+  readonly key: string;
+  readonly value: unknown;
+  readonly description?: string;
+  readonly updatedAt?: string;
+}
 
-export interface ConfigurationBundle {
-  networkPolicies: StraitNetworkPolicy[];
-  crdManifests: Array<{ kind: string; name: string; namespace: string; yaml: string }>;
+export interface ConfigurationUpdateRequest {
+  readonly key: string;
+  readonly value: unknown;
 }
 
 @Injectable({ providedIn: 'root' })
-export class ConfigurationApi {
-  private http = inject(HttpClient);
-  private config = inject(RuntimeConfigService);
+export class ConfigurationApiService {
+  private readonly client = inject(ApiClient);
 
-  private get base() { return this.config.apiBase(); }
+  list(): Observable<Configuration[]> {
+    return this.client.get<Configuration[]>('/v1/configuration');
+  }
 
-  listPolicies(namespace?: string): Observable<StraitNetworkPolicy[]> {
-    const q = namespace ? `?namespace=${encodeURIComponent(namespace)}` : '';
-    return this.http.get<StraitNetworkPolicy[]>(`${this.base}/api/v1/configuration/policies${q}`).pipe(
-      catchError(() => of(this.getMockPolicies(namespace)))
+  get(key: string): Observable<Configuration> {
+    return this.client.get<Configuration>(`/v1/configuration/${encodeURIComponent(key)}`);
+  }
+
+  update(req: ConfigurationUpdateRequest): Observable<Configuration> {
+    return this.client.put<Configuration>(
+      `/v1/configuration/${encodeURIComponent(req.key)}`,
+      { value: req.value }
     );
   }
 
-  applyYaml(yaml: string): Observable<{ success: boolean; message: string }> {
-    return this.http.post<{ success: boolean; message: string }>(`${this.base}/api/v1/configuration/apply`, { yaml }).pipe(
-      catchError(() => of({ success: true, message: 'Configuration successfully validated and applied' }))
-    );
-  }
-
-  updateConfiguration(cfg: any): Observable<{ success: boolean; message: string }> {
-    return this.http.put<{ success: boolean; message: string }>(`${this.base}/api/v1/configuration`, cfg).pipe(
-      catchError(() => of({ success: true, message: 'Configuration successfully persisted to controller' }))
-    );
-  }
-
-  private getMockPolicies(namespace?: string): StraitNetworkPolicy[] {
-    const all: StraitNetworkPolicy[] = [
-      {
-        name: 'deny-ssh',
-        namespace: 'default',
-        policyType: 'Ingress',
-        rulesCount: 1,
-        appliedPodsCount: 12,
-        enforcementMode: 'eBPF',
-      },
-      {
-        name: 'allow-dns-egress',
-        namespace: 'default',
-        policyType: 'Egress',
-        rulesCount: 2,
-        appliedPodsCount: 12,
-        enforcementMode: 'eBPF',
-      },
-      {
-        name: 'isolate-database',
-        namespace: 'default',
-        policyType: 'Both',
-        rulesCount: 4,
-        appliedPodsCount: 3,
-        enforcementMode: 'Enforcing',
-      },
-      {
-        name: 'transit-intercluster-policy',
-        namespace: 'straitgateway-system',
-        policyType: 'Both',
-        rulesCount: 8,
-        appliedPodsCount: 6,
-        enforcementMode: 'eBPF',
-      },
-    ];
-
-    return namespace ? all.filter(p => p.namespace === namespace) : all;
+  delete(key: string): Observable<void> {
+    return this.client.delete<void>(`/v1/configuration/${encodeURIComponent(key)}`);
   }
 }

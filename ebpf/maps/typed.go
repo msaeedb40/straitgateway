@@ -27,8 +27,9 @@ type ServiceKey struct {
 // ServiceValue matches the C struct service_value in maps.h.
 type ServiceValue struct {
 	BackendCount uint32
-	Algorithm    uint8  // 0=maglev, 1=roundrobin, 2=random
-	Flags        uint8  // bit0=DSR, bit1=sessionAffinity, bit2=nodePort
+	MaglevIdx    uint32
+	Algorithm    uint8 // 0=maglev, 1=roundrobin, 2=random
+	Flags        uint8 // bit0=DSR, bit1=sessionAffinity, bit2=nodePort
 	Pad          [2]uint8
 }
 
@@ -44,7 +45,7 @@ type BackendValue struct {
 	IP4      [4]byte
 	Port     uint16
 	Protocol uint8
-	State    uint8  // 0=active, 1=terminating, 2=quarantined
+	State    uint8 // 0=active, 1=terminating, 2=quarantined
 	Weight   uint32
 }
 
@@ -61,7 +62,7 @@ type PolicyKey struct {
 
 // PolicyValue matches the C struct policy_value in maps.h.
 type PolicyValue struct {
-	Action   uint8  // 0=allow, 1=deny, 2=reject
+	Action   uint8 // 0=allow, 1=deny, 2=reject
 	Priority uint8
 	Pad      [2]uint8
 }
@@ -94,12 +95,12 @@ type ConntrackKey struct {
 
 // ConntrackValue matches the C struct ct_value in maps.h.
 type ConntrackValue struct {
-	Packets   uint64
-	Bytes     uint64
-	Lifetime  uint32 // seconds
-	Flags     uint8
-	State     uint8  // 0=new, 1=established, 2=related, 3=closing
-	Pad       [2]uint8
+	Packets  uint64
+	Bytes    uint64
+	Lifetime uint32 // seconds
+	Flags    uint8
+	State    uint8 // 0=new, 1=established, 2=related, 3=closing
+	Pad      [2]uint8
 }
 
 // --- Node Map (node_key → node_value) ---

@@ -11,12 +11,13 @@ package service
 import (
 	"context"
 	"fmt"
+	"net/netip"
 	"sync"
 
+	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	discoveryv1 "k8s.io/api/discovery/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"go.uber.org/zap"
 
 	"github.com/msaeedb40/straitgateway/dataplane/ir"
 	sgtypes "github.com/msaeedb40/straitgateway/pkg/types"
@@ -100,9 +101,20 @@ func (m *Manager) buildServiceIR(svc corev1.Service, epss []discoveryv1.Endpoint
 			Namespace: svc.Namespace,
 			Name:      svc.Name,
 		},
-		Algorithm:   sgtypes.LBAlgorithmMaglev,
-		IsNodePort:  svc.Spec.Type == corev1.ServiceTypeNodePort,
+		Algorithm:    sgtypes.LBAlgorithmMaglev,
+		IsNodePort:   svc.Spec.Type == corev1.ServiceTypeNodePort,
 		IsExternalLB: svc.Spec.Type == corev1.ServiceTypeLoadBalancer,
+	}
+
+	// Set service VIP.
+	if svc.Spec.ClusterIP != "" && svc.Spec.ClusterIP != "None" {
+		if addr, err := netip.ParseAddr(svc.Spec.ClusterIP); err == nil {
+			if addr.Is4() {
+				svcIR.VIPv4 = addr
+			} else {
+				svcIR.VIPv6 = addr
+			}
+		}
 	}
 
 	// Set service port.
@@ -124,17 +136,25 @@ func (m *Manager) buildServiceIR(svc corev1.Service, epss []discoveryv1.Endpoint
 	// Collect backends from EndpointSlices.
 	var backendID sgtypes.BackendID = 1
 	for _, eps := range epss {
+		var targetPort uint16 = svcIR.Port
+		if len(eps.Ports) > 0 && eps.Ports[0].Port != nil {
+			targetPort = uint16(*eps.Ports[0].Port)
+		}
 		for _, ep := range eps.Endpoints {
 			if ep.Conditions.Ready != nil && !*ep.Conditions.Ready {
 				continue
 			}
-			for _, addr := range ep.Addresses {
-				be := ir.BackendIR{
-					ID:    backendID,
-					State: sgtypes.BackendStateActive,
-					Weight: 1,
+			for _, addrStr := range ep.Addresses {
+				addr, err := netip.ParseAddr(addrStr)
+				if err != nil {
+					continue
 				}
-				_ = addr
+				be := ir.BackendIR{
+					ID:      backendID,
+					Address: netip.AddrPortFrom(addr, targetPort),
+					State:   sgtypes.BackendStateActive,
+					Weight:  1,
+				}
 				svcIR.Backends = append(svcIR.Backends, be)
 				backendID++
 			}

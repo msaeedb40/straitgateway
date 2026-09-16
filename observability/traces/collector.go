@@ -15,25 +15,25 @@ import (
 
 // SpanRecord is a completed trace span stored in the collector ring buffer.
 type SpanRecord struct {
-	TraceID   string        `json:"traceId"`
-	SpanID    string        `json:"spanId"`
-	ParentID  string        `json:"parentId,omitempty"`
-	Operation string        `json:"operation"`
-	Service   string        `json:"service"`
-	StartTime time.Time     `json:"startTime"`
-	EndTime   time.Time     `json:"endTime"`
-	Duration  time.Duration `json:"durationNs"`
-	Status    codes.Code    `json:"status"`
-	Error     string        `json:"error,omitempty"`
+	TraceID   string            `json:"traceId"`
+	SpanID    string            `json:"spanId"`
+	ParentID  string            `json:"parentId,omitempty"`
+	Operation string            `json:"operation"`
+	Service   string            `json:"service"`
+	StartTime time.Time         `json:"startTime"`
+	EndTime   time.Time         `json:"endTime"`
+	Duration  time.Duration     `json:"durationNs"`
+	Status    codes.Code        `json:"status"`
+	Error     string            `json:"error,omitempty"`
 	Attrs     map[string]string `json:"attrs,omitempty"`
 }
 
 // Collector buffers completed spans for the dashboard.
 type Collector struct {
-	log    *zap.Logger
-	mu     sync.RWMutex
-	spans  []*SpanRecord
-	cap    int
+	log   *zap.Logger
+	mu    sync.RWMutex
+	spans []*SpanRecord
+	cap   int
 }
 
 // New creates a new span Collector with the given buffer capacity.

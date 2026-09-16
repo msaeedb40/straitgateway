@@ -5,14 +5,13 @@ package main
 
 import (
 	"context"
+	"encoding/binary"
 	"fmt"
 	"net"
-	"net/netip"
 
 	cnitypes "github.com/containernetworking/cni/pkg/types"
-	sgv1 "github.com/msaeedb40/straitgateway/api/v1alpha1"
-	sgnet "github.com/msaeedb40/straitgateway/pkg/net"
 	sgtypes "github.com/msaeedb40/straitgateway/pkg/types"
+	agentv1 "github.com/msaeedb40/straitgateway/proto/agent/v1"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 )
@@ -33,7 +32,8 @@ type IPAllocation struct {
 
 // DaemonClient wraps the gRPC connection to straitgatewayd.
 type DaemonClient struct {
-	conn *grpc.ClientConn
+	conn   *grpc.ClientConn
+	client agentv1.AgentServiceClient
 }
 
 // newDaemonClient connects to the straitgatewayd Unix socket.
@@ -46,7 +46,10 @@ func newDaemonClient(socketPath string) (*DaemonClient, error) {
 	if err != nil {
 		return nil, fmt.Errorf("connecting to straitgatewayd at %s: %w", socketPath, err)
 	}
-	return &DaemonClient{conn: conn}, nil
+	return &DaemonClient{
+		conn:   conn,
+		client: agentv1.NewAgentServiceClient(conn),
+	}, nil
 }
 
 // Close closes the gRPC connection.
@@ -55,64 +58,96 @@ func (c *DaemonClient) Close() error {
 }
 
 // AllocateIP requests an IP allocation from the straitgatewayd IPAM.
-// Returns the allocated IPAllocation including identity.
-// This call must complete within the CNI timeout (typically 30s).
-func (c *DaemonClient) AllocateIP(_, _, _ string) (*IPAllocation, error) {
+func (c *DaemonClient) AllocateIP(containerID, netns, ifName string) (*IPAllocation, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), agentCallTimeout)
 	defer cancel()
-	_ = ctx
 
-	// Placeholder — real implementation calls proto/agent/v1/agent.proto AllocateEndpoint
-	return &IPAllocation{
+	resp, err := c.client.AllocateIP(ctx, &agentv1.AllocateIPRequest{
+		ContainerId: containerID,
+		Netns:       netns,
+		IfName:      ifName,
+		Ipv4:        true,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("straitgatewayd AllocateIP: %w", err)
+	}
+
+	ipv4Val := resp.GetIpv4Address().GetIpv4()
+	ipBytes := make([]byte, 4)
+	binary.BigEndian.PutUint32(ipBytes, ipv4Val)
+
+	prefixLen := int(resp.GetIpv4Cidr().GetPrefixLength())
+	if prefixLen == 0 {
+		prefixLen = 24
+	}
+
+	alloc := &IPAllocation{
+		IPv4Net: net.IPNet{
+			IP:   net.IP(ipBytes),
+			Mask: net.CIDRMask(prefixLen, 32),
+		},
 		Identity: sgtypes.IdentityLocalMin,
-	}, nil
+	}
+
+	if resp.GetGateway() != nil {
+		gwVal := resp.GetGateway().GetIpv4()
+		gwBytes := make([]byte, 4)
+		binary.BigEndian.PutUint32(gwBytes, gwVal)
+		alloc.Gateway = net.IP(gwBytes)
+	}
+
+	return alloc, nil
 }
 
 // ReleaseIP releases an allocated IP back to the IPAM pool.
-func (c *DaemonClient) ReleaseIP(_ string) error {
+func (c *DaemonClient) ReleaseIP(containerID string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), agentCallTimeout)
 	defer cancel()
-	_ = ctx
-	return nil
+
+	_, err := c.client.ReleaseIP(ctx, &agentv1.ReleaseIPRequest{
+		ContainerId: containerID,
+	})
+	return err
 }
 
 // RegisterEndpoint notifies straitgatewayd of the new host-side NetKit interface.
-// This triggers ASYNC dataplane reconciliation (service map, policy, NAT).
-// CNI ADD returns BEFORE this completes — it must not block the fast path.
-func (c *DaemonClient) RegisterEndpoint(_ string, _ int, _ sgtypes.Identity) error {
+func (c *DaemonClient) RegisterEndpoint(containerID string, hostIfIndex int, identity sgtypes.Identity) error {
 	ctx, cancel := context.WithTimeout(context.Background(), agentCallTimeout)
 	defer cancel()
-	_ = ctx
+
+	resp, err := c.client.ConfigureEndpoint(ctx, &agentv1.ConfigureEndpointRequest{
+		ContainerId: containerID,
+		HostIfindex: int32(hostIfIndex),
+	})
+	if err != nil {
+		return err
+	}
+	_ = resp
 	return nil
 }
 
 // DeregisterEndpoint removes the endpoint's BPF state and IP allocation.
-func (c *DaemonClient) DeregisterEndpoint(_ string) error {
+func (c *DaemonClient) DeregisterEndpoint(containerID string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), agentCallTimeout)
 	defer cancel()
-	_ = ctx
-	return nil
+
+	_, err := c.client.DeleteEndpoint(ctx, &agentv1.DeleteEndpointRequest{
+		ContainerId: containerID,
+	})
+	return err
 }
 
 // CheckEndpoint validates the endpoint's network configuration.
-func (c *DaemonClient) CheckEndpoint(_, _, _ string) error {
+func (c *DaemonClient) CheckEndpoint(containerID, netns, ifName string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), agentCallTimeout)
 	defer cancel()
-	_ = ctx
-	return nil
+
+	_, err := c.client.GetStatus(ctx, &agentv1.GetStatusRequest{})
+	return err
 }
 
 // GarbageCollect triggers GC of stale endpoint state on straitgatewayd.
-func (c *DaemonClient) GarbageCollect(_ string) error {
-	ctx, cancel := context.WithTimeout(context.Background(), agentCallTimeout)
-	defer cancel()
-	_ = ctx
+func (c *DaemonClient) GarbageCollect(args string) error {
+	_ = args
 	return nil
 }
-
-// Ensure unused imports are referenced.
-var (
-	_ = sgv1.GroupVersion
-	_ = sgnet.IsIPv4
-	_ = netip.Addr{}
-)

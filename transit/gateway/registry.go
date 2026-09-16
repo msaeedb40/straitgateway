@@ -15,27 +15,27 @@ import (
 
 // GatewayNode represents a transit gateway node.
 type GatewayNode struct {
-	Name        string
-	ClusterID   sgtypes.ClusterID
+	Name      string
+	ClusterID sgtypes.ClusterID
 	// PublicIP is the external IP reachable by other clusters.
-	PublicIP    netip.Addr
+	PublicIP netip.Addr
 	// WGPublicKey is this node's WireGuard public key.
 	WGPublicKey [32]byte
 	// ListenPort is the WireGuard listen port.
-	ListenPort  uint16
+	ListenPort uint16
 	// SegmentIDs lists segments this gateway serves.
-	SegmentIDs  []sgtypes.SegmentID
+	SegmentIDs []sgtypes.SegmentID
 	// Role is "hub" or "spoke" for hub-spoke topology.
-	Role        string
+	Role string
 	// Active indicates this gateway is healthy and active.
-	Active      bool
+	Active bool
 }
 
 // Registry stores all known transit gateway nodes.
 type Registry struct {
-	log  *zap.Logger
-	mu   sync.RWMutex
-	gws  map[string]*GatewayNode // keyed by name
+	log *zap.Logger
+	mu  sync.RWMutex
+	gws map[string]*GatewayNode // keyed by name
 }
 
 // New creates a new gateway Registry.
@@ -79,9 +79,14 @@ func (r *Registry) ForSegment(segID sgtypes.SegmentID) []*GatewayNode {
 	defer r.mu.RUnlock()
 	var out []*GatewayNode
 	for _, g := range r.gws {
-		if !g.Active { continue }
+		if !g.Active {
+			continue
+		}
 		for _, s := range g.SegmentIDs {
-			if s == segID { out = append(out, g); break }
+			if s == segID {
+				out = append(out, g)
+				break
+			}
 		}
 	}
 	return out

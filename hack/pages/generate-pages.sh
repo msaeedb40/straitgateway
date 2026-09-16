@@ -8,13 +8,16 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 
 CHARTS_DIR="${ROOT_DIR}/dist/charts"
+CHART_REPO_URL="${CHART_REPO_URL:-https://charts.straitgateway.io}"
+ALT_REPO_URL="https://msaeedb40.github.io/straitgateway/charts"
+
 mkdir -p "${CHARTS_DIR}"
 
 echo "==> Packaging Straitgateway Helm charts..."
 helm package "${ROOT_DIR}/straitgateway-helm" -d "${CHARTS_DIR}/"
 
-echo "==> Indexing Helm repository..."
-helm repo index "${CHARTS_DIR}/" --url https://msaeedb40.github.io/straitgateway/charts
+echo "==> Indexing Helm repository with URL ${CHART_REPO_URL}..."
+helm repo index "${CHARTS_DIR}/" --url "${CHART_REPO_URL}"
 
 echo "==> Generating dist/charts/index.html with Tailwind CSS v4..."
 cat << 'EOF' > "${CHARTS_DIR}/index.html"
@@ -52,7 +55,8 @@ cat << 'EOF' > "${CHARTS_DIR}/index.html"
         <span class="font-bold text-lg text-white">straitgateway <span class="text-indigo-400 text-sm font-normal">/ charts</span></span>
       </a>
       <div class="flex items-center gap-4 text-sm">
-        <a href="../" class="text-slate-300 hover:text-white transition-colors">← Main Site</a>
+        <a href="../" class="text-slate-300 hover:text-white transition-colors">← Main Portal</a>
+        <a href="../ui/" class="text-slate-300 hover:text-white transition-colors">Web Console</a>
         <a href="index.yaml" class="px-3 py-1.5 rounded-lg bg-indigo-500/20 text-indigo-300 hover:bg-indigo-500/30 transition-colors border border-indigo-500/30">index.yaml</a>
         <a href="https://github.com/msaeedb40/straitgateway" target="_blank" class="text-slate-300 hover:text-white">GitHub</a>
       </div>
@@ -71,14 +75,23 @@ cat << 'EOF' > "${CHARTS_DIR}/index.html"
         <span class="w-2.5 h-2.5 rounded-full bg-emerald-400"></span>
         Add this Helm repository
       </h2>
-      <pre class="bg-black/60 border border-white/5 rounded-xl p-4 text-sm text-emerald-300 overflow-x-auto"><code>helm repo add straitgateway https://msaeedb40.github.io/straitgateway/charts
+      <pre class="bg-black/60 border border-white/5 rounded-xl p-4 text-sm text-emerald-300 overflow-x-auto"><code># Primary Canonical Repository
+helm repo add straitgateway https://charts.straitgateway.io
 helm repo update
-helm install straitgateway straitgateway/straitgateway -n straitgateway-system --create-namespace</code></pre>
+
+# Alternate / GitHub Pages Mirror
+# helm repo add straitgateway https://msaeedb40.github.io/straitgateway/charts
+
+# Install StraitGateway (kube-proxy replacement + CNI)
+helm install straitgateway straitgateway/straitgateway \
+  --namespace straitgateway-system \
+  --create-namespace</code></pre>
     </div>
 
-    <!-- Available Charts -->
-    <h2 class="text-2xl font-bold text-white mb-6">Available Charts</h2>
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+    <!-- Available Charts & Assets -->
+    <h2 class="text-2xl font-bold text-white mb-6">Available Packages & Manifests</h2>
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
+      <!-- Chart Card -->
       <div class="bg-slate-900/40 border border-white/10 hover:border-indigo-500/40 rounded-2xl p-6 transition-all">
         <div class="flex items-start justify-between mb-4">
           <div>
@@ -88,11 +101,47 @@ helm install straitgateway straitgateway/straitgateway -n straitgateway-system -
           <span class="px-2.5 py-1 text-xs font-semibold rounded-full bg-indigo-500/10 text-indigo-300 border border-indigo-500/20">v1.0.0</span>
         </div>
         <p class="text-slate-300 text-sm mb-6 leading-relaxed">
-          Full suite: CNI, kube-proxy replacement, WireGuard transit mesh, BGP routing daemon, Gateway API controller, and Angular 22 zoneless dashboard.
+          Full suite: CNI, kube-proxy replacement, WireGuard transit mesh, BGP routing daemon, Gateway API controller, and Angular 22 dashboard.
         </p>
         <div class="flex items-center justify-between pt-4 border-t border-white/5 text-xs">
           <span class="text-slate-400 font-mono">straitgateway-1.0.0.tgz</span>
-          <a href="straitgateway-1.0.0.tgz" class="px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-slate-200 transition-colors border border-white/10">Download .tgz</a>
+          <a href="straitgateway-1.0.0.tgz" class="px-3 py-1.5 rounded-lg bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-200 transition-colors border border-indigo-500/30">Download .tgz</a>
+        </div>
+      </div>
+
+      <!-- Standalone CRD Card -->
+      <div class="bg-slate-900/40 border border-white/10 hover:border-violet-500/40 rounded-2xl p-6 transition-all">
+        <div class="flex items-start justify-between mb-4">
+          <div>
+            <h3 class="text-xl font-bold text-white">CRD Bundle</h3>
+            <p class="text-xs text-violet-400 mt-0.5">Standalone Manifest · 9 CRDs</p>
+          </div>
+          <span class="px-2.5 py-1 text-xs font-semibold rounded-full bg-violet-500/10 text-violet-300 border border-violet-500/20">All-in-One</span>
+        </div>
+        <p class="text-slate-300 text-sm mb-6 leading-relaxed">
+          Standalone CRD bundle for GitOps workflows (ArgoCD, Flux) and bare-metal environments prior to Helm installation.
+        </p>
+        <div class="flex items-center justify-between pt-4 border-t border-white/5 text-xs">
+          <span class="text-slate-400 font-mono">straitgateway-crds.yaml</span>
+          <a href="../crds/straitgateway-crds.yaml" class="px-3 py-1.5 rounded-lg bg-violet-600/30 hover:bg-violet-600/50 text-violet-200 transition-colors border border-violet-500/30">Download YAML</a>
+        </div>
+      </div>
+
+      <!-- Binary Releases Card -->
+      <div class="bg-slate-900/40 border border-white/10 hover:border-emerald-500/40 rounded-2xl p-6 transition-all">
+        <div class="flex items-start justify-between mb-4">
+          <div>
+            <h3 class="text-xl font-bold text-white">Release Binaries</h3>
+            <p class="text-xs text-emerald-400 mt-0.5">Multi-Arch (amd64 / arm64)</p>
+          </div>
+          <span class="px-2.5 py-1 text-xs font-semibold rounded-full bg-emerald-500/10 text-emerald-300 border border-emerald-500/20">Binaries</span>
+        </div>
+        <p class="text-slate-300 text-sm mb-6 leading-relaxed">
+          Precompiled Go binaries for `straitgatewayd`, `sg-controller`, `sg-cli`, and `straitgateway-cni` with SHA256 checksums.
+        </p>
+        <div class="flex items-center justify-between pt-4 border-t border-white/5 text-xs">
+          <span class="text-slate-400 font-mono">dist/releases/</span>
+          <a href="../releases/" class="px-3 py-1.5 rounded-lg bg-emerald-600/30 hover:bg-emerald-600/50 text-emerald-200 transition-colors border border-emerald-500/30">View Releases</a>
         </div>
       </div>
     </div>

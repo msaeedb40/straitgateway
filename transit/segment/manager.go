@@ -21,10 +21,10 @@ const (
 
 // SegmentInfo describes a transit segment.
 type SegmentInfo struct {
-	ID          sgtypes.SegmentID
-	Name        string
+	ID   sgtypes.SegmentID
+	Name string
 	// CIDR is the address space for this segment (optional, for routing).
-	CIDR        string
+	CIDR string
 	// Attachments lists clusters that have joined this segment.
 	Attachments []sgtypes.ClusterID
 	// BackboneConnected means this segment has connectivity to segment 0.

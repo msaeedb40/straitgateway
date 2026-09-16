@@ -18,20 +18,20 @@ import (
 type PeerState string
 
 const (
-	PeerStatePending    PeerState = "pending"
-	PeerStateConnected  PeerState = "connected"
+	PeerStatePending      PeerState = "pending"
+	PeerStateConnected    PeerState = "connected"
 	PeerStateDisconnected PeerState = "disconnected"
 )
 
 // Peer represents a remote transit peer.
 type Peer struct {
-	ClusterID   sgtypes.ClusterID
-	GatewayName string
-	Endpoint    netip.AddrPort
-	WGPublicKey [32]byte
+	ClusterID    sgtypes.ClusterID
+	GatewayName  string
+	Endpoint     netip.AddrPort
+	WGPublicKey  [32]byte
 	AllowedCIDRs []netip.Prefix
-	State       PeerState
-	LastSeen    time.Time
+	State        PeerState
+	LastSeen     time.Time
 }
 
 // Manager manages transit WireGuard peer connections.

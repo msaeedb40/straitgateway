@@ -15,8 +15,15 @@ permissions:
 
 env:
   REGISTRY: ghcr.io/msaeedb40
-  GO_VERSION: "1.26.7"
-  CLANG_VERSION: "22"
+  GO_VERSION: "1.26"
+  CLANG_VERSION: "22.1.0"
+  LLVM_VERSION: "22.1.0"
+  ALPINE_VERSION: "3.24.1"
+  ARCHS: "linux/amd64,linux/arm64"
+
+  # ------------------------------------------------------------------------------
+
+
 
 jobs:
   # ── Go Lint & Verification ──────────────────────────────────────────────────
@@ -97,7 +104,7 @@ jobs:
           go install golang.org/x/vuln/cmd/govulncheck@latest
           govulncheck ./...
       - name: Trivy FS scan
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@0.36.0
         with:
           scan-type: fs
           format: sarif
@@ -145,6 +152,14 @@ jobs:
               -o dist/${{ matrix.goos }}_${{ matrix.goarch }}/$cmd \
               ./cmd/$cmd/
           done
+          echo "Building straitgateway-cni (${{ matrix.goos }}/${{ matrix.goarch }})..."
+          go build \
+            -ldflags="-s -w \
+              -X github.com/msaeedb40/straitgateway/internal/version.Version=${GITHUB_REF_NAME:-dev} \
+              -X github.com/msaeedb40/straitgateway/internal/version.Commit=${GITHUB_SHA:-none} \
+              -X github.com/msaeedb40/straitgateway/internal/version.BuildDate=$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            -o dist/${{ matrix.goos }}_${{ matrix.goarch }}/straitgateway-cni \
+            ./cni
       - name: Upload binaries
         uses: actions/upload-artifact@v4
         with:
@@ -209,7 +224,8 @@ jobs:
           build-args: |
             GO_VERSION=${{ env.GO_VERSION }}
             CLANG_VERSION=${{ env.CLANG_VERSION }}
-            ALPINE_VERSION=3.24.1
+            LLVM_VERSION=${{ env.LLVM_VERSION }}
+            ALPINE_VERSION=${{ env.ALPINE_VERSION }}
 
   # ── Helm Install Test (kind) ─────────────────────────────────────────────────
   helm-test:

@@ -1,4 +1,9 @@
-// Copyright 2026 straitgateway Authors
-// SPDX-License-Identifier: Apache-2.0
+import { Component } from '@angular/core';
+import { RouterOutlet } from '@angular/router';
 
-export * from './app.component';
+@Component({
+  selector: 'app-root',
+  imports: [RouterOutlet],
+  template: '<router-outlet />',
+})
+export class App {}

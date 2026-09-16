@@ -1,66 +1,62 @@
-// Copyright 2026 straitgateway Authors
-// SPDX-License-Identifier: Apache-2.0
-
-import { HttpErrorResponse } from '@angular/common/http';
-
-export interface ApiErrorDetails {
-  status: number;
-  statusText: string;
-  message: string;
-  url?: string;
-  timestamp: string;
-  errorPayload?: any;
-}
+export type ApiErrorCode =
+  | 'NETWORK_ERROR'
+  | 'UNAUTHORIZED'
+  | 'FORBIDDEN'
+  | 'NOT_FOUND'
+  | 'CONFLICT'
+  | 'VALIDATION_ERROR'
+  | 'SERVER_ERROR'
+  | 'BACKEND_UNAVAILABLE'
+  | 'UNKNOWN';
 
 export class ApiError extends Error {
-  readonly status: number;
-  readonly statusText: string;
-  readonly url?: string;
-  readonly timestamp: string;
-  readonly rawError: any;
+  readonly code: ApiErrorCode;
+  readonly status: number | null;
+  readonly detail: string | null;
+  readonly retryable: boolean;
 
-  constructor(httpError: HttpErrorResponse | Error | string) {
-    if (httpError instanceof HttpErrorResponse) {
-      const msg =
-        httpError.error?.message ||
-        httpError.error?.error ||
-        httpError.message ||
-        `Request failed with status ${httpError.status}`;
-      super(msg);
-      this.status = httpError.status;
-      this.statusText = httpError.statusText;
-      this.url = httpError.url || undefined;
-      this.timestamp = new Date().toISOString();
-      this.rawError = httpError.error;
-    } else if (httpError instanceof Error) {
-      super(httpError.message);
-      this.status = 0;
-      this.statusText = 'Client Error';
-      this.timestamp = new Date().toISOString();
-      this.rawError = httpError;
-    } else {
-      super(httpError);
-      this.status = 0;
-      this.statusText = 'Unknown';
-      this.timestamp = new Date().toISOString();
-      this.rawError = null;
-    }
+  constructor(params: {
+    code: ApiErrorCode;
+    message: string;
+    status?: number;
+    detail?: string;
+    retryable?: boolean;
+  }) {
+    super(params.message);
     this.name = 'ApiError';
+    this.code = params.code;
+    this.status = params.status ?? null;
+    this.detail = params.detail ?? null;
+    this.retryable = params.retryable ?? false;
   }
 
-  getUserFriendlyMessage(): string {
-    if (this.status === 0) {
-      return 'Network error: Cannot reach the straitgateway-controller. Running in fallback mode.';
+  static fromHttpStatus(status: number, message: string, detail?: string): ApiError {
+    switch (true) {
+      case status === 401:
+        return new ApiError({ code: 'UNAUTHORIZED', status, message, detail, retryable: false });
+      case status === 403:
+        return new ApiError({ code: 'FORBIDDEN', status, message, detail, retryable: false });
+      case status === 404:
+        return new ApiError({ code: 'NOT_FOUND', status, message, detail, retryable: false });
+      case status === 409:
+        return new ApiError({ code: 'CONFLICT', status, message, detail, retryable: false });
+      case status === 422:
+        return new ApiError({ code: 'VALIDATION_ERROR', status, message, detail, retryable: false });
+      case status === 503:
+        return new ApiError({ code: 'BACKEND_UNAVAILABLE', status, message, detail, retryable: true });
+      case status >= 500:
+        return new ApiError({ code: 'SERVER_ERROR', status, message, detail, retryable: true });
+      default:
+        return new ApiError({ code: 'UNKNOWN', status, message, detail, retryable: false });
     }
-    if (this.status === 401 || this.status === 403) {
-      return 'Authentication failed: Insufficient permissions to access this resource.';
-    }
-    if (this.status === 404) {
-      return 'Resource not found.';
-    }
-    if (this.status >= 500) {
-      return `Server error (${this.status}): Controller encountered an internal failure.`;
-    }
-    return this.message;
+  }
+
+  static network(detail?: string): ApiError {
+    return new ApiError({
+      code: 'NETWORK_ERROR',
+      message: 'Network request failed',
+      detail,
+      retryable: true,
+    });
   }
 }

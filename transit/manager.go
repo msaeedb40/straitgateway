@@ -13,6 +13,7 @@ import (
 
 	sgv1 "github.com/msaeedb40/straitgateway/api/v1alpha1"
 	"github.com/msaeedb40/straitgateway/dataplane/ir"
+	sgtypes "github.com/msaeedb40/straitgateway/pkg/types"
 	"github.com/msaeedb40/straitgateway/transit/cluster"
 	gw "github.com/msaeedb40/straitgateway/transit/gateway"
 	"github.com/msaeedb40/straitgateway/transit/peer"
@@ -20,14 +21,13 @@ import (
 	"github.com/msaeedb40/straitgateway/transit/route"
 	"github.com/msaeedb40/straitgateway/transit/segment"
 	"github.com/msaeedb40/straitgateway/transit/topology"
-	sgtypes "github.com/msaeedb40/straitgateway/pkg/types"
 	"strconv"
 )
 
 // Manager orchestrates the full transit gateway control plane.
 type Manager struct {
-	client     client.Client
-	log        *zap.Logger
+	client client.Client
+	log    *zap.Logger
 
 	ClusterReg  *cluster.Registry
 	GatewayReg  *gw.Registry
@@ -43,10 +43,10 @@ func New(c client.Client, log *zap.Logger) *Manager {
 	clusterReg := cluster.New()
 	gatewayReg := gw.New(log)
 	segmentMgr := segment.New(log)
-	peerMgr    := peer.New(log)
-	routeMgr   := route.New(log)
+	peerMgr := peer.New(log)
+	routeMgr := route.New(log)
 	topologyMgr := topology.New(log, clusterReg, gatewayReg, peerMgr)
-	policyEng  := policy.New(log)
+	policyEng := policy.New(log)
 
 	return &Manager{
 		client:      c,

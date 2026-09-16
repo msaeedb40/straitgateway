@@ -14,9 +14,9 @@ import (
 	"context"
 	"fmt"
 
+	"go.uber.org/zap"
 	networkingv1 "k8s.io/api/networking/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"go.uber.org/zap"
 
 	sgv1 "github.com/msaeedb40/straitgateway/api/v1alpha1"
 	"github.com/msaeedb40/straitgateway/dataplane/ir"

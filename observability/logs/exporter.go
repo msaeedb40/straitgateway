@@ -25,16 +25,16 @@ const (
 // LogEntry is the canonical structured log entry emitted by straitgateway.
 // Follows the 11-attribute observability model.
 type LogEntry struct {
-	Timestamp   time.Time         `json:"timestamp"`
-	Level       Level             `json:"level"`
-	Caller      string            `json:"caller"`
-	Message     string            `json:"msg"`
-	ClusterName string            `json:"cluster_name,omitempty"`
-	NodeName    string            `json:"node_name,omitempty"`
-	Namespace   string            `json:"namespace,omitempty"`
-	PodName     string            `json:"pod_name,omitempty"`
-	Component   string            `json:"component,omitempty"`
-	Fields      map[string]any    `json:"fields,omitempty"`
+	Timestamp   time.Time      `json:"timestamp"`
+	Level       Level          `json:"level"`
+	Caller      string         `json:"caller"`
+	Message     string         `json:"msg"`
+	ClusterName string         `json:"cluster_name,omitempty"`
+	NodeName    string         `json:"node_name,omitempty"`
+	Namespace   string         `json:"namespace,omitempty"`
+	PodName     string         `json:"pod_name,omitempty"`
+	Component   string         `json:"component,omitempty"`
+	Fields      map[string]any `json:"fields,omitempty"`
 }
 
 // Exporter exposes log lines for the dashboard API and log aggregators.

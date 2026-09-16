@@ -7,7 +7,7 @@ entries:
       artifacthub.io/operator: "false"
     apiVersion: v2
     appVersion: 1.0.0
-    created: "2026-09-11T02:40:27.740258723+03:00"
+    created: "2026-09-16T06:34:22.230537851+03:00"
     dependencies:
     - name: crds
       repository: file://charts/crds
@@ -15,7 +15,7 @@ entries:
     description: 'straitgateway — eBPF-native Kubernetes CNI, Service LB, NetworkPolicy,
       Gateway API v1.6.1, kube-proxy replacement, Multi-cluster Transit Gateway, and
       BGP/BFD routing. Built on NetKit/TCX/XDP with a strict IR-based compiler. '
-    digest: 6dc0f9fa59a2b1156426082a98cda3d51dd421f2c67a67c46f40509107b1634e
+    digest: ec442e2d8f2bc85c74f4a47d6e8bcb08c1b52c9e8bbe64fc95eb4b3254052e61
     home: https://github.com/msaeedb40/straitgateway
     keywords:
     - cni
@@ -38,6 +38,6 @@ entries:
     - https://github.com/msaeedb40/straitgateway
     type: application
     urls:
-    - https://msaeedb40.github.io/straitgateway/charts/straitgateway-1.0.0.tgz
+    - https://charts.straitgateway.io/straitgateway-1.0.0.tgz
     version: 1.0.0
-generated: "2026-09-11T02:40:27.737829175+03:00"
+generated: "2026-09-16T06:34:22.2277687+03:00"

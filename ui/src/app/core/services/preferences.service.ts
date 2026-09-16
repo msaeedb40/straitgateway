@@ -1,43 +1,31 @@
-// Copyright 2026 straitgateway Authors
-// SPDX-License-Identifier: Apache-2.0
-
-import { Injectable, signal, effect, inject } from '@angular/core';
-import { StorageService } from './storage.service';
-
-export interface UserPreferences {
-  theme: 'dark' | 'light';
-  refreshInterval: number; // in seconds
-  compactTables: boolean;
-  defaultNamespace: string;
-  enableSoundAlerts: boolean;
-  enableMockFallback: boolean;
-}
-
-const STORAGE_KEY = 'straitgateway_prefs_v1';
-
-const DEFAULT_PREFS: UserPreferences = {
-  theme: 'dark',
-  refreshInterval: 15,
-  compactTables: false,
-  defaultNamespace: 'default',
-  enableSoundAlerts: false,
-  enableMockFallback: true,
-};
+import { Injectable, PLATFORM_ID, inject } from '@angular/core';
+import { isPlatformBrowser } from '@angular/common';
 
 @Injectable({ providedIn: 'root' })
 export class PreferencesService {
-  private storage = inject(StorageService);
-  private readonly _prefs = signal<UserPreferences>(this.storage.getLocal(STORAGE_KEY, DEFAULT_PREFS));
-  readonly prefs = this._prefs.asReadonly();
+  private readonly platformId = inject(PLATFORM_ID);
 
-  constructor() {
-    effect(() => {
-      const p = this._prefs();
-      this.storage.setLocal(STORAGE_KEY, p);
-    });
+  get<T>(key: string, defaultValue: T): T {
+    if (!isPlatformBrowser(this.platformId)) return defaultValue;
+    try {
+      const raw = localStorage.getItem(`sg:pref:${key}`);
+      return raw !== null ? (JSON.parse(raw) as T) : defaultValue;
+    } catch {
+      return defaultValue;
+    }
   }
 
-  update(partial: Partial<UserPreferences>) {
-    this._prefs.update((cur) => ({ ...cur, ...partial }));
+  set<T>(key: string, value: T): void {
+    if (!isPlatformBrowser(this.platformId)) return;
+    try {
+      localStorage.setItem(`sg:pref:${key}`, JSON.stringify(value));
+    } catch {
+      // Storage quota exceeded or private mode — silently ignore
+    }
+  }
+
+  remove(key: string): void {
+    if (!isPlatformBrowser(this.platformId)) return;
+    localStorage.removeItem(`sg:pref:${key}`);
   }
 }

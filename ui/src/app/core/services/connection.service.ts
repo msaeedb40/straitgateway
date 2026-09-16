@@ -1,51 +1,76 @@
-// Copyright 2026 straitgateway Authors
-// SPDX-License-Identifier: Apache-2.0
-
-import { Injectable, inject, signal } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
-import { BehaviorSubject, timer, of } from 'rxjs';
-import { switchMap, catchError, map } from 'rxjs/operators';
-import { RuntimeConfigService } from '../config/runtime-config';
+import { inject, Injectable, signal } from '@angular/core';
+import { interval, Subscription } from 'rxjs';
+import { BackendHealth, ConnectionStatus } from '../api/api.types';
+import { PrometheusApiService } from '../api/observability/prometheus.api';
+import { GrafanaApiService } from '../api/observability/grafana.api';
+import { JaegerApiService } from '../api/observability/jaeger.api';
+import { LogsApiService } from '../api/observability/logs.api';
+import { ApiClient } from '../api/api-client';
+import { RuntimeConfigService } from '../config/runtime-config.service';
 
 @Injectable({ providedIn: 'root' })
 export class ConnectionService {
-  private http = inject(HttpClient);
-  private config = inject(RuntimeConfigService);
+  private readonly apiClient = inject(ApiClient);
+  private readonly runtimeConfig = inject(RuntimeConfigService);
+  private readonly prometheus = inject(PrometheusApiService);
+  private readonly grafana = inject(GrafanaApiService);
+  private readonly jaeger = inject(JaegerApiService);
+  private readonly logs = inject(LogsApiService);
 
-  private readonly _connected = signal<boolean>(true);
-  readonly isConnected = this._connected.asReadonly();
+  readonly controller = signal<ConnectionStatus>('checking');
+  readonly prometheusStatus = signal<ConnectionStatus>('checking');
+  readonly grafanaStatus = signal<ConnectionStatus>('checking');
+  readonly jaegerStatus = signal<ConnectionStatus>('checking');
+  readonly logsStatus = signal<ConnectionStatus>('checking');
 
-  private readonly _latency = signal<number>(1.2);
-  readonly latencyMs = this._latency.asReadonly();
+  private pollSub: Subscription | null = null;
 
-  private _connectedSubject = new BehaviorSubject<boolean>(true);
-  readonly connected$ = this._connectedSubject.asObservable();
-
-  constructor() {
-    this.startHealthPolling();
+  startPolling(): void {
+    this.checkAll();
+    this.pollSub = interval(this.runtimeConfig.refreshInterval).subscribe(() =>
+      this.checkAll()
+    );
   }
 
-  startHealthPolling(): void {
-    timer(0, 10000).pipe(
-      switchMap(() => {
-        const start = performance.now();
-        const base = typeof this.config.apiBase === 'function' ? this.config.apiBase() : (this.config as any).apiBase;
-        return this.http.get(`${base}/healthz`, { responseType: 'text' }).pipe(
-          map(() => {
-            const lat = Math.round((performance.now() - start) * 10) / 10;
-            return { ok: true, lat: Math.max(lat, 0.8) };
-          }),
-          catchError(() => of({ ok: true, lat: 1.5 })) // resilient fallback: true for smooth dev preview
-        );
-      })
-    ).subscribe((res) => {
-      this._connected.set(res.ok);
-      this._latency.set(res.lat);
-      this._connectedSubject.next(res.ok);
+  stopPolling(): void {
+    this.pollSub?.unsubscribe();
+    this.pollSub = null;
+  }
+
+  get snapshot(): BackendHealth {
+    return {
+      controller: this.controller(),
+      prometheus: this.prometheusStatus(),
+      grafana: this.grafanaStatus(),
+      jaeger: this.jaegerStatus(),
+      logs: this.logsStatus(),
+    };
+  }
+
+  private checkAll(): void {
+    this.checkController();
+    this.prometheus.healthCheck().subscribe({
+      next: (ok) => this.prometheusStatus.set(ok ? 'connected' : 'unavailable'),
+      error: () => this.prometheusStatus.set('unavailable'),
+    });
+    this.grafana.healthCheck().subscribe({
+      next: (ok) => this.grafanaStatus.set(ok ? 'connected' : 'unavailable'),
+      error: () => this.grafanaStatus.set('unavailable'),
+    });
+    this.jaeger.healthCheck().subscribe({
+      next: (ok) => this.jaegerStatus.set(ok ? 'connected' : 'unavailable'),
+      error: () => this.jaegerStatus.set('unavailable'),
+    });
+    this.logs.healthCheck().subscribe({
+      next: (ok) => this.logsStatus.set(ok ? 'connected' : 'unavailable'),
+      error: () => this.logsStatus.set('unavailable'),
     });
   }
 
-  connect(): void {
-    this.startHealthPolling();
+  private checkController(): void {
+    this.apiClient.get<unknown>('/healthz').subscribe({
+      next: () => this.controller.set('connected'),
+      error: () => this.controller.set('unavailable'),
+    });
   }
 }

@@ -1,0 +1,195 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.21.0
+  name: clusternetworkconfigs.straitgateway.io
+spec:
+  group: straitgateway.io
+  names:
+    categories:
+    - straitgateway
+    kind: ClusterNetworkConfig
+    listKind: ClusterNetworkConfigList
+    plural: clusternetworkconfigs
+    shortNames:
+    - cnc
+    singular: clusternetworkconfig
+  scope: Cluster
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .spec.clusterName
+      name: Cluster
+      type: string
+    - jsonPath: .status.discoveredPodCIDRv4
+      name: PodCIDR
+      type: string
+    - jsonPath: .status.discoveredServiceCIDRv4
+      name: ServiceCIDR
+      type: string
+    - jsonPath: .status.readyNodes
+      name: ReadyNodes
+      type: integer
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: ClusterNetworkConfig is the cluster-wide straitgateway configuration.
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: |-
+              ClusterNetworkConfigSpec defines the cluster-wide networking configuration.
+              All CIDRs are discovered dynamically from the Kubernetes API — never hardcoded.
+            properties:
+              clusterID:
+                description: ClusterID is the unique numeric identifier for this cluster
+                  in the transit mesh.
+                format: int32
+                minimum: 1
+                type: integer
+              clusterName:
+                description: ClusterName is the unique name for this cluster.
+                type: string
+              dualStack:
+                default: false
+                description: DualStack enables IPv4/IPv6 dual-stack networking.
+                type: boolean
+              kubeProxyMode:
+                default: none
+                description: KubeProxyMode must be "none" when KubeProxyReplacement
+                  is true.
+                type: string
+              kubeProxyReplacement:
+                default: true
+                description: KubeProxyReplacement enables full kube-proxy replacement
+                  via eBPF.
+                type: boolean
+              podCIDRv4:
+                description: PodCIDRv4 is the cluster-wide IPv4 pod CIDR (discovered
+                  from kubeadm-config or kube-controller-manager).
+                type: string
+              podCIDRv6:
+                description: PodCIDRv6 is the cluster-wide IPv6 pod CIDR.
+                type: string
+              serviceCIDRv4:
+                description: ServiceCIDRv4 is the cluster-wide IPv4 service CIDR (discovered
+                  from API server).
+                type: string
+              serviceCIDRv6:
+                description: ServiceCIDRv6 is the cluster-wide IPv6 service CIDR.
+                type: string
+            required:
+            - clusterID
+            - clusterName
+            - dualStack
+            - kubeProxyMode
+            - kubeProxyReplacement
+            type: object
+          status:
+            description: ClusterNetworkConfigStatus defines the observed state of
+              ClusterNetworkConfig.
+            properties:
+              conditions:
+                description: Conditions holds reconciliation conditions.
+                items:
+                  description: Condition contains details for one aspect of the current
+                    state of this API Resource.
+                  properties:
+                    lastTransitionTime:
+                      description: |-
+                        lastTransitionTime is the last time the condition transitioned from one status to another.
+                        This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+                      format: date-time
+                      type: string
+                    message:
+                      description: |-
+                        message is a human readable message indicating details about the transition.
+                        This may be an empty string.
+                      maxLength: 32768
+                      type: string
+                    observedGeneration:
+                      description: |-
+                        observedGeneration represents the .metadata.generation that the condition was set based upon.
+                        For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+                        with respect to the current state of the instance.
+                      format: int64
+                      minimum: 0
+                      type: integer
+                    reason:
+                      description: |-
+                        reason contains a programmatic identifier indicating the reason for the condition's last transition.
+                        Producers of specific condition types may define expected values and meanings for this field,
+                        and whether the values are considered a guaranteed API.
+                        The value should be a CamelCase string.
+                        This field may not be empty.
+                      maxLength: 1024
+                      minLength: 1
+                      pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
+                      type: string
+                    status:
+                      description: status of the condition, one of True, False, Unknown.
+                      enum:
+                      - "True"
+                      - "False"
+                      - Unknown
+                      type: string
+                    type:
+                      description: type of condition in CamelCase or in foo.example.com/CamelCase.
+                      maxLength: 316
+                      pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
+                      type: string
+                  required:
+                  - lastTransitionTime
+                  - message
+                  - reason
+                  - status
+                  - type
+                  type: object
+                type: array
+              discoveredPodCIDRv4:
+                description: DiscoveredPodCIDRv4 is the pod CIDR discovered from the
+                  cluster.
+                type: string
+              discoveredServiceCIDRv4:
+                description: DiscoveredServiceCIDRv4 is the service CIDR discovered
+                  from the cluster.
+                type: string
+              observedGeneration:
+                description: ObservedGeneration is the last generation reconciled.
+                format: int64
+                type: integer
+              readyNodes:
+                description: ReadyNodes is the number of nodes with straitgatewayd
+                  in Ready state.
+                format: int32
+                type: integer
+              totalNodes:
+                description: TotalNodes is the total number of schedulable nodes.
+                format: int32
+                type: integer
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}

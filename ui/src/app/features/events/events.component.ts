@@ -1,66 +1,144 @@
-// Copyright 2026 straitgateway Authors — SPDX-License-Identifier: Apache-2.0
-import { Component, inject, signal, OnInit } from '@angular/core';
-import { CommonModule } from '@angular/common';
-import { FormsModule } from '@angular/forms';
-import { NamespaceService } from '../../core/services/namespace.service';
-import { ApiClient } from '../../core/api/api-client';
-import { catchError, of } from 'rxjs';
+import { Component, inject, signal, DestroyRef, PLATFORM_ID } from '@angular/core';
+import { isPlatformBrowser, SlicePipe } from '@angular/common';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { ReactiveFormsModule, FormBuilder } from '@angular/forms';
+import { EventApiService } from '../../core/api/resources/event.api';
+import { BreadcrumbsComponent } from '../../layout/breadcrumbs/breadcrumbs.component';
+import { SkeletonListComponent } from '../../shared/components/skeleton/skeleton.component';
+import { ErrorStateComponent } from '../../shared/components/error-state/error-state.component';
+import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
+import { ContextService } from '../../core/services/context.service';
+import { StraitEvent, EventSeverity, EventResourceKind } from '../../core/models/event.model';
+import { ApiError } from '../../core/api/api-error';
 
-interface EventRow { timestamp: string; namespace: string; name: string; kind: string; reason: string; message: string; type: 'Normal'|'Warning'; count: number; }
+const SEVERITIES: EventSeverity[] = ['Normal', 'Warning', 'Error'];
 
 @Component({
-  selector: 'app-events', standalone: true, imports: [CommonModule, FormsModule],
+  selector: 'sg-events',
+  imports: [ReactiveFormsModule, SlicePipe, BreadcrumbsComponent, SkeletonListComponent, ErrorStateComponent, StatusBadgeComponent],
   template: `
-<div class="sg-fade-in">
-  <div class="sg-page-header">
-    <div><h1 class="sg-page-title">Events</h1><p class="sg-page-subtitle">Kubernetes events from straitgateway controllers and the dataplane</p></div>
-    <div style="display:flex;gap:12px;align-items:center">
-      <select class="sg-select" style="height:34px;padding:0 12px" [(ngModel)]="typeFilter"><option value="">All Types</option><option>Normal</option><option>Warning</option></select>
-      <button class="sg-btn sg-btn-secondary" (click)="load()">↻ Refresh</button>
-    </div>
-  </div>
-  <div class="sg-card">
-    <div class="sg-card-header">
-      <span class="sg-card-title">Event Stream</span>
-      <span class="text-muted text-sm">{{ filtered().length }} events</span>
-    </div>
-    <div class="sg-card-body p-0">
-      <table class="sg-table">
-        <thead><tr><th style="width:160px">Time</th><th>Namespace</th><th>Object</th><th>Reason</th><th>Message</th><th>Count</th></tr></thead>
-        <tbody>
-          @if (loading()) {
-            @for(i of [1,2,3,4,5]; track i){<tr><td colspan="6"><div class="sg-skeleton" style="height:13px"></div></td></tr>}
-          } @else {
-            @for (e of filtered(); track e.timestamp+e.name) {
-              <tr [style.border-left]="e.type==='Warning'?'2px solid var(--sg-danger)':''">
-                <td class="mono text-sm text-muted">{{ e.timestamp }}</td>
-                <td><span class="sg-badge pending">{{ e.namespace }}</span></td>
-                <td class="mono text-sm">{{ e.kind }}/{{ e.name }}</td>
-                <td><span class="sg-badge" [class]="e.type==='Warning'?'error':'info'">{{ e.reason }}</span></td>
-                <td class="text-sm">{{ e.message }}</td>
-                <td>{{ e.count }}</td>
-              </tr>
-            } @empty {
-              <tr><td colspan="6"><div class="sg-empty"><p>No events</p></div></td></tr>
-            }
+    <div class="sg-page">
+      <sg-breadcrumbs />
+      <header class="sg-page-header">
+        <h1 class="sg-page-title">Events</h1>
+        <div class="sg-header-actions">
+          <button class="sg-btn sg-btn-secondary" [class.sg-btn-active]="streaming()" (click)="toggleStream()" type="button">
+            {{ streaming() ? '⏸ Stop Live' : '▶ Live' }}
+          </button>
+          <button class="sg-btn sg-btn-secondary" (click)="load()" type="button">Refresh</button>
+        </div>
+      </header>
+
+      <!-- Filter bar -->
+      <form [formGroup]="filterForm" (ngSubmit)="load()" class="sg-filter-bar">
+        <select class="sg-input sg-select" formControlName="severity" aria-label="Filter by severity">
+          <option value="">All severities</option>
+          @for (s of severities; track s) { <option [value]="s">{{ s }}</option> }
+        </select>
+        <input class="sg-input" formControlName="resourceKind" placeholder="Resource kind" aria-label="Filter by resource kind" />
+        <input class="sg-input" formControlName="search" placeholder="Search message…" aria-label="Search event messages" />
+        <button class="sg-btn sg-btn-secondary" type="submit">Filter</button>
+      </form>
+
+      @if (loading()) {
+        <sg-skeleton-list [count]="8" />
+      } @else if (loadError()) {
+        <sg-error-state [error]="loadError()" (retry)="load()" />
+      } @else {
+        <div class="sg-table-wrapper" role="region" aria-label="Events">
+          <table class="sg-table" aria-rowcount="{{ events().length }}">
+            <thead><tr>
+              <th scope="col">Time</th>
+              <th scope="col">Severity</th>
+              <th scope="col">Resource</th>
+              <th scope="col">Reason</th>
+              <th scope="col">Message</th>
+              <th scope="col">Count</th>
+            </tr></thead>
+            <tbody>
+              @for (ev of events(); track ev.uid; let i = $index) {
+                <tr [attr.aria-rowindex]="i + 1">
+                  <td class="sg-mono-value" style="white-space:nowrap">{{ ev.timestamp | slice:0:19 }}</td>
+                  <td>
+                    <sg-status-badge [variant]="ev.severity === 'Error' ? 'failed' : ev.severity === 'Warning' ? 'degraded' : 'healthy'" />
+                  </td>
+                  <td>{{ ev.resourceKind }}/{{ ev.resourceName }}</td>
+                  <td>{{ ev.reason }}</td>
+                  <td>{{ ev.message }}</td>
+                  <td class="sg-mono-value">{{ ev.count }}</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+          @if (events().length === 0) {
+            <p class="sg-empty-inline">No events match the current filter</p>
           }
-        </tbody>
-      </table>
+        </div>
+      }
     </div>
-  </div>
-</div>`,
+  `,
+  styles: [`
+    .sg-header-actions{display:flex;gap:8px;}
+    .sg-filter-bar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;}
+    .sg-filter-bar .sg-input{width:auto;min-width:140px;}
+    .sg-btn-active{border-color:var(--sg-accent);color:var(--sg-accent);}
+    .sg-empty-inline{color:var(--sg-text-muted);font-size:.8125rem;padding:1rem;}
+  `],
 })
-export class EventsComponent implements OnInit {
-  private api = inject(ApiClient);
-  protected ns = inject(NamespaceService);
-  events = signal<EventRow[]>([]);
-  loading = signal(true);
-  typeFilter = '';
-  filtered() { return this.events().filter(e => (!this.ns.active() || e.namespace === this.ns.active()) && (!this.typeFilter || e.type === this.typeFilter)); }
-  ngOnInit() { this.load(); }
-  load() {
+export class EventsComponent {
+  private readonly eventApi   = inject(EventApiService);
+  readonly context            = inject(ContextService);
+  private readonly destroyRef = inject(DestroyRef);
+  private readonly platformId = inject(PLATFORM_ID);
+  private readonly fb         = inject(FormBuilder);
+
+  readonly severities = SEVERITIES;
+  readonly loading    = signal(false);
+  readonly loadError  = signal<ApiError | null>(null);
+  readonly events     = signal<StraitEvent[]>([]);
+  readonly streaming  = signal(false);
+  private eventSource: EventSource | null = null;
+
+  readonly filterForm = this.fb.nonNullable.group({
+    severity:     [''],
+    resourceKind: [''],
+    search:       [''],
+  });
+
+  constructor() { this.load(); }
+
+  load(): void {
     this.loading.set(true);
-    this.api.getEvents?.().pipe(catchError(() => of([]))).subscribe((d: any[]) => { this.events.set(d); this.loading.set(false); });
-    setTimeout(() => { if (this.loading()) this.loading.set(false); }, 800);
+    this.loadError.set(null);
+    const { severity, resourceKind, search } = this.filterForm.getRawValue();
+    this.eventApi.list({
+      namespace:    this.context.selectedNamespace() || undefined,
+      cluster:      this.context.selectedCluster()   ?? undefined,
+      severity:     (severity as EventSeverity)      || undefined,
+      resourceKind: (resourceKind as EventResourceKind) || undefined,
+      search:       search                           || undefined,
+      pageSize:     100,
+    }).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+      next:  (r)   => { this.events.set(r.items); this.loading.set(false); },
+      error: (err) => { this.loadError.set(err);  this.loading.set(false); },
+    });
+  }
+
+  toggleStream(): void {
+    if (this.streaming()) { this.closeStream(); return; }
+    if (!isPlatformBrowser(this.platformId)) return;
+    this.streaming.set(true);
+    this.eventSource = new EventSource(this.eventApi.streamUrl());
+    this.eventSource.onmessage = (e) => {
+      const ev: StraitEvent = JSON.parse(e.data);
+      this.events.update((list) => [ev, ...list].slice(0, 500));
+    };
+    this.eventSource.onerror = () => this.closeStream();
+  }
+
+  private closeStream(): void {
+    this.eventSource?.close();
+    this.eventSource = null;
+    this.streaming.set(false);
   }
 }

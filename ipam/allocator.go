@@ -52,10 +52,10 @@ func New(cidr netip.Prefix) (*Allocator, error) {
 		size:    size,
 		gateway: cidr.Addr().Next(), // .1 is gateway
 	}
-	a.bitmap[0] = true           // network address
-	a.bitmap[1] = true           // gateway
+	a.bitmap[0] = true // network address
+	a.bitmap[1] = true // gateway
 	if size > 2 {
-		a.bitmap[size-1] = true  // broadcast
+		a.bitmap[size-1] = true // broadcast
 	}
 
 	return a, nil

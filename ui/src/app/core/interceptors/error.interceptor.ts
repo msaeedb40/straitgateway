@@ -1,22 +1,29 @@
-// Copyright 2026 straitgateway Authors
-// SPDX-License-Identifier: Apache-2.0
-
-import { HttpInterceptorFn } from '@angular/common/http';
+import { HttpInterceptorFn, HttpErrorResponse } from '@angular/common/http';
 import { inject } from '@angular/core';
-import { catchError, throwError } from 'rxjs';
-import { ApiError } from '../api/api-error';
+import { throwError } from 'rxjs';
+import { catchError } from 'rxjs/operators';
 import { NotificationService } from '../services/notification.service';
+import { ApiError } from '../api/api-error';
 
 export const errorInterceptor: HttpInterceptorFn = (req, next) => {
-  const notif = inject(NotificationService, { optional: true });
+  const notifications = inject(NotificationService);
 
   return next(req).pipe(
-    catchError((err) => {
-      const apiErr = new ApiError(err);
-      if (apiErr.status >= 500 && notif) {
-        notif.danger('API Server Error', apiErr.getUserFriendlyMessage());
+    catchError((err: unknown) => {
+      if (err instanceof HttpErrorResponse) {
+        // 5xx errors trigger a global notification
+        if (err.status >= 500) {
+          const message =
+            err.error?.message ?? err.error?.error ?? 'An unexpected server error occurred';
+          notifications.error(`Server Error (${err.status})`, message);
+        }
+        // 503 specifically — backend unavailable
+        if (err.status === 503) {
+          notifications.warning('Backend Unavailable', err.url ?? undefined);
+        }
       }
-      return throwError(() => apiErr);
+      // Always re-throw — components handle their own error state
+      return throwError(() => err);
     })
   );
 };

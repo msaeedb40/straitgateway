@@ -1,106 +1,197 @@
-// Copyright 2026 straitgateway Authors
-// SPDX-License-Identifier: Apache-2.0
-
-import { Component, inject, output } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import {
+  Component, computed, inject, input, output, signal, OnInit, DestroyRef
+} from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { RouterLink } from '@angular/router';
-import { NamespaceService } from '../../core/services/namespace.service';
-import { ConnectionService } from '../../core/services/connection.service';
-import { RuntimeConfigService } from '../../core/config/runtime-config';
+import { ContextService } from '../../core/services/context.service';
+import { ClusterApiService } from '../../core/api/resources/cluster.api';
+import { NamespaceApiService } from '../../core/api/resources/namespace.api';
+import type { Cluster } from '../../core/api/resources/cluster.api';
+import type { Namespace } from '../../core/api/resources/namespace.api';
 
 @Component({
   selector: 'sg-header',
-  standalone: true,
-  imports: [CommonModule, RouterLink],
+  imports: [RouterLink],
   template: `
     <header class="sg-header" role="banner">
-      <!-- Mobile Menu Button -->
-      <button
-        class="sg-mobile-menu-btn"
-        (click)="toggleSidebar.emit()"
-        aria-label="Toggle Navigation Menu"
-        style="display:none;align-items:center;justify-content:center;padding:8px;border-radius:var(--sg-radius-sm);color:var(--sg-text)"
-      >
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <line x1="3" y1="12" x2="21" y2="12" /><line x1="3" y1="6" x2="21" y2="6" /><line x1="3" y1="18" x2="21" y2="18" />
-        </svg>
-      </button>
-
-      <!-- Logo -->
-      <a routerLink="/" class="sg-logo" aria-label="straitgateway home">
-        <svg viewBox="0 0 32 32" fill="none" width="28" height="28">
-          <rect width="32" height="32" rx="8" fill="#6366f1" fill-opacity=".18" />
-          <path d="M8 16 L16 8 L24 16 L16 24 Z" stroke="#818cf8" stroke-width="2" fill="none" />
-          <circle cx="16" cy="16" r="3" fill="#6366f1" />
-        </svg>
-        <span class="font-bold tracking-tight">straitgateway</span>
-      </a>
-
-      <!-- Search Trigger -->
-      <div class="sg-header-search">
-        <div class="sg-search-wrap" (click)="openCommandBar.emit()" style="cursor:pointer">
-          <svg class="sg-search-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
+      <!-- Logo + sidebar toggle -->
+      <div class="sg-header-left">
+        <button
+          class="sg-sidebar-toggle sg-btn-ghost"
+          (click)="toggleSidebar.emit()"
+          [attr.aria-expanded]="!sidebarCollapsed()"
+          aria-controls="sg-sidebar"
+          aria-label="Toggle navigation sidebar"
+        >
+          <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden="true">
+            <rect x="2" y="4" width="14" height="1.5" rx="1" fill="currentColor"/>
+            <rect x="2" y="8.25" width="14" height="1.5" rx="1" fill="currentColor"/>
+            <rect x="2" y="12.5" width="14" height="1.5" rx="1" fill="currentColor"/>
           </svg>
-          <input
-            type="text"
-            class="sg-search-input"
-            placeholder="Search resources, flows, docs... (Ctrl+K)"
-            readonly
-          />
-        </div>
+        </button>
+        <a routerLink="/dashboard" class="sg-logo" aria-label="StraitGateway — go to dashboard">
+          <span class="sg-logo-text">StraitGateway</span>
+        </a>
       </div>
 
-      <div class="sg-header-spacer"></div>
-
-      <!-- Namespace Selector -->
-      <div class="sg-ns-select-wrap" style="display:flex;align-items:center;gap:8px">
-        <label for="sg-ns-select" class="text-xs text-muted" style="color:var(--sg-text-3)">Namespace:</label>
+      <!-- Context selectors -->
+      <div class="sg-header-context" role="group" aria-label="Active cluster and namespace">
+        <!-- Cluster selector -->
+        <label class="sg-context-label" for="sg-cluster-select">Cluster</label>
         <select
-          id="sg-ns-select"
-          class="sg-select"
-          style="height:32px;padding:0 12px;font-size:12px"
-          [value]="nsService.active()"
-          (change)="onNamespaceChange($event)"
+          id="sg-cluster-select"
+          class="sg-input sg-select sg-context-select"
+          [value]="context.selectedCluster() ?? ''"
+          (change)="onClusterChange($event)"
+          [attr.aria-label]="'Selected cluster: ' + (context.selectedCluster() ?? 'none')"
         >
-          <option value="">All Namespaces</option>
-          @for (ns of nsService.namespaces(); track ns) {
-            <option [value]="ns">{{ ns }}</option>
+          <option value="" disabled>{{ clustersLoading() ? 'Loading…' : 'Select cluster' }}</option>
+          @for (c of clusters(); track c.name) {
+            <option [value]="c.name">{{ c.name }}</option>
+          }
+        </select>
+
+        <span class="sg-context-sep" aria-hidden="true">/</span>
+
+        <!-- Namespace selector -->
+        <label class="sg-context-label" for="sg-namespace-select">Namespace</label>
+        <select
+          id="sg-namespace-select"
+          class="sg-input sg-select sg-context-select"
+          [value]="context.selectedNamespace()"
+          (change)="onNamespaceChange($event)"
+          [disabled]="!context.selectedCluster()"
+          [attr.aria-label]="'Selected namespace: ' + context.selectedNamespace()"
+        >
+          <option value="" disabled>{{ namespacesLoading() ? 'Loading…' : 'Select namespace' }}</option>
+          @for (n of namespaces(); track n.name) {
+            <option [value]="n.name">{{ n.name }}</option>
           }
         </select>
       </div>
 
-      <!-- Cluster Badge -->
-      <div class="sg-cluster-badge" style="padding:5px 10px;background:var(--sg-surface-2);border:1px solid var(--sg-border);border-radius:var(--sg-radius-sm);font-size:11px;font-family:monospace;color:var(--sg-accent-light)">
-        {{ config.clusterName() }}
-      </div>
+      <!-- Right actions -->
+      <div class="sg-header-right">
+        <!-- Alert count -->
+        @if (alertCount() > 0) {
+          <a routerLink="/events" class="sg-alert-badge" [attr.aria-label]="alertCount() + ' active alerts'">
+            {{ alertCount() }}
+          </a>
+        }
 
-      <!-- Live Connection Status -->
-      <div
-        class="sg-connection-badge"
-        [title]="'Latency: ' + conn.latencyMs() + 'ms'"
-        aria-live="polite"
-      >
-        <span
-          class="dot"
-          [style.background]="conn.isConnected() ? 'var(--sg-success)' : 'var(--sg-danger)'"
-        ></span>
-        <span>{{ conn.isConnected() ? 'Connected' : 'Disconnected' }}</span>
-        <span style="color:var(--sg-text-3);font-size:10px">({{ conn.latencyMs() }}ms)</span>
+        <!-- User menu placeholder — wired to auth -->
+        <div class="sg-user-menu" role="button" tabindex="0" aria-label="User menu" aria-haspopup="menu">
+          <div class="sg-user-avatar" aria-hidden="true">U</div>
+        </div>
       </div>
     </header>
   `,
+  styles: [`
+    .sg-header {
+      grid-row: 1;
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      padding: 0 1rem;
+      height: var(--sg-header-height);
+      background: var(--sg-bg-surface);
+      border-bottom: 1px solid var(--sg-border);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    .sg-header-left { display: flex; align-items: center; gap: 12px; flex-shrink: 0; }
+    .sg-sidebar-toggle {
+      display: flex; align-items: center; justify-content: center;
+      width: 36px; height: 36px; border-radius: var(--sg-radius);
+      cursor: pointer; color: var(--sg-text-secondary);
+      transition: all var(--sg-transition-fast);
+      background: none; border: none;
+    }
+    .sg-sidebar-toggle:hover { background: var(--sg-bg-hover); color: var(--sg-text-primary); }
+
+    .sg-logo { display: flex; align-items: center; gap: 8px; text-decoration: none; }
+    .sg-logo-text {
+      font-size: 0.9375rem; font-weight: 700; color: var(--sg-accent);
+      letter-spacing: -0.02em; white-space: nowrap;
+    }
+
+    .sg-header-context {
+      display: flex; align-items: center; gap: 8px;
+      flex: 1; min-width: 0;
+    }
+    .sg-context-label {
+      font-size: 0.75rem; font-weight: 500; color: var(--sg-text-muted);
+      white-space: nowrap;
+    }
+    .sg-context-select { width: auto; min-width: 120px; max-width: 200px; font-size: 0.8125rem; }
+    .sg-context-sep { color: var(--sg-text-muted); font-size: 1rem; }
+
+    .sg-header-right { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+    .sg-alert-badge {
+      display: inline-flex; align-items: center; justify-content: center;
+      min-width: 22px; height: 22px; padding: 0 6px;
+      background: rgba(248, 113, 113, 0.2); color: var(--sg-failed);
+      border-radius: 999px; font-size: 0.75rem; font-weight: 700;
+      text-decoration: none;
+      transition: background var(--sg-transition-fast);
+    }
+    .sg-alert-badge:hover { background: rgba(248, 113, 113, 0.35); }
+
+    .sg-user-menu { cursor: pointer; }
+    .sg-user-avatar {
+      width: 32px; height: 32px; border-radius: 50%;
+      background: var(--sg-bg-overlay);
+      border: 1px solid var(--sg-border);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 0.75rem; font-weight: 600; color: var(--sg-text-secondary);
+    }
+  `],
 })
-export class HeaderComponent {
-  readonly nsService = inject(NamespaceService);
-  readonly conn = inject(ConnectionService);
-  readonly config = inject(RuntimeConfigService);
+export class HeaderComponent implements OnInit {
+  readonly toggleSidebar = output<void>();
+  readonly sidebarCollapsed = input<boolean>(false);
 
-  openCommandBar = output<void>();
-  toggleSidebar = output<void>();
+  readonly context = inject(ContextService);
+  private readonly clusterApi = inject(ClusterApiService);
+  private readonly namespaceApi = inject(NamespaceApiService);
+  private readonly destroyRef = inject(DestroyRef);
 
-  onNamespaceChange(event: Event) {
-    const target = event.target as HTMLSelectElement;
-    this.nsService.select(target.value);
+  readonly clusters = signal<Cluster[]>([]);
+  readonly namespaces = signal<Namespace[]>([]);
+  readonly clustersLoading = signal(false);
+  readonly namespacesLoading = signal(false);
+  readonly alertCount = signal(0);
+
+  ngOnInit(): void {
+    this.loadClusters();
+  }
+
+  private loadClusters(): void {
+    this.clustersLoading.set(true);
+    this.clusterApi.list().pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+      next: (list) => { this.clusters.set(list); this.clustersLoading.set(false); },
+      error: () => this.clustersLoading.set(false),
+    });
+  }
+
+  onClusterChange(event: Event): void {
+    const value = (event.target as HTMLSelectElement).value;
+    this.context.setCluster(value || null);
+    this.loadNamespaces(value);
+  }
+
+  private loadNamespaces(cluster: string): void {
+    if (!cluster) { this.namespaces.set([]); return; }
+    this.namespacesLoading.set(true);
+    this.namespaceApi.list(cluster).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+      next: (list) => { this.namespaces.set(list); this.namespacesLoading.set(false); },
+      error: () => this.namespacesLoading.set(false),
+    });
+  }
+
+  onNamespaceChange(event: Event): void {
+    const value = (event.target as HTMLSelectElement).value;
+    this.context.setNamespace(value);
   }
 }

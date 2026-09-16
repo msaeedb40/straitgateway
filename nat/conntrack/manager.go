@@ -14,8 +14,8 @@ import (
 
 // Manager manages the conntrack BPF LRU hash map.
 type Manager struct {
-	log    *zap.Logger
-	mu     sync.Mutex
+	log *zap.Logger
+	mu  sync.Mutex
 	// gcInterval is the garbage collection interval for expired entries.
 	gcInterval time.Duration
 }

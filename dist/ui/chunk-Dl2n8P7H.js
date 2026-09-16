@@ -1,0 +1,1 @@
+import{Rn as v,un as oe}from"./chunk-B6VnwJsh.js";import{n as D}from"./chunk-B39ynFEe.js";var a=class t{client=v(D);list(e){return this.client.get(`/v1/events`,{params:e})}streamUrl(){return`${this.client.controllerBase}/v1/events/stream`}static ɵfac=function(o){return new(o||t)};static ɵprov=oe({token:t,factory:t.ɵfac,providedIn:`root`})};export{a as t};

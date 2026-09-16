@@ -1,72 +1,69 @@
-// Copyright 2026 straitgateway Authors
-// SPDX-License-Identifier: Apache-2.0
+import { inject, Injectable, signal } from '@angular/core';
+import { Router } from '@angular/router';
+import { AuthState, AuthUser } from './auth.model';
+import { OidcService } from './oidc.service';
 
-import { Injectable, inject, signal } from '@angular/core';
-import { StorageService } from '../services/storage.service';
-import { AuthState, UserSession } from './auth.models';
-
-const AUTH_STORAGE_KEY = 'straitgateway_auth_v1';
-
-@Injectable({
-  providedIn: 'root',
-})
+@Injectable({ providedIn: 'root' })
 export class AuthService {
-  private storage = inject(StorageService);
+  private readonly oidc = inject(OidcService);
+  private readonly router = inject(Router);
 
-  private readonly _state = signal<AuthState>(this.initAuth());
-  readonly state = this._state.asReadonly();
-
-  readonly isAuthenticated = signal<boolean>(true); // Default to cluster-authenticated session
-  readonly currentUser = signal<UserSession>({
-    username: 'admin',
-    role: 'admin',
-    tokenType: 'serviceaccount',
+  readonly state = signal<AuthState>({
+    status: 'Unauthenticated',
+    user: null,
+    error: null,
   });
 
-  private initAuth(): AuthState {
-    const saved = this.storage.getSession<AuthState | null>(AUTH_STORAGE_KEY, null);
-    if (saved) return saved;
-
-    return {
-      isAuthenticated: true,
-      user: {
-        username: 'cluster-admin',
-        role: 'admin',
-        tokenType: 'serviceaccount',
-      },
-      allowedNamespaces: ['*'],
-    };
+  get isAuthenticated(): boolean {
+    return this.state().status === 'Authenticated' && this.state().user !== null;
   }
 
-  setSession(session: UserSession, allowedNamespaces: string[] = ['*']): void {
-    const state: AuthState = {
-      isAuthenticated: true,
-      user: session,
-      allowedNamespaces,
-    };
-    this._state.set(state);
-    this.isAuthenticated.set(true);
-    this.currentUser.set(session);
-    this.storage.setSession(AUTH_STORAGE_KEY, state);
+  get currentUser(): AuthUser | null {
+    return this.state().user;
   }
 
-  logout(): void {
-    const defaultState: AuthState = {
-      isAuthenticated: false,
-      user: null,
-      allowedNamespaces: [],
-    };
-    this._state.set(defaultState);
-    this.isAuthenticated.set(false);
-    this.storage.removeSession(AUTH_STORAGE_KEY);
+  get accessToken(): string | null {
+    return this.state().user?.accessToken ?? null;
   }
 
-  canWrite(): boolean {
-    const role = this.currentUser().role;
-    return role === 'admin' || role === 'operator';
+  async initialize(): Promise<void> {
+    this.state.update((s) => ({ ...s, status: 'Authenticating' }));
+    try {
+      const user = await this.oidc.initialize();
+      if (user) {
+        this.state.set({ status: 'Authenticated', user, error: null });
+      } else {
+        this.state.set({ status: 'Unauthenticated', user: null, error: null });
+      }
+    } catch (err) {
+      this.state.set({
+        status: 'Error',
+        user: null,
+        error: err instanceof Error ? err.message : 'Authentication failed',
+      });
+    }
   }
 
-  canAdmin(): boolean {
-    return this.currentUser().role === 'admin';
+  async login(): Promise<void> {
+    await this.oidc.startLogin();
+  }
+
+  async logout(): Promise<void> {
+    await this.oidc.logout();
+    this.state.set({ status: 'Unauthenticated', user: null, error: null });
+    await this.router.navigate(['/login']);
+  }
+
+  async handleCallback(): Promise<void> {
+    try {
+      const user = await this.oidc.handleCallback();
+      this.state.set({ status: 'Authenticated', user, error: null });
+    } catch (err) {
+      this.state.set({
+        status: 'Error',
+        user: null,
+        error: err instanceof Error ? err.message : 'Callback handling failed',
+      });
+    }
   }
 }

@@ -10,10 +10,10 @@ import (
 	"go.uber.org/zap"
 
 	sgv1 "github.com/msaeedb40/straitgateway/api/v1alpha1"
+	sgtypes "github.com/msaeedb40/straitgateway/pkg/types"
 	"github.com/msaeedb40/straitgateway/transit/cluster"
 	"github.com/msaeedb40/straitgateway/transit/gateway"
 	"github.com/msaeedb40/straitgateway/transit/peer"
-	sgtypes "github.com/msaeedb40/straitgateway/pkg/types"
 )
 
 // Edge represents a directed connection in the topology graph.
@@ -26,10 +26,10 @@ type Edge struct {
 
 // Manager computes and maintains the transit topology graph.
 type Manager struct {
-	log         *zap.Logger
-	clusterReg  *cluster.Registry
-	gatewayReg  *gateway.Registry
-	peerMgr     *peer.Manager
+	log        *zap.Logger
+	clusterReg *cluster.Registry
+	gatewayReg *gateway.Registry
+	peerMgr    *peer.Manager
 }
 
 // New creates a new topology Manager.
