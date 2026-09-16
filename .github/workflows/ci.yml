@@ -293,9 +293,9 @@ jobs:
           helm upgrade --install straitgateway ./straitgateway-helm/ \
             --namespace kube-system \
             --create-namespace \
-            --set kubeProxyReplacement.enabled=true \ 
+            --set kubeProxyReplacement.enabled=true \
             --wait \
-            --timeout=20m 
+            --timeout 20m 
 
 
     
