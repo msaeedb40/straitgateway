@@ -265,7 +265,7 @@ jobs:
           config: .github/kind-config.yaml
       
  
-      - name: Build local container images for kind
+      - name: Build local container images for kind 
         run: |
           docker build --build-arg ALPINE_VERSION=${{ env.ALPINE_VERSION }} --build-arg GO_VERSION=${{ env.GO_VERSION }} -f build/Dockerfile.sg-controller -t ${{ env.REGISTRY }}/straitgateway-controller:1.0.0 .
           docker build --build-arg ALPINE_VERSION=${{ env.ALPINE_VERSION }} --build-arg GO_VERSION=${{ env.GO_VERSION }} --build-arg CLANG_VERSION=${{ env.CLANG_VERSION }} --build-arg LLVM_VERSION=${{ env.LLVM_VERSION }} -f build/Dockerfile.straitgatewayd -t ${{ env.REGISTRY }}/straitgatewayd:1.0.0 .
@@ -274,7 +274,7 @@ jobs:
       - name: Load images into kind cluster
         run: |
           kind load docker-image --name straitgateway-ci \
-            ${{ env.REGISTRY }}/straitgateway-controller:1.0.0 \
+            ${{ env.REGISTRY }}/straitgateway-controller:1.0.0  \
             ${{ env.REGISTRY }}/straitgatewayd:1.0.0 \
             ${{ env.REGISTRY }}/straitgateway-cli:1.0.0 \
             ${{ env.REGISTRY }}/straitgateway-ui:1.0.0 \
@@ -297,10 +297,10 @@ jobs:
             --namespace kube-system \
             --create-namespace \
             --set kubeProxyReplacement.enabled=true \
-            --set images.controller.tag=${{ env.CONTROLLER_IMAGE_TAG }} \
-            --set images.daemon.tag=${{ env.DAEMON_IMAGE_TAG }} \
-            --set images.cli.tag=${{ env.CLI_IMAGE_TAG }} \
-            --set images.ui.tag=${{ env.UI_IMAGE_TAG }} \ 
+            --set images.controller.tag=1.0.0 \
+            --set images.daemon.tag=1.0.0 \
+            --set images.cli.tag=1.0.0 \
+            --set images.ui.tag=1.0.0 \
             --wait \
             --timeout 20m 
 
