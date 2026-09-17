@@ -1,1 +1,0 @@
-var t=[{path:``,loadComponent:()=>import(`./chunk-DDFFDp2y.js`).then(e=>e.EndpointListComponent),title:`Endpoints — StraitGateway`},{path:`:namespace/:name`,loadComponent:()=>import(`./chunk-CDaguFn4.js`).then(e=>e.EndpointDetailComponent),title:`Endpoint Detail — StraitGateway`}];export{t as ENDPOINTS_ROUTES};

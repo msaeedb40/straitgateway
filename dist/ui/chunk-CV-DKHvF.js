@@ -1,1 +1,0 @@
-var t=[{path:``,loadComponent:()=>import(`./chunk-Q7-SYedR.js`).then(e=>e.NodeListComponent),title:`Nodes — StraitGateway`},{path:`:name`,loadComponent:()=>import(`./chunk-DsBSGmqC2.js`).then(e=>e.NodeDetailComponent),title:`Node Detail — StraitGateway`}];export{t as NODES_ROUTES};

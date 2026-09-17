@@ -1,1 +1,0 @@
-var t=[{path:``,loadComponent:()=>import(`./chunk-DNsy983m.js`).then(e=>e.ServiceListComponent),title:`Services — StraitGateway`},{path:`:namespace/:name`,loadComponent:()=>import(`./chunk-Dh0iXlJe.js`).then(e=>e.ServiceDetailComponent),title:`Service Detail — StraitGateway`}];export{t as SERVICES_ROUTES};
