@@ -294,15 +294,23 @@ jobs:
       - name: install straitgateway helm
         run: |
           helm upgrade --install straitgateway ./straitgateway-helm/ \
-            --namespace kube-system \
+            --namespace straitgateway-system \
             --create-namespace \
-            --set global.clusterName="straitgateway-ci-cluster" \
+            --set global.clusterName=straitgateway-ci-cluster \
             --set global.clusterID=1 \
             --set kubeProxyReplacement.enabled=true \
             --set dataplane.overlay=Native \
             --set cni.enabled=true \
             --set networkPolicy.enabled=true \
             --set networkPolicy.lsm=true \
+            --set images.controller.repository=${{ env.REGISTRY }}/straitgateway-controller \
+            --set images.controller.tag=1.0.0 \
+            --set images.daemon.repository=${{ env.REGISTRY }}/straitgatewayd \
+            --set images.daemon.tag=1.0.0 \
+            --set images.cli.repository=${{ env.REGISTRY }}/straitgateway-cli \
+            --set images.cli.tag=1.0.0 \
+            --set images.ui.repository=${{ env.REGISTRY }}/straitgateway-ui \
+             --set images.ui.tag=1.0.0 \
             --wait \
             --timeout 20m
  
