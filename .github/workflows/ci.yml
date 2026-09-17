@@ -277,7 +277,10 @@ jobs:
             ${{ env.REGISTRY }}/straitgateway-controller:1.0.0 \
             ${{ env.REGISTRY }}/straitgatewayd:1.0.0 \
             ${{ env.REGISTRY }}/straitgateway-cli:1.0.0 \
-            ${{ env.REGISTRY }}/straitgateway-ui:1.0.0
+            ${{ env.REGISTRY }}/straitgateway-ui:1.0.0 \
+          
+          
+    
       - name: Install Gateway API CRDs
         run: |
           kubectl apply --server-side -f \
@@ -294,8 +297,14 @@ jobs:
             --namespace kube-system \
             --create-namespace \
             --set kubeProxyReplacement.enabled=true \
+            --set images.controller.tag=${{ env.CONTROLLER_IMAGE_TAG }} \
+            --set images.daemon.tag=${{ env.DAEMON_IMAGE_TAG }} \
+            --set images.cli.tag=${{ env.CLI_IMAGE_TAG }} \
+            --set images.ui.tag=${{ env.UI_IMAGE_TAG }} \ 
             --wait \
             --timeout 20m 
+
+
 
 
     
