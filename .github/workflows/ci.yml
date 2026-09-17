@@ -298,14 +298,13 @@ jobs:
             --create-namespace \
             --set global.clusterName="straitgateway-ci-cluster" \
             --set global.clusterID=1 \
-            --set kubeProxyReplacement.enabled=true \  
+            --set kubeProxyReplacement.enabled=true \
             --set dataplane.overlay=Native \
             --set cni.enabled=true \
             --set networkPolicy.enabled=true \
             --set networkPolicy.lsm=true \
             --wait \
-            --timeout 20m 
-
+            --timeout 20m
  
 
 
