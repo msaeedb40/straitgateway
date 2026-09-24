@@ -1,0 +1,20 @@
+{{- if .Values.cni.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: strait-cni-config
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/name: strait-cni
+    app.kubernetes.io/part-of: straitgateway
+    app.kubernetes.io/component: cni
+data:
+  cni.yaml: |
+    cni:
+      binDir: {{ .Values.cni.binDir | default "/opt/cni/bin" | quote }}
+      confDir: {{ .Values.cni.confDir | default "/etc/cni/net.d" | quote }}
+      datapathMode: {{ .Values.cni.datapathMode | default "netkit" | quote }}
+      mtu: {{ .Values.cni.mtu | default 1500 }}
+    ipam:
+      mode: {{ .Values.ipam.mode | default "cluster-pool" | quote }}
+{{- end }}

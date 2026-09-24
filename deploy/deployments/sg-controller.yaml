@@ -1,0 +1,56 @@
+---
+# Source: straitgateway/templates/controller/deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sg-controller
+  namespace: kube-system
+  labels:
+    app.kubernetes.io/name: sg-controller
+    app.kubernetes.io/part-of: straitgateway
+    app.kubernetes.io/version: 1.0.0
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: sg-controller
+  template:
+    metadata:
+      labels:
+        app: sg-controller
+        app.kubernetes.io/name: sg-controller
+        app.kubernetes.io/part-of: straitgateway
+    spec:
+      priorityClassName: system-cluster-critical
+      serviceAccountName: sg-controller
+      containers:
+        - name: sg-controller
+          image: ghcr.io/straitgateway/sg-controller:1.0.0
+          imagePullPolicy: IfNotPresent
+          resources:
+            limits:
+              cpu: 500m
+              memory: 256Mi
+            requests:
+              cpu: 100m
+              memory: 128Mi
+          ports:
+            - name: metrics
+              containerPort: 9090
+              protocol: TCP
+            - name: health
+              containerPort: 8081
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: health
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: health
+            initialDelaySeconds: 15
+            periodSeconds: 20
+

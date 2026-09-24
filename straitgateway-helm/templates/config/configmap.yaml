@@ -1,0 +1,20 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: straitgateway-config
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/name: straitgateway-config
+    app.kubernetes.io/part-of: straitgateway
+data:
+  config.yaml: |
+    cluster:
+      name: {{ .Values.clusterName | default "kubernetes" }}
+    logging:
+      level: {{ .Values.straitd.logLevel | default "info" }}
+    datapath:
+      mode: {{ .Values.datapath.mode | default "netkit" }}
+      ebpfMount: "/sys/fs/bpf"
+    cni:
+      binDir: "{{ .Values.cni.binDir }}"
+      confDir: "{{ .Values.cni.confDir }}"

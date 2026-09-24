@@ -1,0 +1,8 @@
+-target
+bpf
+-D__TARGET_ARCH_x86
+-I straitgateway/bpf/headers
+-I straitgateway/bpf/include
+-Iheaders
+-Iinclude
+-I/usr/include

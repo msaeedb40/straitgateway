@@ -1,0 +1,320 @@
+---
+# Source: straitgateway/templates/rbac/controller-rbac.yaml
+# sg-controller ServiceAccount
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: sg-controller
+  namespace: kube-system
+  labels:
+    app.kubernetes.io/part-of: straitgateway
+---
+# Source: straitgateway/templates/cni/conflist.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: straitgateway-cni-conflist
+  namespace: kube-system
+  labels:
+    app.kubernetes.io/name: straitgateway-cni-conflist
+    app.kubernetes.io/part-of: straitgateway
+data:
+  10-straitgateway.conflist: |
+    {
+      "cniVersion": "1.0.0",
+      "name": "straitgateway",
+      "plugins": [
+        {
+          "type": "strait-cni",
+          "datapathMode": "netkit",
+          "mtu": 1500,
+          "ipam": {
+            "type": "cluster-pool"
+          }
+        }
+      ]
+    }
+
+---
+# Source: straitgateway/templates/config/configmap.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: straitgateway-config
+  namespace: kube-system
+  labels:
+    app.kubernetes.io/name: straitgateway-config
+    app.kubernetes.io/part-of: straitgateway
+data:
+  config.yaml: |
+    cluster:
+      name: kubernetes
+    logging:
+      level: info
+    datapath:
+      mode: netkit
+      ebpfMount: "/sys/fs/bpf"
+    cni:
+      binDir: "/opt/cni/bin"
+      confDir: "/etc/cni/net.d"
+
+---
+# Source: straitgateway/templates/rbac/controller-rbac.yaml
+# sg-controller ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: sg-controller
+  labels:
+    app.kubernetes.io/part-of: straitgateway
+rules:
+  # Core resources
+  - apiGroups: [""]
+    resources: ["nodes", "pods", "services", "endpoints", "namespaces"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: [""]
+    resources: ["events"]
+    verbs: ["create", "patch"]
+  # EndpointSlices
+  - apiGroups: ["discovery.k8s.io"]
+    resources: ["endpointslices"]
+    verbs: ["get", "list", "watch"]
+  # Gateway API
+  - apiGroups: ["gateway.networking.k8s.io"]
+    resources:
+      ["gateways", "httproutes", "grpcroutes", "tcproutes","tlsroutes","udproutes", "referencegrants"]
+    verbs: ["get", "list", "watch", "update", "patch"]
+  - apiGroups: ["gateway.networking.k8s.io"]
+    resources:
+      ["gateways/status", "httproutes/status", "grpcroutes/status", "tcproutes/status", "tlsroutes/status","udproutes/status"]
+    verbs: ["update", "patch"]
+  # StraitGateway CRDs
+  - apiGroups: ["straitgateway.io"]
+    resources: ["*"]
+    verbs: ["*"] 
+  # Leader election
+  - apiGroups: ["coordination.k8s.io"]
+    resources: ["leases"]
+    verbs: ["get", "create", "update", "patch"]
+---
+# Source: straitgateway/templates/rbac/controller-rbac.yaml
+# sg-controller ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: sg-controller
+  labels:
+    app.kubernetes.io/part-of: straitgateway
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: sg-controller
+subjects:
+  - kind: ServiceAccount
+    name: sg-controller
+    namespace: kube-system
+
+---
+# Source: straitgateway/templates/services/metrics.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: straitd-metrics
+  namespace: kube-system
+  labels:
+    app.kubernetes.io/name: straitd-metrics
+    app.kubernetes.io/part-of: straitgateway
+spec:
+  type: ClusterIP
+  selector:
+    app: straitd
+  ports:
+    - name: metrics
+      port: 9090
+      targetPort: 9090
+      protocol: TCP
+---
+# Source: straitgateway/templates/services/metrics.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: sg-controller-metrics
+  namespace: kube-system
+  labels:
+    app.kubernetes.io/name: sg-controller-metrics
+    app.kubernetes.io/part-of: straitgateway
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: sg-controller
+  ports:
+    - name: metrics
+      port: 8080
+      targetPort: 8080
+      protocol: TCP
+
+---
+# Source: straitgateway/templates/daemonsets/straitd.yaml
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: straitd
+  namespace: kube-system
+  labels:
+    app.kubernetes.io/name: straitd
+    app.kubernetes.io/part-of: straitgateway
+    app.kubernetes.io/version: 1.0.0
+spec:
+  selector:
+    matchLabels:
+      app: straitd
+  updateStrategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 1
+  template:
+    metadata:
+      labels:
+        app: straitd
+        app.kubernetes.io/name: straitd
+        app.kubernetes.io/part-of: straitgateway
+    spec:
+      hostNetwork: true
+      hostPID: true
+      priorityClassName: system-node-critical
+      tolerations:
+        - operator: Exists
+          effect: NoSchedule
+        - operator: Exists
+          effect: NoExecute
+      initContainers:
+        # CNI binary installer
+        - name: install-cni
+          image: ghcr.io/straitgateway/straitd:1.0.0
+          imagePullPolicy: IfNotPresent
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              cp /usr/local/bin/strait-cni /opt/cni/bin/strait-cni
+              chmod +x /opt/cni/bin/strait-cni
+              cp /etc/straitgateway/straitgateway.conflist /etc/cni/net.d/straitgateway.conflist
+              echo "CNI plugin installed"
+          volumeMounts:
+            - name: cni-bin
+              mountPath: /opt/cni/bin
+            - name: cni-conf
+              mountPath: /etc/cni/net.d
+      containers:
+        - name: straitd
+          image: ghcr.io/straitgateway/straitd:1.0.0
+          imagePullPolicy: IfNotPresent
+          securityContext:
+            capabilities:
+              add:
+              - NET_ADMIN
+              - SYS_ADMIN
+              - NET_RAW
+              - BPF
+              - PERFMON
+              drop:
+              - ALL
+            privileged: false
+          resources:
+            limits:
+              cpu: "1"
+              memory: 512Mi
+            requests:
+              cpu: 200m
+              memory: 256Mi
+          volumeMounts:
+            - name: bpffs
+              mountPath: /sys/fs/bpf
+              mountPropagation: Bidirectional
+            - name: debugfs
+              mountPath: /sys/kernel/debug
+            - name: cgroup
+              mountPath: /sys/fs/cgroup
+              mountPropagation: Bidirectional
+            - name: straitd-run
+              mountPath: /run/straitd
+      volumes:
+        - name: bpffs
+          hostPath:
+            path: /sys/fs/bpf
+            type: DirectoryOrCreate
+        - name: debugfs
+          hostPath:
+            path: /sys/kernel/debug
+            type: Directory
+        - name: cgroup
+          hostPath:
+            path: /sys/fs/cgroup
+            type: Directory
+        - name: cni-bin
+          hostPath:
+            path: /opt/cni/bin
+            type: DirectoryOrCreate
+        - name: cni-conf
+          hostPath:
+            path: /etc/cni/net.d
+            type: DirectoryOrCreate
+        - name: straitd-run
+          hostPath:
+            path: /run/straitd
+            type: DirectoryOrCreate
+
+---
+# Source: straitgateway/templates/controller/deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sg-controller
+  namespace: kube-system
+  labels:
+    app.kubernetes.io/name: sg-controller
+    app.kubernetes.io/part-of: straitgateway
+    app.kubernetes.io/version: 1.0.0
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: sg-controller
+  template:
+    metadata:
+      labels:
+        app: sg-controller
+        app.kubernetes.io/name: sg-controller
+        app.kubernetes.io/part-of: straitgateway
+    spec:
+      priorityClassName: system-cluster-critical
+      serviceAccountName: sg-controller
+      containers:
+        - name: sg-controller
+          image: ghcr.io/straitgateway/sg-controller:1.0.0
+          imagePullPolicy: IfNotPresent
+          resources:
+            limits:
+              cpu: 500m
+              memory: 256Mi
+            requests:
+              cpu: 100m
+              memory: 128Mi
+          ports:
+            - name: metrics
+              containerPort: 9090
+              protocol: TCP
+            - name: health
+              containerPort: 8081
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: health
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: health
+            initialDelaySeconds: 15
+            periodSeconds: 20

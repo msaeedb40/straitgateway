@@ -1,0 +1,22 @@
+apiVersion: v2
+name: straitgateway
+description: >
+  StraitGateway — Kubernetes-native CNI, eBPF-powered datapath,
+  sidecarless service mesh, and transit gateway.
+type: application
+version: 1.0.1
+appVersion: "1.0.1"
+keywords:
+  - networking
+  - cni
+  - ebpf
+  - netkit
+  - gateway-api
+  - service-mesh
+  - transit-gateway
+home: https://github.com/straitgateway/straitgateway
+sources:
+  - https://github.com/straitgateway/straitgateway
+icon: https://raw.githubusercontent.com/straitgateway/straitgateway/main/logo/straitgateway.png
+maintainers:
+  - name: StraitGateway Authors

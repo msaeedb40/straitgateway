@@ -1,0 +1,62 @@
+---
+# Source: straitgateway/templates/daemonsets/tgwd.yaml
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: tgwd
+  namespace: kube-system
+  labels:
+    app.kubernetes.io/name: tgwd
+    app.kubernetes.io/part-of: straitgateway
+    app.kubernetes.io/version: 1.0.0
+spec:
+  selector:
+    matchLabels:
+      app: tgwd
+  updateStrategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 1
+  template:
+    metadata:
+      labels:
+        app: tgwd
+        app.kubernetes.io/name: tgwd
+        app.kubernetes.io/part-of: straitgateway
+      annotations:
+        straitgateway.io/topology: hub-spoke
+    spec:
+      hostNetwork: true
+      priorityClassName: system-node-critical
+      tolerations:
+        - operator: Exists
+          effect: NoSchedule
+        - operator: Exists
+          effect: NoExecute
+      containers:
+        - name: tgwd
+          image: ghcr.io/straitgateway/tgwd:1.0.0
+          imagePullPolicy: IfNotPresent
+          command:
+            - /entrypoint
+            - --topology=hub-spoke
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 200m
+              memory: 256Mi
+          ports:
+            - name: metrics
+              containerPort: 9091
+              protocol: TCP
+          volumeMounts:
+            - name: straitd-sock
+              mountPath: /run/straitd
+              readOnly: true
+      volumes:
+        - name: straitd-sock
+          hostPath:
+            path: /run/straitd
+            type: DirectoryOrCreate

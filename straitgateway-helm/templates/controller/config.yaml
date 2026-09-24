@@ -1,0 +1,23 @@
+{{- if .Values.controller.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: sg-controller-config
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/name: sg-controller
+    app.kubernetes.io/part-of: straitgateway
+    app.kubernetes.io/component: controller
+data:
+  controller.yaml: |
+    gateway:
+      controllerName: {{ .Values.gateway.controllerName | default "straitgateway.io/skgateway" | quote }}
+      gatewayClassName: {{ .Values.gateway.gatewayClassName | default "skgateway" | quote }}
+      syncInterval: {{ .Values.gateway.syncInterval | default "30s" | quote }}
+    policy:
+      enabled: {{ .Values.policy.enabled }}
+      auditMode: {{ .Values.policy.enableAuditMode }}
+      celValidation: {{ .Values.policy.celValidation | default true }}
+    logging:
+      level: {{ .Values.logging.level | default "info" | quote }}
+{{- end }}

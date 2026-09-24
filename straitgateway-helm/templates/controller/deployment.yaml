@@ -1,0 +1,48 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sg-controller
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/name: sg-controller
+    app.kubernetes.io/part-of: straitgateway
+    app.kubernetes.io/version: {{ .Chart.AppVersion }}
+spec:
+  replicas: {{ .Values.controller.replicas }}
+  selector:
+    matchLabels:
+      app: sg-controller
+  template:
+    metadata:
+      labels:
+        app: sg-controller
+        app.kubernetes.io/name: sg-controller
+        app.kubernetes.io/part-of: straitgateway
+    spec:
+      priorityClassName: system-cluster-critical
+      serviceAccountName: sg-controller
+      containers:
+        - name: sg-controller
+          image: {{ .Values.global.registry }}/{{ .Values.controller.image.repository }}:{{ .Values.global.tag }}
+          imagePullPolicy: {{ .Values.global.pullPolicy }}
+          resources:
+            {{- toYaml .Values.controller.resources | nindent 12 }}
+          ports:
+            - name: metrics
+              containerPort: 9090
+              protocol: TCP
+            - name: health
+              containerPort: 8081
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: health
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: health
+            initialDelaySeconds: 15
+            periodSeconds: 20

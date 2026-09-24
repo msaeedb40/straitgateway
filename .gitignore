@@ -1,0 +1,24 @@
+# Binaries
+strait-cni
+straitd
+sg-controller
+sgctl
+tgwd
+sgpktcap
+dist/
+
+# eBPF output and cache
+bpf/out/
+bpf/headers/vmlinux.h
+bpf/.cache/
+.cache/
+
+# Test and coverage
+*.test
+*.out
+coverage.html
+
+# IDE
+.idea/
+.vscode/
+compile_commands.json

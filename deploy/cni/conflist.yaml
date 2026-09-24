@@ -1,0 +1,26 @@
+---
+# Source: straitgateway/templates/cni/conflist.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: straitgateway-cni-conflist
+  namespace: kube-system
+  labels:
+    app.kubernetes.io/name: straitgateway-cni-conflist
+    app.kubernetes.io/part-of: straitgateway
+data:
+  10-straitgateway.conflist: |
+    {
+      "cniVersion": "1.0.0",
+      "name": "straitgateway",
+      "plugins": [
+        {
+          "type": "strait-cni",
+          "datapathMode": "netkit",
+          "mtu": 1500,
+          "ipam": {
+            "type": "cluster-pool"
+          }
+        }
+      ]
+    }

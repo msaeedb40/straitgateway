@@ -1,0 +1,171 @@
+# StraitGateway Helm Values
+# Defaults suitable for a kind/minikube development cluster or production bare-metal/cloud deployments.
+
+# -- Global image and cluster settings
+global:
+  registry: ghcr.io/straitgateway
+  tag: "1.0.1"
+  pullPolicy: IfNotPresent
+  clusterName: "default-cluster"
+
+# -- sg-controller Deployment (Gateway API, Services, Endpoints reconciler)
+controller:
+  enabled: true
+  replicas: 1
+  image:
+    repository: sg-controller
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 256Mi
+  affinity: {}
+  tolerations: []
+  nodeSelector: {}
+
+# -- straitd DaemonSet (Privileged node agent compiling IR to NetKit and eBPF maps)
+straitd:
+  enabled: true
+  image:
+    repository: straitd
+  resources:
+    requests:
+      cpu: 200m
+      memory: 256Mi
+    limits:
+      cpu: "1"
+      memory: 512Mi
+  securityContext:
+    privileged: false
+    capabilities:
+      add:
+        - NET_ADMIN
+        - SYS_ADMIN
+        - NET_RAW
+        - BPF
+        - PERFMON
+      drop:
+        - ALL
+  tolerations:
+    - operator: Exists
+      effect: NoSchedule
+    - operator: Exists
+      effect: NoExecute
+
+# -- tgwd DaemonSet / Deployment (Multi-cluster Transit Gateway daemon)
+tgwd:
+  enabled: false # opt-in; enable for cross-cluster and transit gateway topology
+  image:
+    repository: tgwd
+  topology: hub-spoke # hub-spoke | mesh | peer-to-peer | hub-to-hub | hybrid
+  listenPort: 51820
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 256Mi
+
+# -- CNI Plugin configuration
+cni:
+  enabled: true
+  image:
+    repository: straitd # CNI binary embedded inside straitd image
+  confDir: /etc/cni/net.d
+  binDir: /opt/cni/bin
+  datapathMode: netkit # netkit | veth (fallback)
+  mtu: 0               # 0 = auto-detect MTU
+
+# -- eBPF datapath configuration
+ebpf:
+  enabled: true
+  bpfFsMount: /sys/fs/bpf
+  enableXDP: true
+  enableTCX: true
+  enableSocketLB: true
+  enableLSM: false
+
+# -- NetKit container interconnect settings
+netkit:
+  enabled: true
+  mode: l3 # l3 | l2
+  headroom: 0
+
+# -- Networking & Kube-Proxy replacement
+networking:
+  kubeProxyReplacement:
+    enabled: true
+    mode: strict # strict | probe
+    enableNodePort: true
+    enableExternalIPs: true
+    enableSessionAffinity: true
+    loadBalancerAlgorithm: maglev # maglev | round-robin | random
+    directServerReturn: true
+
+# -- Zero Trust Network Policy enforcement
+policy:
+  enabled: true
+  enableAuditMode: false
+  defaultDeny: false
+  celValidation: true
+
+# -- Node and container security context
+security:
+  privileged: false
+  seccompProfile:
+    type: RuntimeDefault
+  appArmorProfile: "runtime/default"
+
+# -- Kubernetes Gateway API v1.6.1 controller settings
+gateway:
+  enabled: true
+  controllerName: "straitgateway.io/skgateway"
+  gatewayClassName: "skgateway"
+  syncInterval: "30s"
+
+# -- Multi-Cluster Transit Gateway settings
+transit:
+  enabled: false
+  domain: "default"
+  segmentIsolation: true
+  wireguard:
+    enabled: true
+    keepalive: 25
+
+# -- IPAM (PerNode IP allocation without RFC1918 hardcoding)
+ipam:
+  mode: cluster-pool # cluster-pool | multi-pool
+  podCIDRs: []       # populated dynamically from k8s node PodCIDR
+
+# -- Sidecarless eBPF Service Mesh
+mesh:
+  enabled: false
+  mutualTLS: true
+
+# -- High-cardinality observability (Prometheus & OpenTelemetry)
+observability:
+  prometheus:
+    enabled: true
+    port: 9090
+    serviceMonitor:
+      enabled: false
+  opentelemetry:
+    enabled: false
+    otlpEndpoint: ""
+    sampleRate: 0.1
+
+# -- Global structured logging
+logging:
+  level: info  # debug | info | warn | error
+  format: json # json | text
+
+# -- Datapath compatibility alias
+datapath:
+  mode: netkit
+  enableXDP: true
+  enableTCX: true
+  enableSocketLB: true
+  enableLSM: false

@@ -1,0 +1,110 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "StraitGateway Values Schema",
+  "type": "object",
+  "properties": {
+    "global": {
+      "type": "object",
+      "properties": {
+        "registry": { "type": "string" },
+        "tag": { "type": "string" },
+        "pullPolicy": {
+          "type": "string",
+          "enum": ["Always", "IfNotPresent", "Never"]
+        },
+        "clusterName": { "type": "string" }
+      }
+    },
+    "controller": {
+      "type": "object",
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "replicas": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "straitd": {
+      "type": "object",
+      "properties": {
+        "enabled": { "type": "boolean" }
+      }
+    },
+    "tgwd": {
+      "type": "object",
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "topology": {
+          "type": "string",
+          "enum": ["hub-spoke", "mesh", "peer-to-peer", "p2p", "hub-to-hub", "hybrid"]
+        }
+      }
+    },
+    "cni": {
+      "type": "object",
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "binDir": { "type": "string" },
+        "confDir": { "type": "string" },
+        "datapathMode": {
+          "type": "string",
+          "enum": ["netkit", "veth"]
+        },
+        "mtu": { "type": "integer", "minimum": 0, "maximum": 65535 }
+      }
+    },
+    "ebpf": {
+      "type": "object",
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "enableXDP": { "type": "boolean" },
+        "enableTCX": { "type": "boolean" },
+        "enableSocketLB": { "type": "boolean" },
+        "enableLSM": { "type": "boolean" }
+      }
+    },
+    "netkit": {
+      "type": "object",
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "mode": {
+          "type": "string",
+          "enum": ["l3", "l2"]
+        }
+      }
+    },
+    "networking": {
+      "type": "object",
+      "properties": {
+        "kubeProxyReplacement": {
+          "type": "object",
+          "properties": {
+            "enabled": { "type": "boolean" },
+            "loadBalancerAlgorithm": {
+              "type": "string",
+              "enum": ["maglev", "round-robin", "random"]
+            }
+          }
+        }
+      }
+    },
+    "policy": {
+      "type": "object",
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "enableAuditMode": { "type": "boolean" }
+      }
+    },
+    "logging": {
+      "type": "object",
+      "properties": {
+        "level": {
+          "type": "string",
+          "enum": ["debug", "info", "warn", "error"]
+        },
+        "format": {
+          "type": "string",
+          "enum": ["json", "text"]
+        }
+      }
+    }
+  }
+}
