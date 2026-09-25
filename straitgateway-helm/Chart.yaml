@@ -20,3 +20,14 @@ sources:
 icon: https://raw.githubusercontent.com/straitgateway/straitgateway/main/logo/straitgateway.png
 maintainers:
   - name: StraitGateway Authors
+    url: https://github.com/straitgateway
+annotations:
+  artifacthub.io/category: "networking"
+  artifacthub.io/license: "Apache-2.0"
+  artifacthub.io/links: |
+    - name: Documentation
+      url: https://straitgateway.github.io/straitgateway/
+    - name: Source
+      url: https://github.com/straitgateway/straitgateway
+    - name: Issues
+      url: https://github.com/straitgateway/straitgateway/issues

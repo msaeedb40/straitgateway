@@ -1,0 +1,58 @@
+site_name: StraitGateway
+site_url: https://straitgateway.github.io/straitgateway/
+site_description: "Kubernetes-native CNI, eBPF datapath, sidecarless service mesh, and transit gateway"
+site_author: "StraitGateway Authors"
+repo_url: https://github.com/straitgateway/straitgateway
+repo_name: straitgateway/straitgateway
+
+theme:
+  name: material
+  palette:
+    - scheme: slate
+      primary: teal
+      accent: cyan
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+    - scheme: default
+      primary: teal
+      accent: cyan
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+  features:
+    - navigation.instant
+    - navigation.tracking
+    - navigation.sections
+    - navigation.expand
+    - content.code.copy
+    - search.suggest
+    - search.highlight
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - tables
+  - attr_list
+  - md_in_html
+
+nav:
+  - Home: index.md
+  - Architecture:
+      - Overview: architecture/overview.md
+      - Control Plane: architecture/control-plane.md
+      - Datapath & Node Agent: architecture/datapath.md
+      - CNI & IPAM: architecture/cni.md
+      - Netkit: architecture/netkit.md
+      - eBPF Architecture: architecture/ebpf.md
+      - Policy & CEL: architecture/policy.md
+      - Service Mesh: architecture/mesh.md
+      - Transit Gateway: architecture/transit-gateway.md
+      - Kernel Capabilities: architecture/capabilities.md
+  - Helm & Installation:
+      - Chart Repository: index.md#quickstart-install-via-helm

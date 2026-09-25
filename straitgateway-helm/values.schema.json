@@ -13,35 +13,69 @@
           "enum": ["Always", "IfNotPresent", "Never"]
         },
         "clusterName": { "type": "string" }
-      }
+      },
+      "additionalProperties": false
     },
     "controller": {
       "type": "object",
       "properties": {
         "enabled": { "type": "boolean" },
-        "replicas": { "type": "integer", "minimum": 1 }
+        "replicas": { "type": "integer", "minimum": 1 },
+        "image": {
+          "type": "object",
+          "properties": {
+            "repository": { "type": "string" }
+          }
+        },
+        "resources": { "type": "object" },
+        "affinity": { "type": "object" },
+        "tolerations": { "type": "array" },
+        "nodeSelector": { "type": "object" }
       }
     },
     "straitd": {
       "type": "object",
       "properties": {
-        "enabled": { "type": "boolean" }
+        "enabled": { "type": "boolean" },
+        "image": {
+          "type": "object",
+          "properties": {
+            "repository": { "type": "string" }
+          }
+        },
+        "resources": { "type": "object" },
+        "securityContext": { "type": "object" },
+        "tolerations": { "type": "array" }
       }
     },
     "tgwd": {
       "type": "object",
       "properties": {
         "enabled": { "type": "boolean" },
+        "image": {
+          "type": "object",
+          "properties": {
+            "repository": { "type": "string" }
+          }
+        },
         "topology": {
           "type": "string",
           "enum": ["hub-spoke", "mesh", "peer-to-peer", "p2p", "hub-to-hub", "hybrid"]
-        }
+        },
+        "listenPort": { "type": "integer", "minimum": 1, "maximum": 65535 },
+        "resources": { "type": "object" }
       }
     },
     "cni": {
       "type": "object",
       "properties": {
         "enabled": { "type": "boolean" },
+        "image": {
+          "type": "object",
+          "properties": {
+            "repository": { "type": "string" }
+          }
+        },
         "binDir": { "type": "string" },
         "confDir": { "type": "string" },
         "datapathMode": {
@@ -55,6 +89,7 @@
       "type": "object",
       "properties": {
         "enabled": { "type": "boolean" },
+        "bpfFsMount": { "type": "string" },
         "enableXDP": { "type": "boolean" },
         "enableTCX": { "type": "boolean" },
         "enableSocketLB": { "type": "boolean" },
@@ -68,7 +103,8 @@
         "mode": {
           "type": "string",
           "enum": ["l3", "l2"]
-        }
+        },
+        "headroom": { "type": "integer", "minimum": 0 }
       }
     },
     "networking": {
@@ -78,10 +114,18 @@
           "type": "object",
           "properties": {
             "enabled": { "type": "boolean" },
+            "mode": {
+              "type": "string",
+              "enum": ["strict", "probe"]
+            },
+            "enableNodePort": { "type": "boolean" },
+            "enableExternalIPs": { "type": "boolean" },
+            "enableSessionAffinity": { "type": "boolean" },
             "loadBalancerAlgorithm": {
               "type": "string",
               "enum": ["maglev", "round-robin", "random"]
-            }
+            },
+            "directServerReturn": { "type": "boolean" }
           }
         }
       }
@@ -90,7 +134,87 @@
       "type": "object",
       "properties": {
         "enabled": { "type": "boolean" },
-        "enableAuditMode": { "type": "boolean" }
+        "enableAuditMode": { "type": "boolean" },
+        "defaultDeny": { "type": "boolean" },
+        "celValidation": { "type": "boolean" }
+      }
+    },
+    "security": {
+      "type": "object",
+      "properties": {
+        "privileged": { "type": "boolean" },
+        "seccompProfile": { "type": "object" },
+        "appArmorProfile": { "type": "string" }
+      }
+    },
+    "gateway": {
+      "type": "object",
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "controllerName": { "type": "string" },
+        "gatewayClassName": { "type": "string" },
+        "syncInterval": { "type": "string" }
+      }
+    },
+    "transit": {
+      "type": "object",
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "domain": { "type": "string" },
+        "segmentIsolation": { "type": "boolean" },
+        "wireguard": {
+          "type": "object",
+          "properties": {
+            "enabled": { "type": "boolean" },
+            "keepalive": { "type": "integer", "minimum": 0 }
+          }
+        }
+      }
+    },
+    "ipam": {
+      "type": "object",
+      "properties": {
+        "mode": {
+          "type": "string",
+          "enum": ["cluster-pool", "multi-pool"]
+        },
+        "podCIDRs": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "mesh": {
+      "type": "object",
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "mutualTLS": { "type": "boolean" }
+      }
+    },
+    "observability": {
+      "type": "object",
+      "properties": {
+        "prometheus": {
+          "type": "object",
+          "properties": {
+            "enabled": { "type": "boolean" },
+            "port": { "type": "integer", "minimum": 1, "maximum": 65535 },
+            "serviceMonitor": {
+              "type": "object",
+              "properties": {
+                "enabled": { "type": "boolean" }
+              }
+            }
+          }
+        },
+        "opentelemetry": {
+          "type": "object",
+          "properties": {
+            "enabled": { "type": "boolean" },
+            "otlpEndpoint": { "type": "string" },
+            "sampleRate": { "type": "number", "minimum": 0, "maximum": 1 }
+          }
+        }
       }
     },
     "logging": {
@@ -104,6 +228,16 @@
           "type": "string",
           "enum": ["json", "text"]
         }
+      }
+    },
+    "datapath": {
+      "type": "object",
+      "properties": {
+        "mode": { "type": "string" },
+        "enableXDP": { "type": "boolean" },
+        "enableTCX": { "type": "boolean" },
+        "enableSocketLB": { "type": "boolean" },
+        "enableLSM": { "type": "boolean" }
       }
     }
   }

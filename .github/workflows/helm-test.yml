@@ -1,0 +1,68 @@
+name: Helm Chart Test & Lint
+
+on:
+  push:
+    branches: ["main", "developer"]
+    paths:
+      - "straitgateway-helm/**"
+      - ".github/workflows/helm-test.yml"
+  pull_request:
+    branches: ["main", "developer"]
+    paths:
+      - "straitgateway-helm/**"
+      - ".github/workflows/helm-test.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  lint-and-validate:
+    name: Lint & Template Validation
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: v3.14.3
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install jsonschema CLI
+        run: pip install jsonschema pyyaml
+
+      - name: Validate Values Schema
+        run: |
+          python -c '
+          import json, yaml, jsonschema
+          schema = json.load(open("straitgateway-helm/values.schema.json"))
+          values = yaml.safe_load(open("straitgateway-helm/values.yaml"))
+          jsonschema.validate(instance=values, schema=schema)
+          print("✓ values.yaml is strictly valid against values.schema.json")
+          '
+
+      - name: Run Helm Lint
+        run: helm lint straitgateway-helm/ --strict
+
+      - name: Test Template Rendering (Default Values)
+        run: |
+          helm template test-release straitgateway-helm/ --debug > /dev/null
+          echo "✓ Default templates rendered successfully"
+
+      - name: Test Template Rendering (All Features Enabled)
+        run: |
+          helm template test-release straitgateway-helm/ \
+            --set tgwd.enabled=true \
+            --set mesh.enabled=true \
+            --set transit.enabled=true \
+            --set observability.opentelemetry.enabled=true \
+            --set observability.prometheus.serviceMonitor.enabled=true \
+            --debug > /dev/null
+          echo "✓ Full-featured templates rendered successfully"

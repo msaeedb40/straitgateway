@@ -284,6 +284,21 @@ helm-lint:
 	helm lint straitgateway-helm/
 
 # ═══════════════════════════════════════════════════════════════════════════════
+# Documentation (GitHub Pages)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+.PHONY: docs-build
+docs-build:
+	@echo "→ Building documentation site"
+	mkdocs build --clean
+	@echo "✓ Documentation built in site/"
+
+.PHONY: docs-serve
+docs-serve:
+	@echo "→ Serving documentation locally on http://127.0.0.1:8000"
+	mkdocs serve
+
+# ═══════════════════════════════════════════════════════════════════════════════
 # Clean
 # ═══════════════════════════════════════════════════════════════════════════════
 
