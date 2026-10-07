@@ -23,6 +23,9 @@ typedef signed long long __s64;
 #define __always_inline inline __attribute__((always_inline))
 #endif
 
+#define __uint(name, val) int (*name)[val]
+#define __type(name, val) typeof(val) *name
+
 #define BPF_MAP_TYPE_HASH 1
 #define BPF_MAP_TYPE_ARRAY 2
 #define BPF_MAP_TYPE_PROG_ARRAY 3

@@ -3,13 +3,13 @@
 
 #include "common.h"
 
-#define BPF_MAP_DEF(name, type, key_type, val_type, max_entries) \
+#define BPF_MAP_DEF(name, map_type, key_type, val_type, max_ents) \
 struct { \
-    __u32 type; \
-    key_type *key; \
-    val_type *value; \
-    __u32 max_entries; \
-} name __attribute__((section(".maps"), used))
+    __uint(type, map_type); \
+    __type(key, key_type); \
+    __type(value, val_type); \
+    __uint(max_entries, max_ents); \
+} name SEC(".maps")
 
 // Protocol definitions
 #define SG_PROTO_TCP 6

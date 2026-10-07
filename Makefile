@@ -26,7 +26,17 @@ CLANG_FLAGS := -O2 -g -Wall -Werror \
                -c
 
 .PHONY: all
-all: generate build
+all: build-bpf generate build
+
+.PHONY: build-bpf
+build-bpf:
+	@echo "Compiling eBPF programs with Clang..."
+	$(CLANG) $(CLANG_FLAGS) ./bpf/tc/ingress.c -o ./bpf/tc/ingress.o
+	$(CLANG) $(CLANG_FLAGS) ./bpf/tc/egress.c -o ./bpf/tc/egress.o
+	$(CLANG) $(CLANG_FLAGS) ./bpf/xdp/ingress.c -o ./bpf/xdp/ingress.o
+	$(CLANG) $(CLANG_FLAGS) ./bpf/xdp/redirect.c -o ./bpf/xdp/redirect.o
+	$(CLANG) $(CLANG_FLAGS) ./bpf/netkit/peer_ingress.c -o ./bpf/netkit/peer_ingress.o
+	$(CLANG) $(CLANG_FLAGS) ./bpf/netkit/peer_egress.c -o ./bpf/netkit/peer_egress.o
 
 .PHONY: build
 build: straitd sg-controller sg-cni sg-agent sgctl
