@@ -1,0 +1,18 @@
+# Binaries
+bin/
+dist/
+
+# eBPF artifacts
+*.o
+*.so
+
+# IDEs
+.idea/
+.vscode/
+
+# OS
+.DS_Store
+
+# Test / Coverage
+coverage.out
+coverage.html
