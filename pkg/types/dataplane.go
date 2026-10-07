@@ -88,3 +88,55 @@ const (
 	PolicyAllow PolicyAction = 1
 	PolicyAudit PolicyAction = 2
 )
+
+// VRFConfig defines a Virtual Routing and Forwarding domain in eBPF
+type VRFConfig struct {
+	ID      uint32
+	TableID uint32
+	Flags   uint32
+}
+
+// NATEntry represents SNAT/DNAT translation in BPF maps
+type NATEntry struct {
+	OrigIP    uint32
+	OrigPort  uint16
+	TransIP   uint32
+	TransPort uint16
+	Proto     uint8
+	Pad       [3]byte
+}
+
+// MaglevTableSize is standard prime size for Maglev hashing lookup
+const MaglevTableSize = 65537
+
+// TunnelInfo defines WireGuard overlay tunnel parameters in BPF maps
+type TunnelInfo struct {
+	TunnelID     uint32
+	IfIndex      uint32
+	EndpointIP   uint32
+	EndpointPort uint16
+	Flags        uint16
+}
+
+// NeighborEntry maps destination IP to Ethernet MAC
+type NeighborEntry struct {
+	IP    uint32
+	MAC   [6]byte
+	State uint16
+}
+
+// TelemetryEvent is delivered via BPF ring buffer for packet and policy telemetry
+type TelemetryEvent struct {
+	Timestamp   uint64
+	SrcIP       uint32
+	DstIP       uint32
+	SrcPort     uint16
+	DstPort     uint16
+	Proto       uint8
+	SrcID       uint32
+	DstID       uint32
+	Action      uint8
+	Pad         [2]byte
+	Bytes       uint64
+	Packets     uint64
+}

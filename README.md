@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="straitgateway.jpeg" alt="StraitGateway Logo" width="500" />
+</p>
+
 # StraitGateway
 
 [![CI](https://github.com/straitgateway/straitgateway/actions/workflows/ci.yml/badge.svg)](https://github.com/straitgateway/straitgateway/actions/workflows/ci.yml)
@@ -71,6 +75,27 @@ It leverages **eBPF**, **netkit**, **WireGuard**, **BGP**, and **BFD** to provid
 | **Orchestration** | **Kubernetes Gateway API v1.6.1** | Native declarative traffic management and transit gateway routing |
 | **Observability** | **Prometheus + OTel + Loki** | eBPF ring buffer telemetry, metrics, traces, and flow logs |
 | **Web UI** | **React 19 + TypeScript + D3.js** | Live cluster topology & observability without third-party query bloat |
+
+---
+
+## Implementation Roadmap
+
+| Phase | Milestone | Focus Areas | Status |
+|---|---|---|:---:|
+| **Phase 1** | **Dataplane Foundation & BPF Maps** | 13 maps, loader, pins, TCX/XDP/cgroups, per-CPU counters | **Done** |
+| **Phase 2** | **Native CNI & IPAM Subsystem** | `netkit` L3/L2 driver, IPAM bitmap allocator, `sg-cni` binary | **Done** |
+| **Phase 3** | **Service Networking & Maglev** | Maglev lookup table, connect4/6 in-socket LB, TC NAT | **Done** |
+| **Phase 4** | **Transit Gateway & Routing** | FIB LPM engine, VRF routing, WireGuard mesh, BGP, sub-50ms BFD | **Done** |
+| **Phase 5** | **Security Policies & Mesh** | Workload identity engine, policy compiler, NodeProxy L7 engine | **Done** |
+| **Phase 6** | **Dataplane Observability** | Prometheus exporter, flow log ring buffer, HTTP status server | **Done** |
+| **Phase 7** | **CLI, Helm & Manifests** | `sgctl` CLI (11 subcommands), Helm chart v1.0.0, `all-in-one.yaml` | **Done** |
+| **Phase 8** | **UI Plane & Integration** | React 19, Tailwind CSS 4, D3.js topology, REST API bridge | **Done** |
+| **Phase 9** | **Multi-Cluster Transit (ClusterMesh)** | Global WireGuard mesh, cross-cluster Maglev, Split-DNS | *Planned* |
+| **Phase 10** | **Advanced L7 & Hardware Acceleration** | SmartNIC `XDP_OFFLOAD`, Wasm extension engine, Gateway API v1.6.1 | **Done** |
+| **Phase 11** | **Enterprise Zero-Trust & In-Kernel mTLS** | SPIFFE/SPIRE attestation, kTLS + `sockops` zero-copy encryption | *Planned* |
+| **Phase 12** | **Chaos Engineering & eBPF Fuzzing** | Sonobuoy CNI conformance, BPF map fault injection, multi-kernel CI | *Planned* |
+| **Phase 13** | **AI/ML & RDMA/RoCEv2 Acceleration** | GPU/TPU RoCEv2 bypass, NCCL optimization, PFC/ECN telemetry | *Planned* |
+| **Phase 14** | **Autonomous Dataplane AIOps** | Micro-burst detection, self-healing routing, zero-code tracing | *Planned* |
 
 ---
 

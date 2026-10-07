@@ -63,7 +63,7 @@ func (sm *ServiceManager) UpsertService(svc *ServiceEntry) error {
 
 	// If MapManager is available, sync to BPF maps
 	if sm.mapMgr != nil && len(svc.Backends) > 0 {
-		// Use first backend for direct socket translation
+		// Use first backend as default primary endpoint for socket LB
 		b := svc.Backends[0]
 		bKey := fmt.Sprintf("%s:%d", b.IP.String(), b.Port)
 		epID, exists := sm.endpointMap[bKey]
@@ -76,29 +76,74 @@ func (sm *ServiceManager) UpsertService(svc *ServiceEntry) error {
 		vip4 := svc.VIP.To4()
 		bIP4 := b.IP.To4()
 		if vip4 != nil && bIP4 != nil {
-			_ = types.ServiceKey{
+			sKey := types.ServiceKey{
 				IP:    binary.BigEndian.Uint32(vip4),
 				Port:  svc.Port,
 				Proto: svc.Protocol,
 			}
-			_ = types.ServiceEndpoint{
+			sEp := types.ServiceEndpoint{
 				IP:     binary.BigEndian.Uint32(bIP4),
 				Port:   b.Port,
 				Weight: b.Weight,
 				State:  uint8(b.State),
 			}
-			// In live agent, maps.UpdateService(sKey, epID)
+			_ = sm.mapMgr.AddEndpoint(epID, sEp)
+			_ = sm.mapMgr.AddService(sKey, epID)
 		}
 	}
 	return nil
 }
 
-// DeleteService removes a service VIP
+// SelectBackend selects a backend for a flow hash using Maglev consistent hashing
+func (sm *ServiceManager) SelectBackend(namespace, name string, port uint16, flowHash uint64) (*Backend, error) {
+	sm.mu.RLock()
+	defer sm.mu.RUnlock()
+
+	svcKey := fmt.Sprintf("%s/%s:%d", namespace, name, port)
+	svc, exists := sm.services[svcKey]
+	if !exists {
+		return nil, fmt.Errorf("service %s not found", svcKey)
+	}
+
+	if len(svc.Backends) == 0 {
+		return nil, fmt.Errorf("no backends available for service %s", svcKey)
+	}
+
+	if svc.Maglev != nil {
+		idx := svc.Maglev.Lookup(flowHash)
+		if idx >= 0 && idx < len(svc.Backends) {
+			return &svc.Backends[idx], nil
+		}
+	}
+
+	// Fallback to modulo selection if Maglev table is pending
+	idx := int(flowHash % uint64(len(svc.Backends)))
+	return &svc.Backends[idx], nil
+}
+
+// DeleteService removes a service VIP and purges BPF map state
 func (sm *ServiceManager) DeleteService(namespace, name string, port uint16) error {
 	sm.mu.Lock()
 	defer sm.mu.Unlock()
 
 	svcKey := fmt.Sprintf("%s/%s:%d", namespace, name, port)
+	svc, exists := sm.services[svcKey]
+	if !exists {
+		return nil
+	}
+
+	if sm.mapMgr != nil {
+		vip4 := svc.VIP.To4()
+		if vip4 != nil {
+			sKey := types.ServiceKey{
+				IP:    binary.BigEndian.Uint32(vip4),
+				Port:  svc.Port,
+				Proto: svc.Protocol,
+			}
+			_ = sm.mapMgr.DeleteService(sKey)
+		}
+	}
+
 	delete(sm.services, svcKey)
 	return nil
 }

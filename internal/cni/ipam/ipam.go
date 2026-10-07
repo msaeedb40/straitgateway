@@ -164,6 +164,59 @@ func (mgr *IPAM) Release(containerID string) error {
 	return nil
 }
 
+// ListAllocations returns a copy of all current container IP allocations
+func (mgr *IPAM) ListAllocations() []Allocation {
+	mgr.mu.Lock()
+	defer mgr.mu.Unlock()
+
+	result := make([]Allocation, 0, len(mgr.allocations))
+	for _, a := range mgr.allocations {
+		result = append(result, a)
+	}
+	return result
+}
+
+// IsAllocated checks if a given IP address is already reserved
+func (mgr *IPAM) IsAllocated(ip net.IP) bool {
+	mgr.mu.Lock()
+	defer mgr.mu.Unlock()
+
+	_, existsV4 := mgr.allocatedV4[ip.String()]
+	_, existsV6 := mgr.allocatedV6[ip.String()]
+	return existsV4 || existsV6
+}
+
+// GarbageCollect removes leaked allocations for containers that no longer exist
+func (mgr *IPAM) GarbageCollect(activeContainerIDs map[string]struct{}) ([]string, error) {
+	mgr.mu.Lock()
+	defer mgr.mu.Unlock()
+
+	var released []string
+	for id, alloc := range mgr.allocations {
+		if _, active := activeContainerIDs[id]; !active {
+			if alloc.IPv4 != "" {
+				ip, _, _ := net.ParseCIDR(alloc.IPv4)
+				if ip != nil {
+					delete(mgr.allocatedV4, ip.String())
+				}
+			}
+			if alloc.IPv6 != "" {
+				ip, _, _ := net.ParseCIDR(alloc.IPv6)
+				if ip != nil {
+					delete(mgr.allocatedV6, ip.String())
+				}
+			}
+			delete(mgr.allocations, id)
+			released = append(released, id)
+		}
+	}
+
+	if len(released) > 0 {
+		_ = mgr.save()
+	}
+	return released, nil
+}
+
 func (mgr *IPAM) findFreeIPv4() (net.IP, error) {
 	startIP := make(net.IP, len(mgr.v4Subnet.IP))
 	copy(startIP, mgr.v4Subnet.IP)

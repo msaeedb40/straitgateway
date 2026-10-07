@@ -1,7 +1,10 @@
 package cni
 
 import (
+	"encoding/json"
 	"net"
+	"os"
+	"path/filepath"
 	"testing"
 )
 
@@ -42,5 +45,55 @@ func TestDeriveGateway(t *testing.T) {
 	}
 	if gw.String() != "10.244.5.1" {
 		t.Errorf("expected gateway 10.244.5.1, got %s", gw.String())
+	}
+}
+
+func TestDeriveHostIfName(t *testing.T) {
+	cID := "c1234567890abcdef"
+	name1 := DeriveHostIfName(cID)
+	name2 := DeriveHostIfName(cID)
+
+	if name1 != name2 {
+		t.Errorf("expected deterministic host ifname, got %s and %s", name1, name2)
+	}
+	if len(name1) > 15 {
+		t.Errorf("host ifname too long for IFNAMSIZ: %s (len %d)", name1, len(name1))
+	}
+	if name1[:2] != "sg" {
+		t.Errorf("expected sg prefix, got %s", name1)
+	}
+}
+
+func TestGenerateAndInstallCNIConfig(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "cni-conf-test-*")
+	if err != nil {
+		t.Fatalf("create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	data, err := GenerateConflist("10.244.0.0/16", "fd00:10:244::/64", 1450)
+	if err != nil {
+		t.Fatalf("generate conflist failed: %v", err)
+	}
+
+	var conflist CNIConflist
+	if err := json.Unmarshal(data, &conflist); err != nil {
+		t.Fatalf("invalid generated conflist json: %v", err)
+	}
+	if conflist.Name != "straitgateway" {
+		t.Errorf("expected conflist name straitgateway, got %s", conflist.Name)
+	}
+	if len(conflist.Plugins) != 2 {
+		t.Errorf("expected 2 plugins in conflist, got %d", len(conflist.Plugins))
+	}
+
+	err = InstallCNIConfig(tmpDir, "10.244.0.0/16", "", 1500)
+	if err != nil {
+		t.Fatalf("install CNI config failed: %v", err)
+	}
+
+	installedPath := filepath.Join(tmpDir, DefaultCNIConfigName)
+	if _, err := os.Stat(installedPath); os.IsNotExist(err) {
+		t.Fatalf("installed conflist file missing: %s", installedPath)
 	}
 }

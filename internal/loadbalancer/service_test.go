@@ -49,6 +49,15 @@ func TestServiceManagerUpsertAndGet(t *testing.T) {
 		t.Error("expected Maglev table to be computed")
 	}
 
+	// Test SelectBackend
+	selected, err := sm.SelectBackend("default", "test-service", 80, 123456789)
+	if err != nil {
+		t.Fatalf("failed to select backend: %v", err)
+	}
+	if selected == nil || (selected.ID != 1 && selected.ID != 2) {
+		t.Errorf("unexpected selected backend: %v", selected)
+	}
+
 	// Delete and verify
 	if err := sm.DeleteService("default", "test-service", 80); err != nil {
 		t.Fatalf("failed to delete service: %v", err)

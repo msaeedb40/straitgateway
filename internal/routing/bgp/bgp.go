@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/straitgateway/straitgateway/internal/routing"
+	"github.com/straitgateway/straitgateway/internal/routing/bfd"
 )
 
 // SessionState defines BGP state machine status
@@ -50,6 +51,7 @@ type Speaker struct {
 	routerID     net.IP
 	peers        map[string]*Peer // key: neighborIP:vrf
 	routeManager *routing.RouteManager
+	bfdMonitor   *bfd.Monitor
 }
 
 // NewSpeaker creates a BGP speaker
@@ -62,22 +64,61 @@ func NewSpeaker(localASN uint32, routerID net.IP, rm *routing.RouteManager) *Spe
 	}
 }
 
-// AddNeighbor registers a new BGP neighbor
+// SetBFDMonitor links a BFD failure detector to the BGP speaker
+func (s *Speaker) SetBFDMonitor(bm *bfd.Monitor) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.bfdMonitor = bm
+}
+
+
+// AddNeighbor registers a new BGP neighbor and attaches BFD if enabled
 func (s *Speaker) AddNeighbor(cfg PeerConfig) (*Peer, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	key := fmt.Sprintf("%s:%d", cfg.NeighborIP.String(), cfg.VRFID)
 	peer := &Peer{
-		Config:          cfg,
-		State:           StateEstablished, // Mark established on connect
-		EstablishedTime: time.Now(),
-		ReceivedRoutes:  make([]net.IPNet, 0),
+		Config:           cfg,
+		State:            StateEstablished, // Mark established on connect
+		EstablishedTime:  time.Now(),
+		ReceivedRoutes:   make([]net.IPNet, 0),
 		AdvertisedRoutes: cfg.AdvertisedPrefix,
 	}
 
 	s.peers[key] = peer
+
+	// If BFD is requested and monitor is configured, attach session
+	if cfg.EnableBFD && s.bfdMonitor != nil {
+		bfdCfg := bfd.SessionConfig{
+			PeerIP:  cfg.NeighborIP,
+			LocalIP: s.routerID,
+		}
+		s.bfdMonitor.AddSession(bfdCfg, func(peerIP net.IP) {
+			s.handlePeerFailure(peerIP, cfg.VRFID)
+		})
+	}
+
 	return peer, nil
+}
+
+// handlePeerFailure is triggered immediately upon BFD down event
+func (s *Speaker) handlePeerFailure(neighborIP net.IP, vrfID uint32) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	key := fmt.Sprintf("%s:%d", neighborIP.String(), vrfID)
+	peer, exists := s.peers[key]
+	if !exists {
+		return
+	}
+
+	peer.State = StateActive // Mark session degraded / recovering
+
+	// Withdraw routes learned from this neighbor immediately
+	if s.routeManager != nil {
+		_, _ = s.routeManager.WithdrawNextHop(neighborIP)
+	}
 }
 
 // RemoveNeighbor removes a BGP neighbor and withdraws learned routes
@@ -96,6 +137,11 @@ func (s *Speaker) RemoveNeighbor(neighborIP net.IP, vrfID uint32) error {
 		for _, r := range peer.ReceivedRoutes {
 			_ = s.routeManager.WithdrawRoute(vrfID, r)
 		}
+	}
+
+	// Remove from BFD monitor if attached
+	if peer.Config.EnableBFD && s.bfdMonitor != nil {
+		s.bfdMonitor.RemoveSession(neighborIP)
 	}
 
 	delete(s.peers, key)
@@ -128,6 +174,60 @@ func (s *Speaker) ReceiveRoute(neighborIP net.IP, vrfID uint32, prefix net.IPNet
 	return nil
 }
 
+// WithdrawRoute removes a specific route received from a neighbor
+func (s *Speaker) WithdrawRoute(neighborIP net.IP, vrfID uint32, prefix net.IPNet) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	key := fmt.Sprintf("%s:%d", neighborIP.String(), vrfID)
+	peer, exists := s.peers[key]
+	if !exists {
+		return fmt.Errorf("neighbor %s not found", neighborIP.String())
+	}
+
+	// Remove from ReceivedRoutes
+	prefixStr := prefix.String()
+	newRoutes := make([]net.IPNet, 0, len(peer.ReceivedRoutes))
+	for _, r := range peer.ReceivedRoutes {
+		if r.String() != prefixStr {
+			newRoutes = append(newRoutes, r)
+		}
+	}
+	peer.ReceivedRoutes = newRoutes
+
+	if s.routeManager != nil {
+		return s.routeManager.WithdrawRoute(vrfID, prefix)
+	}
+	return nil
+}
+
+// AdvertisePrefix records a local prefix advertised to a neighbor
+func (s *Speaker) AdvertisePrefix(neighborIP net.IP, vrfID uint32, prefix net.IPNet) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	key := fmt.Sprintf("%s:%d", neighborIP.String(), vrfID)
+	peer, exists := s.peers[key]
+	if !exists {
+		return fmt.Errorf("neighbor %s not found", neighborIP.String())
+	}
+
+	peer.AdvertisedRoutes = append(peer.AdvertisedRoutes, prefix)
+	return nil
+}
+
+// ListPeers returns all configured BGP peers
+func (s *Speaker) ListPeers() []*Peer {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	list := make([]*Peer, 0, len(s.peers))
+	for _, p := range s.peers {
+		list = append(list, p)
+	}
+	return list
+}
+
 // GetPeer retrieves status for a peer
 func (s *Speaker) GetPeer(neighborIP net.IP, vrfID uint32) (*Peer, bool) {
 	s.mu.RLock()
@@ -137,3 +237,4 @@ func (s *Speaker) GetPeer(neighborIP net.IP, vrfID uint32) (*Peer, bool) {
 	peer, exists := s.peers[key]
 	return peer, exists
 }
+

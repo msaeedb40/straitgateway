@@ -88,3 +88,31 @@ func (rm *RouteManager) WithdrawRoute(vrfID uint32, dst net.IPNet) error {
 	}
 	return nil
 }
+
+// WithdrawNextHop removes all routes that point to the given next hop IP
+// This is typically called by BFD on sub-second failure detection
+func (rm *RouteManager) WithdrawNextHop(nextHopIP net.IP) (int, error) {
+	rm.mu.Lock()
+	defer rm.mu.Unlock()
+
+	routes := rm.fib.FindRoutesByNextHop(nextHopIP)
+	count := 0
+	for _, r := range routes {
+		removed := rm.fib.DeleteRoute(r.VRFID, r.Destination)
+		if removed {
+			count++
+			if rm.mapMgr != nil {
+				if lpmKey, err := ToLPMV4Key(r.Destination); err == nil {
+					_ = rm.mapMgr.DeleteRoute(lpmKey)
+				}
+			}
+		}
+	}
+	return count, nil
+}
+
+// GetFIB returns the underlying FIBEngine
+func (rm *RouteManager) GetFIB() *FIBEngine {
+	return rm.fib
+}
+

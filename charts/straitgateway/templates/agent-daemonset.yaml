@@ -1,0 +1,97 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: {{ include "straitgateway.fullname" . }}-agent
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "straitgateway.labels" . | nindent 4 }}
+    app.kubernetes.io/component: agent
+spec:
+  selector:
+    matchLabels:
+      {{- include "straitgateway.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: agent
+  template:
+    metadata:
+      labels:
+        {{- include "straitgateway.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: agent
+    spec:
+      hostNetwork: {{ .Values.agent.hostNetwork }}
+      hostPID: true
+      serviceAccountName: {{ include "straitgateway.agentServiceAccountName" . }}
+      tolerations:
+        {{- toYaml .Values.agent.tolerations | nindent 8 }}
+      containers:
+        - name: agent
+          image: "{{ .Values.agent.image.repository }}:{{ .Values.agent.image.tag }}"
+          imagePullPolicy: {{ .Values.agent.image.pullPolicy }}
+          command:
+            - /usr/local/bin/sg-agent
+          args:
+            - --config=/etc/straitgateway/config.yaml
+          securityContext:
+            privileged: {{ .Values.agent.securityContext.privileged }}
+            capabilities:
+              add:
+                {{- toYaml .Values.agent.securityContext.capabilities.add | nindent 16 }}
+          ports:
+            - name: metrics
+              containerPort: {{ .Values.observability.metrics.port }}
+              protocol: TCP
+            - name: wireguard
+              containerPort: {{ .Values.agent.networking.wireguardPort }}
+              protocol: UDP
+            - name: bfd
+              containerPort: 3784
+              protocol: UDP
+            - name: bgp
+              containerPort: 179
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: metrics
+            initialDelaySeconds: 15
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: metrics
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          resources:
+            {{- toYaml .Values.agent.resources | nindent 12 }}
+          volumeMounts:
+            - name: bpf-maps
+              mountPath: {{ .Values.agent.bpf.fsPath }}
+              mountPropagation: Bidirectional
+            - name: config
+              mountPath: /etc/straitgateway
+              readOnly: true
+            - name: run-dir
+              mountPath: /var/run/straitgateway
+            - name: lib-modules
+              mountPath: /lib/modules
+              readOnly: true
+            - name: sys-kernel
+              mountPath: /sys/kernel/debug
+              mountPropagation: HostToContainer
+      volumes:
+        - name: bpf-maps
+          hostPath:
+            path: {{ .Values.agent.bpf.fsPath }}
+            type: DirectoryOrCreate
+        - name: config
+          configMap:
+            name: {{ include "straitgateway.fullname" . }}-config
+        - name: run-dir
+          hostPath:
+            path: /var/run/straitgateway
+            type: DirectoryOrCreate
+        - name: lib-modules
+          hostPath:
+            path: /lib/modules
+        - name: sys-kernel
+          hostPath:
+            path: /sys/kernel/debug

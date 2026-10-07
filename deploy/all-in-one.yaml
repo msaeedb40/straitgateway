@@ -1,0 +1,1156 @@
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: gatewaypeers.straitgateway.io
+spec:
+  group: straitgateway.io
+  names:
+    kind: GatewayPeer
+    listKind: GatewayPeerList
+    plural: gatewaypeers
+    singular: gatewaypeer
+    shortNames:
+      - gp
+      - peer
+  scope: Namespaced
+  versions:
+    - name: v1alpha1
+      served: true
+      storage: true
+      additionalPrinterColumns:
+        - name: Type
+          type: string
+          jsonPath: .spec.peerType
+        - name: PeerIP
+          type: string
+          jsonPath: .spec.peerIp
+        - name: ASN
+          type: integer
+          jsonPath: .spec.peerAsn
+        - name: State
+          type: string
+          jsonPath: .status.sessionState
+        - name: BFD
+          type: string
+          jsonPath: .status.bfdState
+      schema:
+        openAPIV3Schema:
+          type: object
+          properties:
+            apiVersion:
+              type: string
+            kind:
+              type: string
+            metadata:
+              type: object
+            spec:
+              type: object
+              required:
+                - transitGatewayRef
+                - peerType
+                - peerIp
+              properties:
+                transitGatewayRef:
+                  type: string
+                peerType:
+                  type: string
+                  enum: [BGP, WireGuard, Dual]
+                peerIp:
+                  type: string
+                peerAsn:
+                  type: integer
+                holdTimeSeconds:
+                  type: integer
+                keepaliveSeconds:
+                  type: integer
+                authPasswordSecretRef:
+                  type: string
+                enableBfd:
+                  type: boolean
+                vrf:
+                  type: integer
+                advertisedPrefixes:
+                  type: array
+                  items:
+                    type: string
+                wireguardPeer:
+                  type: object
+                  required:
+                    - publicKey
+                    - allowedIPs
+                  properties:
+                    publicKey:
+                      type: string
+                    endpoint:
+                      type: string
+                    allowedIPs:
+                      type: array
+                      items:
+                        type: string
+                    persistentKeepaliveSeconds:
+                      type: integer
+            status:
+              type: object
+              properties:
+                sessionState:
+                  type: string
+                bfdState:
+                  type: string
+                receivedRoutes:
+                  type: integer
+                advertisedRoutes:
+                  type: integer
+                lastStateChange:
+                  type: string
+                  format: date-time
+                conditions:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      type:
+                        type: string
+                      status:
+                        type: string
+                      reason:
+                        type: string
+                      message:
+                        type: string
+                      lastTransitionTime:
+                        type: string
+                        format: date-time
+      subresources:
+        status: {}
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: securitypolicies.straitgateway.io
+spec:
+  group: straitgateway.io
+  names:
+    kind: SecurityPolicy
+    listKind: SecurityPolicyList
+    plural: securitypolicies
+    singular: securitypolicy
+    shortNames:
+      - secpol
+      - sp
+  scope: Namespaced
+  versions:
+    - name: v1alpha1
+      served: true
+      storage: true
+      additionalPrinterColumns:
+        - name: Action
+          type: string
+          jsonPath: .spec.defaultAction
+        - name: Priority
+          type: integer
+          jsonPath: .spec.priority
+        - name: Pods
+          type: integer
+          jsonPath: .status.matchedPods
+        - name: Phase
+          type: string
+          jsonPath: .status.phase
+      schema:
+        openAPIV3Schema:
+          type: object
+          properties:
+            apiVersion:
+              type: string
+            kind:
+              type: string
+            metadata:
+              type: object
+            spec:
+              type: object
+              required:
+                - defaultAction
+              properties:
+                defaultAction:
+                  type: string
+                  enum: [Allow, Deny, Audit]
+                priority:
+                  type: integer
+                selector:
+                  type: object
+                  x-kubernetes-preserve-unknown-fields: true
+                ingress:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      from:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            cidr:
+                              type: string
+                            serviceAccount:
+                              type: string
+                            podSelector:
+                              type: object
+                              x-kubernetes-preserve-unknown-fields: true
+                            namespaceSelector:
+                              type: object
+                              x-kubernetes-preserve-unknown-fields: true
+                      ports:
+                        type: array
+                        items:
+                          type: object
+                          required:
+                            - protocol
+                            - port
+                          properties:
+                            protocol:
+                              type: string
+                            port:
+                              type: integer
+                            endPort:
+                              type: integer
+                      http:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            methods:
+                              type: array
+                              items:
+                                type: string
+                            paths:
+                              type: array
+                              items:
+                                type: string
+                egress:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      to:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            cidr:
+                              type: string
+                            serviceAccount:
+                              type: string
+                            podSelector:
+                              type: object
+                              x-kubernetes-preserve-unknown-fields: true
+                            namespaceSelector:
+                              type: object
+                              x-kubernetes-preserve-unknown-fields: true
+                      ports:
+                        type: array
+                        items:
+                          type: object
+                          required:
+                            - protocol
+                            - port
+                          properties:
+                            protocol:
+                              type: string
+                            port:
+                              type: integer
+                            endPort:
+                              type: integer
+            status:
+              type: object
+              properties:
+                matchedPods:
+                  type: integer
+                phase:
+                  type: string
+                activeNodes:
+                  type: array
+                  items:
+                    type: string
+                conditions:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      type:
+                        type: string
+                      status:
+                        type: string
+                      reason:
+                        type: string
+                      message:
+                        type: string
+                      lastTransitionTime:
+                        type: string
+                        format: date-time
+      subresources:
+        status: {}
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: servicemeshpolicies.straitgateway.io
+spec:
+  group: straitgateway.io
+  names:
+    kind: ServiceMeshPolicy
+    listKind: ServiceMeshPolicyList
+    plural: servicemeshpolicies
+    singular: servicemeshpolicy
+    shortNames:
+      - smp
+      - meshpolicy
+  scope: Namespaced
+  versions:
+    - name: v1alpha1
+      served: true
+      storage: true
+      additionalPrinterColumns:
+        - name: Service
+          type: string
+          jsonPath: .spec.serviceRef
+        - name: mTLS
+          type: string
+          jsonPath: .spec.mtls.mode
+        - name: Phase
+          type: string
+          jsonPath: .status.phase
+      schema:
+        openAPIV3Schema:
+          type: object
+          properties:
+            apiVersion:
+              type: string
+            kind:
+              type: string
+            metadata:
+              type: object
+            spec:
+              type: object
+              required:
+                - serviceRef
+              properties:
+                serviceRef:
+                  type: string
+                timeoutSeconds:
+                  type: integer
+                mtls:
+                  type: object
+                  required:
+                    - mode
+                  properties:
+                    mode:
+                      type: string
+                      enum: [Strict, Permissive, Disabled]
+                    trustDomain:
+                      type: string
+                trafficSplit:
+                  type: array
+                  items:
+                    type: object
+                    required:
+                      - backendService
+                      - weight
+                    properties:
+                      backendService:
+                        type: string
+                      weight:
+                        type: integer
+                retries:
+                  type: object
+                  required:
+                    - attempts
+                  properties:
+                    attempts:
+                      type: integer
+                    perTryTimeoutSeconds:
+                      type: integer
+                    retryOn:
+                      type: string
+                circuitBreaker:
+                  type: object
+                  properties:
+                    maxConnections:
+                      type: integer
+                    maxPendingRequests:
+                      type: integer
+                    consecutiveErrors:
+                      type: integer
+            status:
+              type: object
+              properties:
+                phase:
+                  type: string
+                endpointsActive:
+                  type: integer
+                conditions:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      type:
+                        type: string
+                      status:
+                        type: string
+                      reason:
+                        type: string
+                      message:
+                        type: string
+                      lastTransitionTime:
+                        type: string
+                        format: date-time
+      subresources:
+        status: {}
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: straitgatewayconfigs.straitgateway.io
+spec:
+  group: straitgateway.io
+  names:
+    kind: StraitGatewayConfig
+    listKind: StraitGatewayConfigList
+    plural: straitgatewayconfigs
+    singular: straitgatewayconfig
+    shortNames:
+      - sgc
+      - sgconfig
+  scope: Cluster
+  versions:
+    - name: v1alpha1
+      served: true
+      storage: true
+      additionalPrinterColumns:
+        - name: Mode
+          type: string
+          jsonPath: .spec.dataplaneMode
+        - name: SocketLB
+          type: boolean
+          jsonPath: .spec.enableSocketLb
+        - name: Ready
+          type: boolean
+          jsonPath: .status.ready
+        - name: Nodes
+          type: integer
+          jsonPath: .status.activeNodes
+      schema:
+        openAPIV3Schema:
+          type: object
+          properties:
+            apiVersion:
+              type: string
+            kind:
+              type: string
+            metadata:
+              type: object
+            spec:
+              type: object
+              required:
+                - clusterCidr
+                - serviceCidr
+              properties:
+                clusterCidr:
+                  type: string
+                serviceCidr:
+                  type: string
+                dataplaneMode:
+                  type: string
+                  enum: [TCX, TC, XDP]
+                tunnelType:
+                  type: string
+                  enum: [WireGuard, DirectRouting]
+                enableSocketLb:
+                  type: boolean
+                enableMaglev:
+                  type: boolean
+                enableObservability:
+                  type: boolean
+            status:
+              type: object
+              properties:
+                ready:
+                  type: boolean
+                activeNodes:
+                  type: integer
+                conditions:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      type:
+                        type: string
+                      status:
+                        type: string
+                      reason:
+                        type: string
+                      message:
+                        type: string
+                      lastTransitionTime:
+                        type: string
+                        format: date-time
+      subresources:
+        status: {}
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: transitgateways.straitgateway.io
+spec:
+  group: straitgateway.io
+  names:
+    kind: TransitGateway
+    listKind: TransitGatewayList
+    plural: transitgateways
+    singular: transitgateway
+    shortNames:
+      - tg
+      - tgw
+  scope: Cluster
+  versions:
+    - name: v1alpha1
+      served: true
+      storage: true
+      additionalPrinterColumns:
+        - name: ASN
+          type: integer
+          jsonPath: .spec.asn
+        - name: RouterID
+          type: string
+          jsonPath: .spec.routerId
+        - name: Phase
+          type: string
+          jsonPath: .status.phase
+        - name: Peers
+          type: integer
+          jsonPath: .status.activePeers
+        - name: Routes
+          type: integer
+          jsonPath: .status.activeRoutes
+      schema:
+        openAPIV3Schema:
+          type: object
+          properties:
+            apiVersion:
+              type: string
+            kind:
+              type: string
+            metadata:
+              type: object
+            spec:
+              type: object
+              required:
+                - asn
+                - routerId
+              properties:
+                asn:
+                  type: integer
+                  minimum: 1
+                  maximum: 4294967295
+                routerId:
+                  type: string
+                mtu:
+                  type: integer
+                defaultAction:
+                  type: string
+                  enum: [Allow, Deny]
+                vrfs:
+                  type: array
+                  items:
+                    type: object
+                    required:
+                      - id
+                      - name
+                    properties:
+                      id:
+                        type: integer
+                      name:
+                        type: string
+                      description:
+                        type: string
+                      exportRouteTargets:
+                        type: array
+                        items:
+                          type: string
+                      importRouteTargets:
+                        type: array
+                        items:
+                          type: string
+                wireguard:
+                  type: object
+                  properties:
+                    listenPort:
+                      type: integer
+                    publicKey:
+                      type: string
+                    privateKeySecretRef:
+                      type: string
+                bfd:
+                  type: object
+                  properties:
+                    minTxIntervalMs:
+                      type: integer
+                    minRxIntervalMs:
+                      type: integer
+                    detectMultiplier:
+                      type: integer
+            status:
+              type: object
+              properties:
+                phase:
+                  type: string
+                activePeers:
+                  type: integer
+                activeRoutes:
+                  type: integer
+                conditions:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      type:
+                        type: string
+                      status:
+                        type: string
+                      reason:
+                        type: string
+                      message:
+                        type: string
+                      lastTransitionTime:
+                        type: string
+                        format: date-time
+      subresources:
+        status: {}
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: transitroutes.straitgateway.io
+spec:
+  group: straitgateway.io
+  names:
+    kind: TransitRoute
+    listKind: TransitRouteList
+    plural: transitroutes
+    singular: transitroute
+    shortNames:
+      - tr
+      - troute
+  scope: Namespaced
+  versions:
+    - name: v1alpha1
+      served: true
+      storage: true
+      additionalPrinterColumns:
+        - name: CIDR
+          type: string
+          jsonPath: .spec.destinationCidr
+        - name: TargetType
+          type: string
+          jsonPath: .spec.targetType
+        - name: NextHop
+          type: string
+          jsonPath: .spec.nextHopIp
+        - name: VRF
+          type: integer
+          jsonPath: .spec.vrf
+        - name: Programmed
+          type: boolean
+          jsonPath: .status.programmed
+      schema:
+        openAPIV3Schema:
+          type: object
+          properties:
+            apiVersion:
+              type: string
+            kind:
+              type: string
+            metadata:
+              type: object
+            spec:
+              type: object
+              required:
+                - destinationCidr
+                - targetType
+              properties:
+                destinationCidr:
+                  type: string
+                targetType:
+                  type: string
+                  enum: [Node, GatewayPeer, WireGuard, Interface, Blackhole]
+                targetRef:
+                  type: string
+                nextHopIp:
+                  type: string
+                outgoingInterface:
+                  type: string
+                vrf:
+                  type: integer
+                metric:
+                  type: integer
+                communities:
+                  type: array
+                  items:
+                    type: string
+            status:
+              type: object
+              properties:
+                programmed:
+                  type: boolean
+                nodesProgrammed:
+                  type: array
+                  items:
+                    type: string
+                lastSyncTime:
+                  type: string
+                  format: date-time
+                message:
+                  type: string
+      subresources:
+        status: {}
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: straitgateway-system
+  labels:
+    app.kubernetes.io/name: straitgateway
+    control-plane: straitgateway
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: straitgateway-agent
+  namespace: straitgateway-system
+  labels:
+    app.kubernetes.io/name: straitgateway
+    app.kubernetes.io/component: agent
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: straitgateway-controller
+  namespace: straitgateway-system
+  labels:
+    app.kubernetes.io/name: straitgateway
+    app.kubernetes.io/component: controller
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: straitgateway-agent
+  labels:
+    app.kubernetes.io/name: straitgateway
+rules:
+  - apiGroups: [""]
+    resources:
+      - nodes
+      - nodes/status
+      - pods
+      - pods/status
+      - namespaces
+      - services
+      - endpoints
+      - configmaps
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["discovery.k8s.io"]
+    resources:
+      - endpointslices
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["straitgateway.io"]
+    resources:
+      - straitgatewayconfigs
+      - transitgateways
+      - gatewaypeers
+      - transitroutes
+      - securitypolicies
+      - servicemeshpolicies
+    verbs: ["get", "list", "watch", "update", "patch"]
+  - apiGroups: ["straitgateway.io"]
+    resources:
+      - "*/status"
+    verbs: ["get", "update", "patch"]
+  - apiGroups: [""]
+    resources:
+      - events
+    verbs: ["create", "patch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: straitgateway-agent
+  labels:
+    app.kubernetes.io/name: straitgateway
+roleRef:
+  apiGroup: rbac.authorization.k8s.io/v1
+  kind: ClusterRole
+  name: straitgateway-agent
+subjects:
+  - kind: ServiceAccount
+    name: straitgateway-agent
+    namespace: straitgateway-system
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: straitgateway-controller
+  labels:
+    app.kubernetes.io/name: straitgateway
+rules:
+  - apiGroups: [""]
+    resources:
+      - nodes
+      - pods
+      - services
+      - endpoints
+      - namespaces
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["discovery.k8s.io"]
+    resources:
+      - endpointslices
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["straitgateway.io"]
+    resources:
+      - straitgatewayconfigs
+      - transitgateways
+      - gatewaypeers
+      - transitroutes
+      - securitypolicies
+      - servicemeshpolicies
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  - apiGroups: ["straitgateway.io"]
+    resources:
+      - "*/status"
+    verbs: ["get", "update", "patch"]
+  - apiGroups: ["coordination.k8s.io"]
+    resources:
+      - leases
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  - apiGroups: [""]
+    resources:
+      - events
+    verbs: ["create", "patch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: straitgateway-controller
+  labels:
+    app.kubernetes.io/name: straitgateway
+roleRef:
+  apiGroup: rbac.authorization.k8s.io/v1
+  kind: ClusterRole
+  name: straitgateway-controller
+subjects:
+  - kind: ServiceAccount
+    name: straitgateway-controller
+    namespace: straitgateway-system
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: straitgateway-controller
+  namespace: straitgateway-system
+  labels:
+    app.kubernetes.io/name: straitgateway
+    app.kubernetes.io/component: controller
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: straitgateway
+      app.kubernetes.io/component: controller
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: straitgateway
+        app.kubernetes.io/component: controller
+    spec:
+      serviceAccountName: straitgateway-controller
+      containers:
+        - name: controller
+          image: straitgateway/sg-controller:v1.0.0
+          imagePullPolicy: IfNotPresent
+          command:
+            - /usr/local/bin/sg-controller
+          args:
+            - --leader-elect=true
+            - --sync-period=30s
+          env:
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: straitgateway-config
+  namespace: straitgateway-system
+  labels:
+    app.kubernetes.io/name: straitgateway
+data:
+  config.yaml: |
+    logLevel: info
+    bpfFsPath: /sys/fs/bpf
+    cniBinDir: /opt/cni/bin
+    cniConfDir: /etc/cni/net.d
+    clusterCIDR: 10.244.0.0/16
+    serviceCIDR: 10.96.0.0/12
+    transitASN: 65001
+    wireguardPort: 51820
+    bfdEnabled: true
+    bfdMinRxInterval: 50ms
+    bfdMinTxInterval: 50ms
+    bfdDetectMultiplier: 3
+    metricsBindAddr: ":9090"
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: straitgateway-agent
+  namespace: straitgateway-system
+  labels:
+    app.kubernetes.io/name: straitgateway
+    app.kubernetes.io/component: agent
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: straitgateway
+      app.kubernetes.io/component: agent
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: straitgateway
+        app.kubernetes.io/component: agent
+    spec:
+      hostNetwork: true
+      hostPID: true
+      serviceAccountName: straitgateway-agent
+      tolerations:
+        - operator: Exists
+          effect: NoSchedule
+        - operator: Exists
+          effect: NoExecute
+      containers:
+        - name: agent
+          image: straitgateway/sg-agent:v1.0.0
+          imagePullPolicy: IfNotPresent
+          command:
+            - /usr/local/bin/sg-agent
+          args:
+            - --config=/etc/straitgateway/config.yaml
+          securityContext:
+            privileged: true
+            capabilities:
+              add:
+                - BPF
+                - NET_ADMIN
+                - SYS_ADMIN
+                - NET_RAW
+                - SYS_RESOURCE
+          ports:
+            - name: metrics
+              containerPort: 9090
+              protocol: TCP
+            - name: wireguard
+              containerPort: 51820
+              protocol: UDP
+            - name: bfd
+              containerPort: 3784
+              protocol: UDP
+            - name: bgp
+              containerPort: 179
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: metrics
+            initialDelaySeconds: 15
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: metrics
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 1000m
+              memory: 1024Mi
+          volumeMounts:
+            - name: bpf-maps
+              mountPath: /sys/fs/bpf
+              mountPropagation: Bidirectional
+            - name: config
+              mountPath: /etc/straitgateway
+              readOnly: true
+            - name: run-dir
+              mountPath: /var/run/straitgateway
+            - name: lib-modules
+              mountPath: /lib/modules
+              readOnly: true
+            - name: sys-kernel
+              mountPath: /sys/kernel/debug
+              mountPropagation: HostToContainer
+      volumes:
+        - name: bpf-maps
+          hostPath:
+            path: /sys/fs/bpf
+            type: DirectoryOrCreate
+        - name: config
+          configMap:
+            name: straitgateway-config
+        - name: run-dir
+          hostPath:
+            path: /var/run/straitgateway
+            type: DirectoryOrCreate
+        - name: lib-modules
+          hostPath:
+            path: /lib/modules
+        - name: sys-kernel
+          hostPath:
+            path: /sys/kernel/debug
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: straitgateway-metrics
+  namespace: straitgateway-system
+  labels:
+    app.kubernetes.io/name: straitgateway
+    app.kubernetes.io/component: observability
+spec:
+  type: ClusterIP
+  ports:
+    - name: metrics
+      port: 9090
+      targetPort: metrics
+      protocol: TCP
+  selector:
+    app.kubernetes.io/name: straitgateway
+    app.kubernetes.io/component: agent
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: straitgateway-cni
+  namespace: straitgateway-system
+  labels:
+    app.kubernetes.io/name: straitgateway
+    app.kubernetes.io/component: cni
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: straitgateway
+      app.kubernetes.io/component: cni
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: straitgateway
+        app.kubernetes.io/component: cni
+    spec:
+      hostNetwork: true
+      tolerations:
+        - operator: Exists
+          effect: NoSchedule
+      initContainers:
+        - name: install-cni
+          image: straitgateway/sg-cni:v1.0.0
+          imagePullPolicy: IfNotPresent
+          command:
+            - /bin/sh
+            - -c
+            - |
+              set -e
+              echo "Installing StraitGateway CNI binary to host /opt/cni/bin..."
+              cp -f /usr/local/bin/sg-cni /host/opt/cni/bin/straitgateway
+              chmod +x /host/opt/cni/bin/straitgateway
+              
+              echo "Generating 10-straitgateway.conflist in /etc/cni/net.d..."
+              cat <<EOF > /host/etc/cni/net.d/10-straitgateway.conflist
+              {
+                "cniVersion": "0.4.0",
+                "name": "straitgateway-net",
+                "plugins": [
+                  {
+                    "type": "straitgateway",
+                    "mode": "l3",
+                    "ipam": {
+                      "type": "host-local",
+                      "subnet": "10.244.0.0/16"
+                    }
+                  },
+                  {
+                    "type": "portmap",
+                    "capabilities": {"portMappings": true}
+                  }
+                ]
+              }
+              EOF
+              echo "CNI plugin install completed successfully."
+          volumeMounts:
+            - name: cni-bin
+              mountPath: /host/opt/cni/bin
+            - name: cni-net-d
+              mountPath: /host/etc/cni/net.d
+          resources:
+            requests:
+              cpu: 10m
+              memory: 16Mi
+            limits:
+              cpu: 100m
+              memory: 64Mi
+      containers:
+        - name: cni-watcher
+          image: straitgateway/sg-cni:v1.0.0
+          imagePullPolicy: IfNotPresent
+          command:
+            - /bin/sh
+            - -c
+            - |
+              trap 'exit 0' SIGTERM
+              while true; do
+                if [ ! -f /host/opt/cni/bin/straitgateway ]; then
+                  echo "Restoring missing CNI binary..."
+                  cp -f /usr/local/bin/sg-cni /host/opt/cni/bin/straitgateway
+                  chmod +x /host/opt/cni/bin/straitgateway
+                fi
+                sleep 60
+              done
+          volumeMounts:
+            - name: cni-bin
+              mountPath: /host/opt/cni/bin
+          resources:
+            requests:
+              cpu: 10m
+              memory: 16Mi
+            limits:
+              cpu: 100m
+              memory: 64Mi
+      volumes:
+        - name: cni-bin
+          hostPath:
+            path: /opt/cni/bin
+            type: DirectoryOrCreate
+        - name: cni-net-d
+          hostPath:
+            path: /etc/cni/net.d
+            type: DirectoryOrCreate
+---

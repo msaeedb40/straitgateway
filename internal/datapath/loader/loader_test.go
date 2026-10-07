@@ -32,4 +32,19 @@ func TestLoaderWithCompiledObjects(t *testing.T) {
 	if l == nil {
 		t.Fatal("expected non-nil loader")
 	}
+
+	dc := &DataplaneCollection{
+		mapManager: mm,
+		tcIngress:  prog,
+	}
+	if err := dc.Close(); err != nil {
+		t.Fatalf("failed to close dataplane collection: %v", err)
+	}
+}
+
+func TestInterfaceIndexNotFound(t *testing.T) {
+	_, err := GetInterfaceIndexByName("non-existent-sg-if0")
+	if err == nil {
+		t.Error("expected error for non-existent interface, got nil")
+	}
 }

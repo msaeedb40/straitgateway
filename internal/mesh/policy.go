@@ -38,21 +38,33 @@ func (pc *PolicyCompiler) CompileAndInstall(policy *v1alpha1.SecurityPolicy, tar
 
 	var compiled []CompiledRule
 
-	// Translate Ingress rules
+	// 1. Translate Ingress rules (traffic to targetIdentityID)
 	for _, ingress := range policy.Spec.Ingress {
-		for _, portRule := range ingress.Ports {
+		// If ports empty, wildcard port (port 0 = all ports)
+		portRules := ingress.Ports
+		if len(portRules) == 0 {
+			portRules = []v1alpha1.SecurityPort{{Protocol: "TCP", Port: 0}}
+		}
+
+		for _, portRule := range portRules {
 			protoNum := uint8(6) // TCP
 			if portRule.Protocol == "UDP" {
 				protoNum = 17
+			} else if portRule.Protocol == "" {
+				protoNum = 0
 			}
 
-			// If no specific sources specified, allow from cluster
+			// Resolve sources
 			sourceIDs := []uint32{IdentityCluster}
 			if len(ingress.From) > 0 {
 				sourceIDs = nil
 				for _, from := range ingress.From {
 					if from.ServiceAccount != "" {
 						ident := pc.identityEngine.GetOrCreateIdentity(policy.Namespace, from.ServiceAccount, nil)
+						sourceIDs = append(sourceIDs, ident.ID)
+					}
+					if from.PodSelector != nil && len(from.PodSelector.MatchLabels) > 0 {
+						ident := pc.identityEngine.GetOrCreateIdentity(policy.Namespace, "default", from.PodSelector.MatchLabels)
 						sourceIDs = append(sourceIDs, ident.ID)
 					}
 					if from.CIDR != "" {
@@ -69,8 +81,8 @@ func (pc *PolicyCompiler) CompileAndInstall(policy *v1alpha1.SecurityPolicy, tar
 					Proto:   protoNum,
 				}
 				action := types.PolicyAllow
-				if policy.Spec.DefaultAction == v1alpha1.ActionDeny {
-					action = types.PolicyAllow // Explicitly allowed rule
+				if policy.Spec.DefaultAction == v1alpha1.ActionAudit {
+					action = types.PolicyAudit
 				}
 
 				compiled = append(compiled, CompiledRule{
@@ -79,6 +91,63 @@ func (pc *PolicyCompiler) CompileAndInstall(policy *v1alpha1.SecurityPolicy, tar
 				})
 
 				// Install into kernel BPF map if mapMgr is connected
+				if pc.mapMgr != nil {
+					_ = pc.mapMgr.SetPolicy(ruleKey, action)
+				}
+			}
+		}
+	}
+
+	// 2. Translate Egress rules (traffic from targetIdentityID)
+	for _, egress := range policy.Spec.Egress {
+		portRules := egress.Ports
+		if len(portRules) == 0 {
+			portRules = []v1alpha1.SecurityPort{{Protocol: "TCP", Port: 0}}
+		}
+
+		for _, portRule := range portRules {
+			protoNum := uint8(6)
+			if portRule.Protocol == "UDP" {
+				protoNum = 17
+			} else if portRule.Protocol == "" {
+				protoNum = 0
+			}
+
+			destIDs := []uint32{IdentityCluster}
+			if len(egress.To) > 0 {
+				destIDs = nil
+				for _, to := range egress.To {
+					if to.ServiceAccount != "" {
+						ident := pc.identityEngine.GetOrCreateIdentity(policy.Namespace, to.ServiceAccount, nil)
+						destIDs = append(destIDs, ident.ID)
+					}
+					if to.PodSelector != nil && len(to.PodSelector.MatchLabels) > 0 {
+						ident := pc.identityEngine.GetOrCreateIdentity(policy.Namespace, "default", to.PodSelector.MatchLabels)
+						destIDs = append(destIDs, ident.ID)
+					}
+					if to.CIDR != "" {
+						destIDs = append(destIDs, IdentityWorld)
+					}
+				}
+			}
+
+			for _, dstID := range destIDs {
+				ruleKey := types.PolicyKey{
+					SrcID:   targetIdentityID,
+					DstID:   dstID,
+					DstPort: uint16(portRule.Port),
+					Proto:   protoNum,
+				}
+				action := types.PolicyAllow
+				if policy.Spec.DefaultAction == v1alpha1.ActionAudit {
+					action = types.PolicyAudit
+				}
+
+				compiled = append(compiled, CompiledRule{
+					Key:    ruleKey,
+					Action: action,
+				})
+
 				if pc.mapMgr != nil {
 					_ = pc.mapMgr.SetPolicy(ruleKey, action)
 				}
@@ -121,3 +190,28 @@ func (pc *PolicyCompiler) GetRules(namespace, name string) ([]CompiledRule, bool
 	rules, exists := pc.activePolicies[policyKey]
 	return rules, exists
 }
+
+// ListPolicies returns all active compiled policies
+func (pc *PolicyCompiler) ListPolicies() map[string][]CompiledRule {
+	pc.mu.RLock()
+	defer pc.mu.RUnlock()
+
+	result := make(map[string][]CompiledRule, len(pc.activePolicies))
+	for k, v := range pc.activePolicies {
+		result[k] = v
+	}
+	return result
+}
+
+// GetActiveRuleCount returns the total number of currently active rules across all policies
+func (pc *PolicyCompiler) GetActiveRuleCount() int {
+	pc.mu.RLock()
+	defer pc.mu.RUnlock()
+
+	total := 0
+	for _, rules := range pc.activePolicies {
+		total += len(rules)
+	}
+	return total
+}
+

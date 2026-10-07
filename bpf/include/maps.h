@@ -88,4 +88,53 @@ enum policy_action {
     POLICY_AUDIT = 2,
 };
 
+// VRF Domain Descriptor
+struct vrf_config {
+    __u32 id;
+    __u32 table_id;
+    __u32 flags;
+};
+
+// NAT Translation Entry
+struct nat_entry {
+    __u32 orig_ip;
+    __u16 orig_port;
+    __u32 trans_ip;
+    __u16 trans_port;
+    __u8 proto;
+    __u8 pad[3];
+};
+
+// WireGuard / Transit Tunnel Descriptor
+struct tunnel_info {
+    __u32 tunnel_id;
+    __u32 ifindex;
+    __u32 endpoint_ip;
+    __u16 endpoint_port;
+    __u16 flags;
+};
+
+// L2 Neighbor Cache Entry (IP to MAC)
+struct neighbor_entry {
+    __u32 ip;
+    __u8 mac[6];
+    __u16 state;
+};
+
+// Telemetry Event (delivered via BPF ring buffer)
+struct telemetry_event {
+    __u64 timestamp;
+    __u32 src_ip;
+    __u32 dst_ip;
+    __u16 src_port;
+    __u16 dst_port;
+    __u8 proto;
+    __u32 src_id;
+    __u32 dst_id;
+    __u8 action;
+    __u8 pad[2];
+    __u64 bytes;
+    __u64 packets;
+};
+
 #endif /* __STRAITGATEWAY_MAPS_H__ */

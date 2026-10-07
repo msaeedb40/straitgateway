@@ -1,0 +1,165 @@
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: securitypolicies.straitgateway.io
+spec:
+  group: straitgateway.io
+  names:
+    kind: SecurityPolicy
+    listKind: SecurityPolicyList
+    plural: securitypolicies
+    singular: securitypolicy
+    shortNames:
+      - secpol
+      - sp
+  scope: Namespaced
+  versions:
+    - name: v1alpha1
+      served: true
+      storage: true
+      additionalPrinterColumns:
+        - name: Action
+          type: string
+          jsonPath: .spec.defaultAction
+        - name: Priority
+          type: integer
+          jsonPath: .spec.priority
+        - name: Pods
+          type: integer
+          jsonPath: .status.matchedPods
+        - name: Phase
+          type: string
+          jsonPath: .status.phase
+      schema:
+        openAPIV3Schema:
+          type: object
+          properties:
+            apiVersion:
+              type: string
+            kind:
+              type: string
+            metadata:
+              type: object
+            spec:
+              type: object
+              required:
+                - defaultAction
+              properties:
+                defaultAction:
+                  type: string
+                  enum: [Allow, Deny, Audit]
+                priority:
+                  type: integer
+                selector:
+                  type: object
+                  x-kubernetes-preserve-unknown-fields: true
+                ingress:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      from:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            cidr:
+                              type: string
+                            serviceAccount:
+                              type: string
+                            podSelector:
+                              type: object
+                              x-kubernetes-preserve-unknown-fields: true
+                            namespaceSelector:
+                              type: object
+                              x-kubernetes-preserve-unknown-fields: true
+                      ports:
+                        type: array
+                        items:
+                          type: object
+                          required:
+                            - protocol
+                            - port
+                          properties:
+                            protocol:
+                              type: string
+                            port:
+                              type: integer
+                            endPort:
+                              type: integer
+                      http:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            methods:
+                              type: array
+                              items:
+                                type: string
+                            paths:
+                              type: array
+                              items:
+                                type: string
+                egress:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      to:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            cidr:
+                              type: string
+                            serviceAccount:
+                              type: string
+                            podSelector:
+                              type: object
+                              x-kubernetes-preserve-unknown-fields: true
+                            namespaceSelector:
+                              type: object
+                              x-kubernetes-preserve-unknown-fields: true
+                      ports:
+                        type: array
+                        items:
+                          type: object
+                          required:
+                            - protocol
+                            - port
+                          properties:
+                            protocol:
+                              type: string
+                            port:
+                              type: integer
+                            endPort:
+                              type: integer
+            status:
+              type: object
+              properties:
+                matchedPods:
+                  type: integer
+                phase:
+                  type: string
+                activeNodes:
+                  type: array
+                  items:
+                    type: string
+                conditions:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      type:
+                        type: string
+                      status:
+                        type: string
+                      reason:
+                        type: string
+                      message:
+                        type: string
+                      lastTransitionTime:
+                        type: string
+                        format: date-time
+      subresources:
+        status: {}

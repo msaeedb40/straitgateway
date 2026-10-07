@@ -49,4 +49,17 @@ func TestIdentityEngine(t *testing.T) {
 	if ie.ResolveIP(podIP) != IdentityWorld {
 		t.Errorf("expected IdentityWorld after unbinding, got %d", ie.ResolveIP(podIP))
 	}
+
+	// 5. Test ListIdentities and GetIPBindings
+	list := ie.ListIdentities()
+	if len(list) < 4 { // At least 4 well-known identities
+		t.Errorf("expected at least 4 identities, got %d", len(list))
+	}
+
+	ie.BindIP(net.ParseIP("10.244.2.10"), 1005)
+	bindings := ie.GetIPBindings()
+	if bindings["10.244.2.10"] != 1005 {
+		t.Errorf("expected binding for 10.244.2.10 -> 1005, got %d", bindings["10.244.2.10"])
+	}
 }
+

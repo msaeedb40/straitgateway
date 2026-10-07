@@ -1,0 +1,129 @@
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: transitgateways.straitgateway.io
+spec:
+  group: straitgateway.io
+  names:
+    kind: TransitGateway
+    listKind: TransitGatewayList
+    plural: transitgateways
+    singular: transitgateway
+    shortNames:
+      - tg
+      - tgw
+  scope: Cluster
+  versions:
+    - name: v1alpha1
+      served: true
+      storage: true
+      additionalPrinterColumns:
+        - name: ASN
+          type: integer
+          jsonPath: .spec.asn
+        - name: RouterID
+          type: string
+          jsonPath: .spec.routerId
+        - name: Phase
+          type: string
+          jsonPath: .status.phase
+        - name: Peers
+          type: integer
+          jsonPath: .status.activePeers
+        - name: Routes
+          type: integer
+          jsonPath: .status.activeRoutes
+      schema:
+        openAPIV3Schema:
+          type: object
+          properties:
+            apiVersion:
+              type: string
+            kind:
+              type: string
+            metadata:
+              type: object
+            spec:
+              type: object
+              required:
+                - asn
+                - routerId
+              properties:
+                asn:
+                  type: integer
+                  minimum: 1
+                  maximum: 4294967295
+                routerId:
+                  type: string
+                mtu:
+                  type: integer
+                defaultAction:
+                  type: string
+                  enum: [Allow, Deny]
+                vrfs:
+                  type: array
+                  items:
+                    type: object
+                    required:
+                      - id
+                      - name
+                    properties:
+                      id:
+                        type: integer
+                      name:
+                        type: string
+                      description:
+                        type: string
+                      exportRouteTargets:
+                        type: array
+                        items:
+                          type: string
+                      importRouteTargets:
+                        type: array
+                        items:
+                          type: string
+                wireguard:
+                  type: object
+                  properties:
+                    listenPort:
+                      type: integer
+                    publicKey:
+                      type: string
+                    privateKeySecretRef:
+                      type: string
+                bfd:
+                  type: object
+                  properties:
+                    minTxIntervalMs:
+                      type: integer
+                    minRxIntervalMs:
+                      type: integer
+                    detectMultiplier:
+                      type: integer
+            status:
+              type: object
+              properties:
+                phase:
+                  type: string
+                activePeers:
+                  type: integer
+                activeRoutes:
+                  type: integer
+                conditions:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      type:
+                        type: string
+                      status:
+                        type: string
+                      reason:
+                        type: string
+                      message:
+                        type: string
+                      lastTransitionTime:
+                        type: string
+                        format: date-time
+      subresources:
+        status: {}

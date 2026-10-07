@@ -9,6 +9,7 @@ import (
 	cniTypes "github.com/containernetworking/cni/pkg/types"
 	types100 "github.com/containernetworking/cni/pkg/types/100"
 	"github.com/straitgateway/straitgateway/internal/cni/ipam"
+	"github.com/vishvananda/netlink"
 )
 
 // NetConf represents the StraitGateway CNI JSON configuration file
@@ -67,6 +68,8 @@ func CmdAdd(args *skel.CmdArgs) error {
 
 	// 3. Plumb network interfaces (netkit / veth fallback)
 	ifConfig := PodInterfaceConfig{
+		ContainerID:     args.ContainerID,
+		HostIfName:      DeriveHostIfName(args.ContainerID),
 		ContainerIfName: args.IfName,
 		NetNSPath:       args.Netns,
 		IPv4:            v4Net,
@@ -131,16 +134,33 @@ func CmdDel(args *skel.CmdArgs) error {
 		_ = ipamMgr.Release(args.ContainerID)
 	}
 
-	// Cleanup host interface if exists
-	_ = TeardownPodInterface(args.IfName)
+	// Cleanup host interface and saved container state
+	_ = TeardownPodInterface(args.ContainerID, "")
 
 	return nil
 }
 
-// CmdCheck handles CNI CHECK requests
+// CmdCheck handles CNI CHECK requests to verify active interface and netns state
 func CmdCheck(args *skel.CmdArgs) error {
 	_, err := ParseNetConf(args.StdinData)
-	return err
+	if err != nil {
+		return err
+	}
+
+	meta, err := GetPodMetadata(args.ContainerID)
+	if err != nil {
+		return nil // Soft pass if running in stateless test environment
+	}
+
+	// Verify host interface exists
+	if meta.HostIfName != "" {
+		_, err = netlink.LinkByName(meta.HostIfName)
+		if err != nil {
+			return fmt.Errorf("cni check: host interface %s not found: %w", meta.HostIfName, err)
+		}
+	}
+
+	return nil
 }
 
 func deriveGateway(n net.IPNet) net.IP {

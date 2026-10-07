@@ -48,6 +48,14 @@ build-bpf:
 .PHONY: build
 build: straitd sg-controller sg-cni sg-agent sgctl
 
+.PHONY: build-ui
+build-ui:
+	@echo "Building UI Plane..."
+	@cd ui && npm run build
+
+.PHONY: build-all
+build-all: build-bpf build build-ui
+
 .PHONY: straitd
 straitd:
 	@mkdir -p $(BIN_DIR)

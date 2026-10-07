@@ -169,3 +169,58 @@ func ToLPMV4Key(n net.IPNet) (types.LPMV4Key, error) {
 		Addr:      binary.BigEndian.Uint32(ip4),
 	}, nil
 }
+
+// ListRoutes returns all routes configured for a given VRF
+func (f *FIBEngine) ListRoutes(vrfID uint32) []*RouteEntry {
+	f.mu.RLock()
+	defer f.mu.RUnlock()
+
+	vrf, exists := f.vrfs[vrfID]
+	if !exists {
+		return nil
+	}
+
+	result := make([]*RouteEntry, 0, len(vrf.Routes))
+	for _, r := range vrf.Routes {
+		result = append(result, r)
+	}
+	return result
+}
+
+// ListVRFs returns a list of all active VRF tables
+func (f *FIBEngine) ListVRFs() []*VRFTable {
+	f.mu.RLock()
+	defer f.mu.RUnlock()
+
+	result := make([]*VRFTable, 0, len(f.vrfs))
+	for _, vrf := range f.vrfs {
+		result = append(result, vrf)
+	}
+	return result
+}
+
+// GetVRF retrieves a VRF by ID
+func (f *FIBEngine) GetVRF(id uint32) (*VRFTable, bool) {
+	f.mu.RLock()
+	defer f.mu.RUnlock()
+
+	vrf, exists := f.vrfs[id]
+	return vrf, exists
+}
+
+// FindRoutesByNextHop returns all routes across all VRFs associated with a given next-hop IP
+func (f *FIBEngine) FindRoutesByNextHop(nextHopIP net.IP) []*RouteEntry {
+	f.mu.RLock()
+	defer f.mu.RUnlock()
+
+	var matching []*RouteEntry
+	for _, vrf := range f.vrfs {
+		for _, r := range vrf.Routes {
+			if r.NextHopIP != nil && r.NextHopIP.Equal(nextHopIP) {
+				matching = append(matching, r)
+			}
+		}
+	}
+	return matching
+}
+

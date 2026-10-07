@@ -66,6 +66,46 @@ func TestMapManagerLifecycle(t *testing.T) {
 		t.Fatalf("failed to set policy: %v", err)
 	}
 
+	// Test Identity Map CRUD
+	testIP := uint32(0x0a000105) // 10.0.1.5
+	testID := uint32(500)
+	if err := mm.SetIdentity(testIP, testID); err != nil {
+		t.Fatalf("failed to set identity: %v", err)
+	}
+	gotID, err := mm.LookupIdentity(testIP)
+	if err != nil || gotID != testID {
+		t.Fatalf("lookup identity: expected %d, got %d, err: %v", testID, gotID, err)
+	}
+	if err := mm.DeleteIdentity(testIP); err != nil {
+		t.Fatalf("delete identity: %v", err)
+	}
+
+	// Test VRF Map CRUD
+	vrfCfg := types.VRFConfig{ID: 100, TableID: 1001, Flags: 1}
+	if err := mm.SetVRF(100, vrfCfg); err != nil {
+		t.Fatalf("failed to set VRF: %v", err)
+	}
+	gotVRF, err := mm.LookupVRF(100)
+	if err != nil || gotVRF.TableID != 1001 {
+		t.Fatalf("lookup VRF: expected table 1001, got %d, err: %v", gotVRF.TableID, err)
+	}
+	if err := mm.DeleteVRF(100); err != nil {
+		t.Fatalf("delete VRF: %v", err)
+	}
+
+	// Test Tunnel Map CRUD
+	tunInfo := types.TunnelInfo{TunnelID: 1, IfIndex: 10, EndpointIP: 0x0a0a0a01, EndpointPort: 51820}
+	if err := mm.SetTunnel(1, tunInfo); err != nil {
+		t.Fatalf("failed to set tunnel: %v", err)
+	}
+	gotTun, err := mm.LookupTunnel(1)
+	if err != nil || gotTun.EndpointPort != 51820 {
+		t.Fatalf("lookup tunnel: expected port 51820, got %d, err: %v", gotTun.EndpointPort, err)
+	}
+	if err := mm.DeleteTunnel(1); err != nil {
+		t.Fatalf("delete tunnel: %v", err)
+	}
+
 	// Delete and verify
 	if err := mm.DeleteRoute(lpmKey); err != nil {
 		t.Fatalf("failed to delete route: %v", err)

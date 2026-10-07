@@ -1,10 +1,15 @@
 package cni
 
 import (
-	"crypto/rand"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"net"
+	"os"
+	"path/filepath"
 	"runtime"
+	"time"
 
 	"github.com/vishvananda/netlink"
 	"github.com/vishvananda/netns"
@@ -16,10 +21,13 @@ type DeviceType string
 const (
 	DeviceTypeNetkit DeviceType = "netkit"
 	DeviceTypeVeth   DeviceType = "veth"
+
+	DefaultStateDir = "/var/run/straitgateway/cni"
 )
 
 // PodInterfaceConfig defines parameters for configuring a pod network interface
 type PodInterfaceConfig struct {
+	ContainerID     string
 	HostIfName      string
 	ContainerIfName string
 	NetNSPath       string
@@ -40,6 +48,28 @@ type InterfaceResult struct {
 	ContainerMAC     string
 }
 
+// PodMetadata stores persistent runtime information for CNI CHECK and DEL operations
+type PodMetadata struct {
+	ContainerID     string     `json:"containerId"`
+	HostIfName      string     `json:"hostIfName"`
+	ContainerIfName string     `json:"containerIfName"`
+	NetNSPath       string     `json:"netnsPath"`
+	IPv4            string     `json:"ipv4"`
+	IPv6            string     `json:"ipv6,omitempty"`
+	DeviceType      DeviceType `json:"deviceType"`
+	CreatedAt       string     `json:"createdAt"`
+}
+
+// DeriveHostIfName generates a deterministic, leak-free Linux network interface name from a container ID.
+// Max 12 characters ("sg" + 10 hex digits), well below the 15-character Linux IFNAMSIZ limit.
+func DeriveHostIfName(containerID string) string {
+	if containerID == "" {
+		return "sg0000000000"
+	}
+	hash := sha256.Sum256([]byte(containerID))
+	return fmt.Sprintf("sg%s", hex.EncodeToString(hash[:5]))
+}
+
 // SetupPodInterface creates the host/container interface pair and configures pod networking
 func SetupPodInterface(cfg PodInterfaceConfig) (*InterfaceResult, error) {
 	if cfg.MTU == 0 {
@@ -49,7 +79,7 @@ func SetupPodInterface(cfg PodInterfaceConfig) (*InterfaceResult, error) {
 		cfg.ContainerIfName = "eth0"
 	}
 	if cfg.HostIfName == "" {
-		cfg.HostIfName = generateHostIfName()
+		cfg.HostIfName = DeriveHostIfName(cfg.ContainerID)
 	}
 
 	// Try creating netkit pair first; if not supported in kernel, fallback to veth
@@ -151,6 +181,21 @@ func SetupPodInterface(cfg PodInterfaceConfig) (*InterfaceResult, error) {
 		return nil, fmt.Errorf("configure container networking: %w", err)
 	}
 
+	// Save pod metadata to disk for CNI CHECK / DEL
+	meta := PodMetadata{
+		ContainerID:     cfg.ContainerID,
+		HostIfName:      cfg.HostIfName,
+		ContainerIfName: cfg.ContainerIfName,
+		NetNSPath:       cfg.NetNSPath,
+		IPv4:            cfg.IPv4.String(),
+		DeviceType:      devType,
+		CreatedAt:       time.Now().UTC().Format(time.RFC3339),
+	}
+	if cfg.IPv6 != nil {
+		meta.IPv6 = cfg.IPv6.String()
+	}
+	_ = savePodMetadata(meta)
+
 	return &InterfaceResult{
 		DeviceType:       devType,
 		HostInterface:    cfg.HostIfName,
@@ -161,17 +206,26 @@ func SetupPodInterface(cfg PodInterfaceConfig) (*InterfaceResult, error) {
 	}, nil
 }
 
-// TeardownPodInterface deletes the host end of the netkit/veth pair
-func TeardownPodInterface(hostIfName string) error {
-	link, err := netlink.LinkByName(hostIfName)
-	if err != nil {
-		return nil // Already gone
+// TeardownPodInterface deletes the host end of the netkit/veth pair and removes saved metadata
+func TeardownPodInterface(containerID, hostIfName string) error {
+	if hostIfName == "" && containerID != "" {
+		hostIfName = DeriveHostIfName(containerID)
 	}
-	return netlink.LinkDel(link)
+
+	if hostIfName != "" {
+		link, err := netlink.LinkByName(hostIfName)
+		if err == nil {
+			_ = netlink.LinkDel(link)
+		}
+	}
+
+	if containerID != "" {
+		_ = deletePodMetadata(containerID)
+	}
+	return nil
 }
 
 func createNetkitPair(hostName, peerName string) error {
-	// Use netlink generic link for netkit type
 	la := netlink.NewLinkAttrs()
 	la.Name = hostName
 	netkitLink := &netlink.GenericLink{
@@ -191,10 +245,38 @@ func createVethPair(hostName, peerName string) error {
 	return netlink.LinkAdd(veth)
 }
 
-func generateHostIfName() string {
-	b := make([]byte, 4)
-	_, _ = rand.Read(b)
-	return fmt.Sprintf("sg%x", b)
+func savePodMetadata(meta PodMetadata) error {
+	if meta.ContainerID == "" {
+		return nil
+	}
+	if err := os.MkdirAll(DefaultStateDir, 0755); err != nil {
+		return err
+	}
+	data, err := json.Marshal(meta)
+	if err != nil {
+		return err
+	}
+	filePath := filepath.Join(DefaultStateDir, fmt.Sprintf("%s.json", meta.ContainerID))
+	return os.WriteFile(filePath, data, 0644)
+}
+
+// GetPodMetadata reads saved container metadata
+func GetPodMetadata(containerID string) (*PodMetadata, error) {
+	filePath := filepath.Join(DefaultStateDir, fmt.Sprintf("%s.json", containerID))
+	data, err := os.ReadFile(filePath)
+	if err != nil {
+		return nil, err
+	}
+	var meta PodMetadata
+	if err := json.Unmarshal(data, &meta); err != nil {
+		return nil, err
+	}
+	return &meta, nil
+}
+
+func deletePodMetadata(containerID string) error {
+	filePath := filepath.Join(DefaultStateDir, fmt.Sprintf("%s.json", containerID))
+	return os.Remove(filePath)
 }
 
 func executeInNetNS(targetNs netns.NsHandle, fn func() error) error {

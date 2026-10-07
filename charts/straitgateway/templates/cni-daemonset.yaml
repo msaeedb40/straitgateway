@@ -1,0 +1,97 @@
+{{- if .Values.cni.enabled }}
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: {{ include "straitgateway.fullname" . }}-cni
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "straitgateway.labels" . | nindent 4 }}
+    app.kubernetes.io/component: cni
+spec:
+  selector:
+    matchLabels:
+      {{- include "straitgateway.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: cni
+  template:
+    metadata:
+      labels:
+        {{- include "straitgateway.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: cni
+    spec:
+      hostNetwork: true
+      tolerations:
+        {{- toYaml .Values.cni.tolerations | nindent 8 }}
+      initContainers:
+        - name: install-cni
+          image: "{{ .Values.cni.image.repository }}:{{ .Values.cni.image.tag }}"
+          imagePullPolicy: {{ .Values.cni.image.pullPolicy }}
+          command:
+            - /bin/sh
+            - -c
+            - |
+              set -e
+              echo "Installing StraitGateway CNI binary to host /opt/cni/bin..."
+              cp -f /usr/local/bin/sg-cni /host/opt/cni/bin/straitgateway
+              chmod +x /host/opt/cni/bin/straitgateway
+              
+              echo "Generating 10-straitgateway.conflist in /etc/cni/net.d..."
+              cat <<EOF > /host/etc/cni/net.d/10-straitgateway.conflist
+              {
+                "cniVersion": "{{ .Values.cni.cniVersion }}",
+                "name": "{{ .Values.cni.cniNetworkName }}",
+                "plugins": [
+                  {
+                    "type": "straitgateway",
+                    "mode": "{{ .Values.agent.cni.defaultNetkitMode | default "l3" }}",
+                    "ipam": {
+                      "type": "host-local",
+                      "subnet": "{{ .Values.agent.networking.clusterCIDR }}"
+                    }
+                  },
+                  {
+                    "type": "portmap",
+                    "capabilities": {"portMappings": true}
+                  }
+                ]
+              }
+              EOF
+              echo "CNI plugin install completed successfully."
+          volumeMounts:
+            - name: cni-bin
+              mountPath: /host/opt/cni/bin
+            - name: cni-net-d
+              mountPath: /host/etc/cni/net.d
+          resources:
+            {{- toYaml .Values.cni.resources | nindent 12 }}
+      containers:
+        - name: cni-watcher
+          image: "{{ .Values.cni.image.repository }}:{{ .Values.cni.image.tag }}"
+          imagePullPolicy: {{ .Values.cni.image.pullPolicy }}
+          command:
+            - /bin/sh
+            - -c
+            - |
+              trap 'exit 0' SIGTERM
+              while true; do
+                if [ ! -f /host/opt/cni/bin/straitgateway ]; then
+                  echo "Restoring missing CNI binary..."
+                  cp -f /usr/local/bin/sg-cni /host/opt/cni/bin/straitgateway
+                  chmod +x /host/opt/cni/bin/straitgateway
+                fi
+                sleep 60
+              done
+          volumeMounts:
+            - name: cni-bin
+              mountPath: /host/opt/cni/bin
+          resources:
+            {{- toYaml .Values.cni.resources | nindent 12 }}
+      volumes:
+        - name: cni-bin
+          hostPath:
+            path: {{ .Values.cni.binDir }}
+            type: DirectoryOrCreate
+        - name: cni-net-d
+          hostPath:
+            path: {{ .Values.cni.confDir }}
+            type: DirectoryOrCreate
+{{- end }}

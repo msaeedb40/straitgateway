@@ -1,0 +1,123 @@
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: gatewaypeers.straitgateway.io
+spec:
+  group: straitgateway.io
+  names:
+    kind: GatewayPeer
+    listKind: GatewayPeerList
+    plural: gatewaypeers
+    singular: gatewaypeer
+    shortNames:
+      - gp
+      - peer
+  scope: Namespaced
+  versions:
+    - name: v1alpha1
+      served: true
+      storage: true
+      additionalPrinterColumns:
+        - name: Type
+          type: string
+          jsonPath: .spec.peerType
+        - name: PeerIP
+          type: string
+          jsonPath: .spec.peerIp
+        - name: ASN
+          type: integer
+          jsonPath: .spec.peerAsn
+        - name: State
+          type: string
+          jsonPath: .status.sessionState
+        - name: BFD
+          type: string
+          jsonPath: .status.bfdState
+      schema:
+        openAPIV3Schema:
+          type: object
+          properties:
+            apiVersion:
+              type: string
+            kind:
+              type: string
+            metadata:
+              type: object
+            spec:
+              type: object
+              required:
+                - transitGatewayRef
+                - peerType
+                - peerIp
+              properties:
+                transitGatewayRef:
+                  type: string
+                peerType:
+                  type: string
+                  enum: [BGP, WireGuard, Dual]
+                peerIp:
+                  type: string
+                peerAsn:
+                  type: integer
+                holdTimeSeconds:
+                  type: integer
+                keepaliveSeconds:
+                  type: integer
+                authPasswordSecretRef:
+                  type: string
+                enableBfd:
+                  type: boolean
+                vrf:
+                  type: integer
+                advertisedPrefixes:
+                  type: array
+                  items:
+                    type: string
+                wireguardPeer:
+                  type: object
+                  required:
+                    - publicKey
+                    - allowedIPs
+                  properties:
+                    publicKey:
+                      type: string
+                    endpoint:
+                      type: string
+                    allowedIPs:
+                      type: array
+                      items:
+                        type: string
+                    persistentKeepaliveSeconds:
+                      type: integer
+            status:
+              type: object
+              properties:
+                sessionState:
+                  type: string
+                bfdState:
+                  type: string
+                receivedRoutes:
+                  type: integer
+                advertisedRoutes:
+                  type: integer
+                lastStateChange:
+                  type: string
+                  format: date-time
+                conditions:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      type:
+                        type: string
+                      status:
+                        type: string
+                      reason:
+                        type: string
+                      message:
+                        type: string
+                      lastTransitionTime:
+                        type: string
+                        format: date-time
+      subresources:
+        status: {}

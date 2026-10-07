@@ -1,0 +1,110 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ include "straitgateway.fullname" . }}-agent
+  labels:
+    {{- include "straitgateway.labels" . | nindent 4 }}
+rules:
+  - apiGroups: [""]
+    resources:
+      - nodes
+      - nodes/status
+      - pods
+      - pods/status
+      - namespaces
+      - services
+      - endpoints
+      - configmaps
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["discovery.k8s.io"]
+    resources:
+      - endpointslices
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["straitgateway.io"]
+    resources:
+      - straitgatewayconfigs
+      - transitgateways
+      - gatewaypeers
+      - transitroutes
+      - securitypolicies
+      - servicemeshpolicies
+    verbs: ["get", "list", "watch", "update", "patch"]
+  - apiGroups: ["straitgateway.io"]
+    resources:
+      - "*/status"
+    verbs: ["get", "update", "patch"]
+  - apiGroups: [""]
+    resources:
+      - events
+    verbs: ["create", "patch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ include "straitgateway.fullname" . }}-agent
+  labels:
+    {{- include "straitgateway.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io/v1
+  kind: ClusterRole
+  name: {{ include "straitgateway.fullname" . }}-agent
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "straitgateway.agentServiceAccountName" . }}
+    namespace: {{ .Release.Namespace }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ include "straitgateway.fullname" . }}-controller
+  labels:
+    {{- include "straitgateway.labels" . | nindent 4 }}
+rules:
+  - apiGroups: [""]
+    resources:
+      - nodes
+      - pods
+      - services
+      - endpoints
+      - namespaces
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["discovery.k8s.io"]
+    resources:
+      - endpointslices
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["straitgateway.io"]
+    resources:
+      - straitgatewayconfigs
+      - transitgateways
+      - gatewaypeers
+      - transitroutes
+      - securitypolicies
+      - servicemeshpolicies
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  - apiGroups: ["straitgateway.io"]
+    resources:
+      - "*/status"
+    verbs: ["get", "update", "patch"]
+  - apiGroups: ["coordination.k8s.io"]
+    resources:
+      - leases
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  - apiGroups: [""]
+    resources:
+      - events
+    verbs: ["create", "patch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ include "straitgateway.fullname" . }}-controller
+  labels:
+    {{- include "straitgateway.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io/v1
+  kind: ClusterRole
+  name: {{ include "straitgateway.fullname" . }}-controller
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "straitgateway.controllerServiceAccountName" . }}
+    namespace: {{ .Release.Namespace }}

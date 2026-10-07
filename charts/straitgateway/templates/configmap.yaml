@@ -1,0 +1,22 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "straitgateway.fullname" . }}-config
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "straitgateway.labels" . | nindent 4 }}
+data:
+  config.yaml: |
+    logLevel: {{ .Values.agent.logLevel | default "info" }}
+    bpfFsPath: {{ .Values.agent.bpf.fsPath | default "/sys/fs/bpf" }}
+    cniBinDir: {{ .Values.agent.cni.binDir | default "/opt/cni/bin" }}
+    cniConfDir: {{ .Values.agent.cni.confDir | default "/etc/cni/net.d" }}
+    clusterCIDR: {{ .Values.agent.networking.clusterCIDR | default "10.244.0.0/16" }}
+    serviceCIDR: {{ .Values.agent.networking.serviceCIDR | default "10.96.0.0/12" }}
+    transitASN: {{ .Values.agent.networking.transitASN | default 65001 }}
+    wireguardPort: {{ .Values.agent.networking.wireguardPort | default 51820 }}
+    bfdEnabled: {{ .Values.agent.networking.bfdEnabled | default true }}
+    bfdMinRxInterval: {{ .Values.agent.networking.bfdMinRxInterval | default "50ms" }}
+    bfdMinTxInterval: {{ .Values.agent.networking.bfdMinTxInterval | default "50ms" }}
+    bfdDetectMultiplier: {{ .Values.agent.networking.bfdDetectMultiplier | default 3 }}
+    metricsBindAddr: ":{{ .Values.observability.metrics.port | default 9090 }}"

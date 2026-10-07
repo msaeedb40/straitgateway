@@ -1,0 +1,143 @@
+# Default values for StraitGateway Helm chart.
+# Declare variables to be passed into templates.
+
+global:
+  imageRegistry: ""
+  imagePullSecrets: []
+
+# Dataplane Agent DaemonSet Configuration
+agent:
+  image:
+    repository: straitgateway/sg-agent
+    tag: v1.0.0
+    pullPolicy: IfNotPresent
+  logLevel: info
+  hostNetwork: true
+  bpf:
+    fsPath: /sys/fs/bpf
+    mountBpfFs: true
+    tcxEnabled: true
+    xdpEnabled: true
+    cgroupsEnabled: true
+  cni:
+    binDir: /opt/cni/bin
+    confDir: /etc/cni/net.d
+    defaultNetkitMode: "l3"
+  networking:
+    clusterCIDR: "10.244.0.0/16"
+    serviceCIDR: "10.96.0.0/12"
+    nodePortRange: "30000-32767"
+    transitASN: 65001
+    wireguardPort: 51820
+    bfdEnabled: true
+    bfdMinRxInterval: "50ms"
+    bfdMinTxInterval: "50ms"
+    bfdDetectMultiplier: 3
+  resources:
+    limits:
+      cpu: 1000m
+      memory: 1024Mi
+    requests:
+      cpu: 100m
+      memory: 128Mi
+  securityContext:
+    privileged: true
+    capabilities:
+      add:
+        - BPF
+        - NET_ADMIN
+        - SYS_ADMIN
+        - NET_RAW
+        - SYS_RESOURCE
+  tolerations:
+    - operator: Exists
+      effect: NoSchedule
+    - operator: Exists
+      effect: NoExecute
+
+# CNI Installer DaemonSet Configuration
+cni:
+  enabled: true
+  image:
+    repository: straitgateway/sg-cni
+    tag: v1.0.0
+    pullPolicy: IfNotPresent
+  binDir: /opt/cni/bin
+  confDir: /etc/cni/net.d
+  cniVersion: "0.4.0"
+  cniNetworkName: "straitgateway-net"
+  resources:
+    limits:
+      cpu: 100m
+      memory: 64Mi
+    requests:
+      cpu: 10m
+      memory: 16Mi
+  tolerations:
+    - operator: Exists
+      effect: NoSchedule
+
+# Transit Mesh & Gateway Controller Configuration
+controller:
+  replicas: 2
+  image:
+    repository: straitgateway/sg-controller
+    tag: v1.0.0
+    pullPolicy: IfNotPresent
+  leaderElection:
+    enabled: true
+  syncPeriod: "30s"
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 50m
+      memory: 64Mi
+  nodeSelector: {}
+  affinity:
+    podAntiAffinity:
+      preferredDuringSchedulingIgnoredDuringExecution:
+        - weight: 100
+          podAffinityTerm:
+            labelSelector:
+              matchExpressions:
+                - key: app.kubernetes.io/name
+                  operator: In
+                  values:
+                    - straitgateway-controller
+            topologyKey: kubernetes.io/hostname
+
+# Observability Configuration
+observability:
+  metrics:
+    enabled: true
+    port: 9090
+    service:
+      type: ClusterIP
+      port: 9090
+  flowLogs:
+    enabled: true
+    bufferSize: 10000
+  serviceMonitor:
+    enabled: false
+    interval: 15s
+
+# UI Dashboard Configuration
+ui:
+  enabled: true
+  image:
+    repository: straitgateway/sg-ui
+    tag: v1.0.0
+    pullPolicy: IfNotPresent
+  replicas: 1
+  service:
+    type: ClusterIP
+    port: 3000
+  resources:
+    limits:
+      cpu: 200m
+      memory: 256Mi
+    requests:
+      cpu: 20m
+      memory: 32Mi

@@ -7,6 +7,7 @@ import (
 	"net"
 	"sync"
 
+	"github.com/straitgateway/straitgateway/internal/routing"
 	"github.com/vishvananda/netlink"
 )
 
@@ -20,11 +21,12 @@ type PeerConfig struct {
 
 // Manager controls WireGuard tunnel devices and peer associations
 type Manager struct {
-	mu         sync.RWMutex
-	deviceName string
-	listenPort int
-	publicKey  string
-	peers      map[string]*PeerConfig // key: publicKey
+	mu           sync.RWMutex
+	deviceName   string
+	listenPort   int
+	publicKey    string
+	peers        map[string]*PeerConfig // key: publicKey
+	routeManager *routing.RouteManager
 }
 
 // NewManager creates a WireGuard device manager
@@ -48,6 +50,14 @@ func NewManager(deviceName string, listenPort int) (*Manager, error) {
 		peers:      make(map[string]*PeerConfig),
 	}, nil
 }
+
+// SetRouteManager attaches a RouteManager for automatic transit route installation
+func (m *Manager) SetRouteManager(rm *routing.RouteManager) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.routeManager = rm
+}
+
 
 // EnsureDevice creates and brings up the WireGuard link
 func (m *Manager) EnsureDevice(ip net.IPNet) error {
@@ -78,7 +88,7 @@ func (m *Manager) EnsureDevice(ip net.IPNet) error {
 	return nil
 }
 
-// AddPeer adds or updates a WireGuard neighbor peer
+// AddPeer adds or updates a WireGuard neighbor peer and installs transit routes
 func (m *Manager) AddPeer(peer PeerConfig) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -88,16 +98,54 @@ func (m *Manager) AddPeer(peer PeerConfig) error {
 	}
 
 	m.peers[peer.PublicKey] = &peer
+
+	// If RouteManager attached, install transit routes for peer's AllowedIPs
+	if m.routeManager != nil {
+		for _, allowedIP := range peer.AllowedIPs {
+			_ = m.routeManager.SyncRoute(&routing.RouteEntry{
+				Destination: allowedIP,
+				VRFID:       0,
+				Interface:   m.deviceName,
+				Precedence:  routing.PrecedenceClusterRoute,
+			})
+		}
+	}
+
 	return nil
 }
 
-// RemovePeer deletes a WireGuard neighbor peer
+// RemovePeer deletes a WireGuard neighbor peer and withdraws transit routes
 func (m *Manager) RemovePeer(publicKey string) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
+	peer, exists := m.peers[publicKey]
+	if !exists {
+		return nil
+	}
+
+	if m.routeManager != nil {
+		for _, allowedIP := range peer.AllowedIPs {
+			_ = m.routeManager.WithdrawRoute(0, allowedIP)
+		}
+	}
+
 	delete(m.peers, publicKey)
 	return nil
+}
+
+// GetPeer retrieves a peer by public key
+func (m *Manager) GetPeer(publicKey string) (*PeerConfig, bool) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	peer, exists := m.peers[publicKey]
+	return peer, exists
+}
+
+// GetDeviceName returns the WireGuard interface name
+func (m *Manager) GetDeviceName() string {
+	return m.deviceName
 }
 
 // GetPublicKey returns the local device public key

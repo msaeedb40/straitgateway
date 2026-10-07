@@ -8,6 +8,8 @@ import (
 	"sort"
 	"strings"
 	"sync"
+
+	"github.com/straitgateway/straitgateway/internal/datapath/maps"
 )
 
 // Well-known security identities
@@ -35,7 +37,9 @@ type IdentityEngine struct {
 	labelIndex   map[string]uint32 // normalized descriptor -> ID
 	ipToIdentity map[string]uint32 // IP string -> ID
 	nextID       uint32
+	mapMgr       *maps.MapManager
 }
+
 
 // NewIdentityEngine creates an IdentityEngine
 func NewIdentityEngine() *IdentityEngine {
@@ -82,18 +86,39 @@ func (ie *IdentityEngine) GetOrCreateIdentity(namespace, serviceAccount string, 
 	return ident
 }
 
-// BindIP maps an IP address to a security identity
+// SetMapManager attaches a BPF MapManager to synchronize kernel identity maps
+func (ie *IdentityEngine) SetMapManager(mm *maps.MapManager) {
+	ie.mu.Lock()
+	defer ie.mu.Unlock()
+	ie.mapMgr = mm
+}
+
+// BindIP maps an IP address to a security identity and syncs kernel sg_identities
 func (ie *IdentityEngine) BindIP(ip net.IP, identityID uint32) {
 	ie.mu.Lock()
 	defer ie.mu.Unlock()
 	ie.ipToIdentity[ip.String()] = identityID
+
+	if ie.mapMgr != nil {
+		if ip4 := ip.To4(); ip4 != nil {
+			ipUint := binary.BigEndian.Uint32(ip4)
+			_ = ie.mapMgr.SetIdentity(ipUint, identityID)
+		}
+	}
 }
 
-// UnbindIP removes the IP mapping
+// UnbindIP removes the IP mapping and syncs kernel sg_identities
 func (ie *IdentityEngine) UnbindIP(ip net.IP) {
 	ie.mu.Lock()
 	defer ie.mu.Unlock()
 	delete(ie.ipToIdentity, ip.String())
+
+	if ie.mapMgr != nil {
+		if ip4 := ip.To4(); ip4 != nil {
+			ipUint := binary.BigEndian.Uint32(ip4)
+			_ = ie.mapMgr.DeleteIdentity(ipUint)
+		}
+	}
 }
 
 // ResolveIP returns the security ID associated with an IP (or IdentityWorld if unknown)
@@ -114,6 +139,31 @@ func (ie *IdentityEngine) GetIdentityByID(id uint32) (*Identity, bool) {
 	ident, exists := ie.identities[id]
 	return ident, exists
 }
+
+// ListIdentities returns all registered identities
+func (ie *IdentityEngine) ListIdentities() []*Identity {
+	ie.mu.RLock()
+	defer ie.mu.RUnlock()
+
+	list := make([]*Identity, 0, len(ie.identities))
+	for _, ident := range ie.identities {
+		list = append(list, ident)
+	}
+	return list
+}
+
+// GetIPBindings returns a copy of all IP-to-Identity bindings
+func (ie *IdentityEngine) GetIPBindings() map[string]uint32 {
+	ie.mu.RLock()
+	defer ie.mu.RUnlock()
+
+	copyMap := make(map[string]uint32, len(ie.ipToIdentity))
+	for ip, id := range ie.ipToIdentity {
+		copyMap[ip] = id
+	}
+	return copyMap
+}
+
 
 func normalizeLabels(ns, sa string, labels map[string]string) string {
 	var keys []string

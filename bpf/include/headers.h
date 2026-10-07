@@ -50,6 +50,34 @@ struct udphdr {
     __u16 check;
 } __attribute__((packed));
 
+struct __sk_buff {
+    __u32 len;
+    __u32 pkt_type;
+    __u32 mark;
+    __u32 queue_mapping;
+    __u32 protocol;
+    __u32 vlan_present;
+    __u32 vlan_tci;
+    __u32 vlan_proto;
+    __u32 priority;
+    __u32 ingress_ifindex;
+    __u32 ifindex;
+    __u32 tc_index;
+    __u32 cb[5];
+    __u32 hash;
+    __u32 tc_classid;
+    __u32 data;
+    __u32 data_end;
+    __u32 napi_id;
+    __u32 sec_path_level;
+    __u32 wire_len;
+    __u32 gso_segs;
+    __u32 gso_size;
+    __u32 tstamp;
+    __u32 wire_len_stored;
+    __u32 data_meta;
+};
+
 #define ETH_P_IP 0x0800
 #define ETH_P_IPV6 0x86DD
 

@@ -76,4 +76,39 @@ func TestFIBEngineLPMAndPrecedence(t *testing.T) {
 	if inserted {
 		t.Error("inferior route was accepted over higher precedence route")
 	}
+
+	// 7. Verify ListRoutes, ListVRFs, GetVRF
+	routesVrf0 := fib.ListRoutes(0)
+	if len(routesVrf0) != 2 {
+		t.Errorf("expected 2 routes in VRF 0, got %d", len(routesVrf0))
+	}
+	vrfs := fib.ListVRFs()
+	if len(vrfs) != 2 { // default (0) and tenant-a (100)
+		t.Errorf("expected 2 VRFs, got %d", len(vrfs))
+	}
+	if vrf100, ok := fib.GetVRF(100); !ok || vrf100.Name != "tenant-a" {
+		t.Errorf("expected VRF 100 with name tenant-a, got %v", vrf100)
+	}
+
+	// 8. Test FindRoutesByNextHop and RouteManager.WithdrawNextHop
+	rm := NewRouteManager(fib, nil)
+	byNextHop := fib.FindRoutesByNextHop(net.ParseIP("192.168.1.1"))
+	if len(byNextHop) != 1 {
+		t.Errorf("expected 1 route for next hop 192.168.1.1, got %d", len(byNextHop))
+	}
+
+	withdrawnCount, err := rm.WithdrawNextHop(net.ParseIP("192.168.1.1"))
+	if err != nil {
+		t.Fatalf("failed to withdraw next hop: %v", err)
+	}
+	if withdrawnCount != 1 {
+		t.Errorf("expected 1 route withdrawn, got %d", withdrawnCount)
+	}
+
+	// Verify route is gone
+	_, err = fib.LongestPrefixMatch(0, net.ParseIP("10.0.2.50"))
+	if err == nil {
+		t.Error("expected route to be withdrawn, but it still matched")
+	}
 }
+
