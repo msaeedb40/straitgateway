@@ -37,6 +37,13 @@ build-bpf:
 	$(CLANG) $(CLANG_FLAGS) ./bpf/xdp/redirect.c -o ./bpf/xdp/redirect.o
 	$(CLANG) $(CLANG_FLAGS) ./bpf/netkit/peer_ingress.c -o ./bpf/netkit/peer_ingress.o
 	$(CLANG) $(CLANG_FLAGS) ./bpf/netkit/peer_egress.c -o ./bpf/netkit/peer_egress.o
+	$(CLANG) $(CLANG_FLAGS) ./bpf/cgroup/connect4.c -o ./bpf/cgroup/connect4.o
+	$(CLANG) $(CLANG_FLAGS) ./bpf/cgroup/connect6.c -o ./bpf/cgroup/connect6.o
+	$(CLANG) $(CLANG_FLAGS) ./bpf/cgroup/sendmsg4.c -o ./bpf/cgroup/sendmsg4.o
+	$(CLANG) $(CLANG_FLAGS) ./bpf/cgroup/sendmsg6.c -o ./bpf/cgroup/sendmsg6.o
+	$(CLANG) $(CLANG_FLAGS) ./bpf/service/lb.c -o ./bpf/service/lb.o
+	$(CLANG) $(CLANG_FLAGS) ./bpf/service/nat.c -o ./bpf/service/nat.o
+	$(CLANG) $(CLANG_FLAGS) ./bpf/service/conntrack.c -o ./bpf/service/conntrack.o
 
 .PHONY: build
 build: straitd sg-controller sg-cni sg-agent sgctl
