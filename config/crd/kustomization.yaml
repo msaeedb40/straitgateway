@@ -1,0 +1,11 @@
+# This kustomization file contains all CRDs for StraitGateway
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - bases/straitgateway.io_transitgateways.yaml
+  - bases/straitgateway.io_gatewaypeers.yaml
+  - bases/straitgateway.io_transitroutes.yaml
+  - bases/straitgateway.io_securitypolicies.yaml
+  - bases/straitgateway.io_servicemeshpolicies.yaml
+  - bases/straitgateway.io_straitgatewayconfigs.yaml
