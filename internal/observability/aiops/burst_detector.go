@@ -338,4 +338,3 @@ func readSysCounter(iface, counter string) uint64 {
 	}
 	return v
 }
-

@@ -343,4 +343,3 @@ func emitSonobuoyResults(exitCode int) {
 	// Sonobuoy done file
 	_ = os.WriteFile(filepath.Join(sonobuoyResultDir, "done"), []byte(sonobuoyResultDir+"/results.json"), 0o644)
 }
-
