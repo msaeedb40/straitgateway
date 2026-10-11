@@ -163,7 +163,7 @@ func encodeDomainName(domain string) []byte {
 	return buf.Bytes()
 }
 
-func buildAResponse(txID uint16, questionBytes []byte, qname string, qclass uint16, ip net.IP) ([]byte, error) {
+func buildAResponse(txID uint16, questionBytes []byte, _ string, qclass uint16, ip net.IP) ([]byte, error) {
 	var buf bytes.Buffer
 
 	// Header: 12 bytes

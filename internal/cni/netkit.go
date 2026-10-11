@@ -225,7 +225,7 @@ func TeardownPodInterface(containerID, hostIfName string) error {
 	return nil
 }
 
-func createNetkitPair(hostName, peerName string) error {
+func createNetkitPair(hostName, _ string) error {
 	la := netlink.NewLinkAttrs()
 	la.Name = hostName
 	netkitLink := &netlink.GenericLink{
