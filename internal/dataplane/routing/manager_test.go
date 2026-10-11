@@ -23,7 +23,7 @@ func TestRoutingDataplaneLifecycle(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create routing manager: %v", err)
 	}
-	defer mgr.Close()
+	defer func() { _ = mgr.Close() }()
 
 	if mgr.FIB() == nil {
 		t.Errorf("expected non-nil FIB engine")

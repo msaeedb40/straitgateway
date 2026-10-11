@@ -44,16 +44,18 @@ func (fc *FlowCollector) IngestRawTelemetry(ev types.TelemetryEvent) FlowLogEntr
 	dstIP := intToIP(ev.DstIP).String()
 
 	protoStr := "TCP"
-	if ev.Proto == 17 {
+	switch ev.Proto {
+	case 17:
 		protoStr = "UDP"
-	} else if ev.Proto == 1 {
+	case 1:
 		protoStr = "ICMP"
 	}
 
 	actionStr := "ALLOW"
-	if ev.Action == 0 {
+	switch ev.Action {
+	case 0:
 		actionStr = "DENY"
-	} else if ev.Action == 2 {
+	case 2:
 		actionStr = "AUDIT"
 	}
 

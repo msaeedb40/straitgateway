@@ -336,7 +336,7 @@ func newTestManager(t *testing.T) *roce.Manager {
 		}
 		t.Fatalf("roce.New: %v", err)
 	}
-	t.Cleanup(func() { mgr.Stop() })
+	t.Cleanup(func() { _ = mgr.Stop() })
 	return mgr
 }
 

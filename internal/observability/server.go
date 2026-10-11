@@ -6,13 +6,11 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
-	"sync"
 	"time"
 )
 
 // Server exposes metrics, flow logs, and program status via HTTP
 type Server struct {
-	mu          sync.RWMutex
 	bindAddr    string
 	metrics     *MetricsCollector
 	flows       *FlowCollector
@@ -166,5 +164,5 @@ func (s *Server) handleEbpfPrograms(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleHealthz(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-	fmt.Fprintf(w, `{"status":"ok","timestamp":"%s"}`+"\n", time.Now().UTC().Format(time.RFC3339))
+	_, _ = fmt.Fprintf(w, `{"status":"ok","timestamp":"%s"}`+"\n", time.Now().UTC().Format(time.RFC3339))
 }

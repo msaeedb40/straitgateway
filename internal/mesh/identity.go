@@ -171,9 +171,9 @@ func normalizeLabels(ns, sa string, labels map[string]string) string {
 	sort.Strings(keys)
 
 	var b strings.Builder
-	b.WriteString(fmt.Sprintf("ns=%s;sa=%s;", ns, sa))
+	fmt.Fprintf(&b, "ns=%s;sa=%s;", ns, sa)
 	for _, k := range keys {
-		b.WriteString(fmt.Sprintf("%s=%s;", k, labels[k]))
+		fmt.Fprintf(&b, "%s=%s;", k, labels[k])
 	}
 	return b.String()
 }

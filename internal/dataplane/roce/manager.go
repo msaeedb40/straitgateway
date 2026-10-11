@@ -335,7 +335,7 @@ func (m *Manager) Stop() error {
 	m.wg.Wait()
 
 	if m.rdr != nil {
-		m.rdr.Close()
+		_ = m.rdr.Close()
 	}
 
 	var errs []error
@@ -502,7 +502,7 @@ func (m *Manager) initMaps() error {
 		}
 		// Pin the map
 		if pinErr := mp.Pin(pinPath); pinErr != nil {
-			mp.Close()
+			_ = mp.Close()
 			// Non-fatal: continue without pinning in restricted envs
 		}
 		*target = mp

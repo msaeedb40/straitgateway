@@ -167,7 +167,7 @@ var metricsCmd = &cobra.Command{
 			fmt.Printf("  WireGuard Peers:      0\n")
 			return
 		}
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 
 		var m observability.DataplaneMetrics
 		if err := json.NewDecoder(resp.Body).Decode(&m); err != nil {
@@ -200,7 +200,7 @@ var flowsCmd = &cobra.Command{
 			fmt.Printf("%-20s %-16s %-16s %-6s %-10s %-8d\n", time.Now().Format("15:04:05.000"), "10.244.1.5:45214", "10.96.0.1:443", "TCP", "ALLOW", 1)
 			return
 		}
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 
 		var flows []observability.FlowLogEntry
 		if err := json.NewDecoder(resp.Body).Decode(&flows); err != nil {

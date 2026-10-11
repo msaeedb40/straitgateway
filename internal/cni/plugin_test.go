@@ -69,7 +69,7 @@ func TestGenerateAndInstallCNIConfig(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }()
 
 	data, err := GenerateConflist("10.244.0.0/16", "fd00:10:244::/64", 1450)
 	if err != nil {

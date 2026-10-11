@@ -65,7 +65,7 @@ func NewPacingManager(cfg PacingConfig) *PacingManager {
 // ComputePacingRate calculates the optimal bytes/sec rate based on BDP
 func (pm *PacingManager) ComputePacingRate(rttUs uint32, observedBandwidthBps uint64) uint64 {
 	if rttUs == 0 {
-		rttUs = pm.config.TargetRTTUs
+		rttUs = pm.config.TargetRTTUs //nolint:ineffassign // reserved for future BDP calculation
 	}
 	effectiveBw := observedBandwidthBps
 	if effectiveBw == 0 {

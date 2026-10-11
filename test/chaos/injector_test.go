@@ -30,7 +30,7 @@ func TestInjectorNew(t *testing.T) {
 	if err != nil {
 		t.Fatalf("chaos.New: unexpected error: %v", err)
 	}
-	defer inj.Close()
+	defer func() { _ = inj.Close() }()
 }
 
 // TestInjectENOMEM injects an ENOMEM fault for 100 ms and verifies the fault
@@ -45,7 +45,7 @@ func TestInjectENOMEM(t *testing.T) {
 	if err != nil {
 		t.Fatalf("chaos.New: %v", err)
 	}
-	defer inj.Close()
+	defer func() { _ = inj.Close() }()
 
 	ctx := context.Background()
 	if err := inj.InjectENOMEM(ctx, 100*time.Millisecond); err != nil {
@@ -73,7 +73,7 @@ func TestInjectDropBurst(t *testing.T) {
 	if err != nil {
 		t.Fatalf("chaos.New: %v", err)
 	}
-	defer inj.Close()
+	defer func() { _ = inj.Close() }()
 
 	ctx := context.Background()
 	err = inj.InjectDropBurst(ctx, 150*time.Millisecond, chaos.DropBurstConfig{
@@ -100,7 +100,7 @@ func TestBuildMinimalPassProg(t *testing.T) {
 	if err != nil {
 		t.Fatalf("BuildMinimalPassProg: %v", err)
 	}
-	defer prog.Close()
+	defer func() { _ = prog.Close() }()
 
 	pkt := chaos.SyntheticUDPPacket(
 		net.ParseIP("10.0.0.1"),

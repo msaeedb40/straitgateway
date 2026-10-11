@@ -36,9 +36,10 @@ func ParseID(raw string) (*ID, error) {
 	sa := ""
 
 	for i := 0; i < len(parts)-1; i += 2 {
-		if parts[i] == "ns" {
+		switch parts[i] {
+		case "ns":
 			ns = parts[i+1]
-		} else if parts[i] == "sa" {
+		case "sa":
 			sa = parts[i+1]
 		}
 	}

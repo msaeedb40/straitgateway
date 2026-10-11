@@ -106,10 +106,9 @@ type Config struct {
 
 // Injector manages fault injection into the StraitGateway dataplane.
 type Injector struct {
-	mu       sync.Mutex
-	cfg      Config
-	ctrlMap  *ebpf.Map
-	cancelFn context.CancelFunc
+	mu      sync.Mutex
+	cfg     Config
+	ctrlMap *ebpf.Map
 }
 
 // New creates an Injector.  If cfg.ChaosMapPath is non-empty, it tries to

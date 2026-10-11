@@ -27,7 +27,7 @@ func TestDataplaneManagerLifecycle(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tempPinDir)
+	defer func() { _ = os.RemoveAll(tempPinDir) }()
 
 	cfg := DefaultDataplaneConfig()
 	cfg.PinPath = filepath.Join(tempPinDir, "bpf")
@@ -37,7 +37,7 @@ func TestDataplaneManagerLifecycle(t *testing.T) {
 		t.Logf("Skipping live BPF map creation without root/CAP_BPF: %v", err)
 		return
 	}
-	defer mgr.Close()
+	defer func() { _ = mgr.Close() }()
 
 	if mgr.MapManager() == nil {
 		t.Errorf("expected non-nil MapManager")

@@ -139,7 +139,7 @@ func (f *FIBEngine) LongestPrefixMatch(vrfID uint32, ip net.IP) (*RouteEntry, er
 	}
 
 	var bestMatch *RouteEntry
-	var maxPrefixLen int = -1
+	var maxPrefixLen = -1
 
 	for _, route := range vrf.Routes {
 		if route.Destination.Contains(ip) {

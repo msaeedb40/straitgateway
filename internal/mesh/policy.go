@@ -48,9 +48,10 @@ func (pc *PolicyCompiler) CompileAndInstall(policy *v1alpha1.SecurityPolicy, tar
 
 		for _, portRule := range portRules {
 			protoNum := uint8(6) // TCP
-			if portRule.Protocol == "UDP" {
+			switch portRule.Protocol {
+			case "UDP":
 				protoNum = 17
-			} else if portRule.Protocol == "" {
+			case "":
 				protoNum = 0
 			}
 
@@ -107,9 +108,10 @@ func (pc *PolicyCompiler) CompileAndInstall(policy *v1alpha1.SecurityPolicy, tar
 
 		for _, portRule := range portRules {
 			protoNum := uint8(6)
-			if portRule.Protocol == "UDP" {
+			switch portRule.Protocol {
+			case "UDP":
 				protoNum = 17
-			} else if portRule.Protocol == "" {
+			case "":
 				protoNum = 0
 			}
 

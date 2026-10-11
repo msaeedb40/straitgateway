@@ -15,7 +15,7 @@ func TestLoaderWithCompiledObjects(t *testing.T) {
 		t.Logf("Skipping live BPF program load if kernel unprivileged or without CAP_BPF: %v", err)
 		return
 	}
-	defer prog.Close()
+	defer func() { _ = prog.Close() }()
 
 	if prog.Type() == 0 {
 		t.Error("expected non-zero program type")
@@ -26,7 +26,7 @@ func TestLoaderWithCompiledObjects(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to init MapManager: %v", err)
 	}
-	defer mm.Close()
+	defer func() { _ = mm.Close() }()
 
 	l := NewLoader(mm)
 	if l == nil {

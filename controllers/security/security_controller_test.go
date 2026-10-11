@@ -64,7 +64,7 @@ func TestSecurityPolicyReconciler(t *testing.T) {
 	if err != nil {
 		t.Fatalf("reconcile failed: %v", err)
 	}
-	if res.Requeue {
+	if res.Requeue { //nolint:staticcheck // SA1019: deprecated field, use RequeueAfter in future
 		t.Error("expected no requeue")
 	}
 

@@ -111,7 +111,7 @@ func SetupPodInterface(cfg PodInterfaceConfig) (*InterfaceResult, error) {
 		_ = netlink.LinkDel(hostLink)
 		return nil, fmt.Errorf("open netns %s: %w", cfg.NetNSPath, err)
 	}
-	defer targetNs.Close()
+	defer func() { _ = targetNs.Close() }()
 
 	// Move peer interface to container netns
 	if err := netlink.LinkSetNsFd(peerLink, int(targetNs)); err != nil {
@@ -287,12 +287,12 @@ func executeInNetNS(targetNs netns.NsHandle, fn func() error) error {
 	if err != nil {
 		return err
 	}
-	defer origNs.Close()
+	defer func() { _ = origNs.Close() }()
 
 	if err := netns.Set(targetNs); err != nil {
 		return err
 	}
-	defer netns.Set(origNs) // restore original namespace
+	defer func() { _ = netns.Set(origNs) }() // restore original namespace
 
 	return fn()
 }

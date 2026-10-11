@@ -275,7 +275,7 @@ func ProbeVerifier(progType ebpf.ProgramType, insns asm.Instructions, license st
 			Err:      err,
 		}
 	}
-	prog.Close()
+	_ = prog.Close()
 	return VerifierResult{Accepted: true}
 }
 
@@ -319,9 +319,10 @@ func MutateInstructions(base asm.Instructions, seed []byte) []asm.Instructions {
 	{
 		m3 := cloneInsns(base)
 		for i, ins := range m3 {
-			if ins.Dst == asm.R1 {
+			switch ins.Dst {
+			case asm.R1:
 				m3[i].Dst = asm.R2
-			} else if ins.Dst == asm.R2 {
+			case asm.R2:
 				m3[i].Dst = asm.R1
 			}
 		}

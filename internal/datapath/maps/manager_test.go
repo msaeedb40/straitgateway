@@ -23,7 +23,7 @@ func TestMapManagerLifecycle(t *testing.T) {
 		}
 		t.Fatalf("failed to create MapManager: %v", err)
 	}
-	defer mm.Close()
+	defer func() { _ = mm.Close() }()
 
 	// Test Route Map CRUD (LPM Trie)
 	lpmKey, err := types.NewLPMV4Key(net.ParseIP("10.244.1.0"), 24)

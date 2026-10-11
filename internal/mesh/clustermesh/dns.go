@@ -42,7 +42,7 @@ func (d *DNSInterceptor) Start(ctx context.Context) error {
 	d.listener = conn
 
 	go func() {
-		defer conn.Close()
+		defer func() { _ = conn.Close() }()
 		buf := make([]byte, 1024)
 
 		for {

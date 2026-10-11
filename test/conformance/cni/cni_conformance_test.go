@@ -13,7 +13,6 @@ package cni_conformance_test
 import (
 	"context"
 	"encoding/json"
-	"encoding/xml"
 	"fmt"
 	"net"
 	"os"
@@ -266,7 +265,9 @@ func TestCNIDualStack(t *testing.T) {
 
 // TestMain handles Sonobuoy result emission.
 func TestMain(m *testing.M) {
-	os.MkdirAll(sonobuoyResultDir, 0o755)
+	if err := os.MkdirAll(sonobuoyResultDir, 0o755); err != nil {
+		_, _ = fmt.Fprintf(os.Stderr, "warning: could not create sonobuoy result dir: %v\n", err)
+	}
 	code := m.Run()
 	emitSonobuoyResults(code)
 	os.Exit(code)
@@ -302,15 +303,17 @@ func createTestNetNS(t *testing.T) string {
 func cleanNetNS(ns string) {
 	if strings.Contains(ns, "sgtest-") {
 		name := filepath.Base(ns)
-		exec.Command("ip", "netns", "del", name).Run()
+		_ = exec.Command("ip", "netns", "del", name).Run()
 	}
 }
 
 func randHex(n int) string {
 	b := make([]byte, n)
-	f, _ := os.Open("/dev/urandom")
-	f.Read(b)
-	f.Close()
+	f, err := os.Open("/dev/urandom")
+	if err == nil {
+		defer func() { _ = f.Close() }()
+		_, _ = f.Read(b)
+	}
 	return fmt.Sprintf("%x", b)[:n]
 }
 
@@ -341,16 +344,3 @@ func emitSonobuoyResults(exitCode int) {
 	_ = os.WriteFile(filepath.Join(sonobuoyResultDir, "done"), []byte(sonobuoyResultDir+"/results.json"), 0o644)
 }
 
-// junitTestSuite is a minimal JUnit XML model for Sonobuoy ingestion.
-type junitTestSuite struct {
-	XMLName  xml.Name        `xml:"testsuite"`
-	Name     string          `xml:"name,attr"`
-	Tests    int             `xml:"tests,attr"`
-	Failures int             `xml:"failures,attr"`
-	Cases    []junitTestCase `xml:"testcase"`
-}
-
-type junitTestCase struct {
-	Name    string  `xml:"name,attr"`
-	Failure *string `xml:"failure,omitempty"`
-}

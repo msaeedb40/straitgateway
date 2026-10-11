@@ -64,7 +64,7 @@ func TestClusterPeeringReconciler(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Reconcile returned error: %v", err)
 	}
-	if res.Requeue {
+	if res.Requeue { //nolint:staticcheck // SA1019: deprecated field, use RequeueAfter in future
 		t.Errorf("expected no requeue")
 	}
 
