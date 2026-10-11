@@ -180,10 +180,10 @@ func buildAResponse(txID uint16, questionBytes []byte, qname string, qclass uint
 
 	// Answer: Pointer to question name (0xc00c)
 	_ = binary.Write(&buf, binary.BigEndian, uint16(0xc00c))
-	_ = binary.Write(&buf, binary.BigEndian, uint16(1))      // Type: A
-	_ = binary.Write(&buf, binary.BigEndian, qclass)         // Class: IN (1)
-	_ = binary.Write(&buf, binary.BigEndian, uint32(30))     // TTL: 30s
-	_ = binary.Write(&buf, binary.BigEndian, uint16(4))      // RDLength: 4 bytes
+	_ = binary.Write(&buf, binary.BigEndian, uint16(1))  // Type: A
+	_ = binary.Write(&buf, binary.BigEndian, qclass)     // Class: IN (1)
+	_ = binary.Write(&buf, binary.BigEndian, uint32(30)) // TTL: 30s
+	_ = binary.Write(&buf, binary.BigEndian, uint16(4))  // RDLength: 4 bytes
 
 	ipv4 := ip.To4()
 	if ipv4 == nil {

@@ -37,10 +37,10 @@ type PeerConfig struct {
 
 // Peer represents an active BGP neighbor session
 type Peer struct {
-	Config          PeerConfig
-	State           SessionState
-	EstablishedTime time.Time
-	ReceivedRoutes  []net.IPNet
+	Config           PeerConfig
+	State            SessionState
+	EstablishedTime  time.Time
+	ReceivedRoutes   []net.IPNet
 	AdvertisedRoutes []net.IPNet
 }
 
@@ -70,7 +70,6 @@ func (s *Speaker) SetBFDMonitor(bm *bfd.Monitor) {
 	defer s.mu.Unlock()
 	s.bfdMonitor = bm
 }
-
 
 // AddNeighbor registers a new BGP neighbor and attaches BFD if enabled
 func (s *Speaker) AddNeighbor(cfg PeerConfig) (*Peer, error) {
@@ -237,4 +236,3 @@ func (s *Speaker) GetPeer(neighborIP net.IP, vrfID uint32) (*Peer, bool) {
 	peer, exists := s.peers[key]
 	return peer, exists
 }
-

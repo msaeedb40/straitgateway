@@ -32,24 +32,23 @@ type Config struct {
 
 // Manager coordinates all node-level networking subsystems
 type Manager struct {
-	mu          sync.RWMutex
-	cfg         Config
-	mapMgr      *maps.MapManager
-	fib         *routing.FIBEngine
-	router      *routing.RouteManager
-	bgp         *bgp.Speaker
-	bfd         *bfd.Monitor
-	wg          *wireguard.Manager
-	lb          *loadbalancer.ServiceManager
-	ident       *mesh.IdentityEngine
-	policy      *mesh.PolicyCompiler
-	metrics     *observability.MetricsCollector
-	flows       *observability.FlowCollector
-	obsServer   *observability.Server
-	health      *HealthChecker
-	stopCh      chan struct{}
+	mu        sync.RWMutex
+	cfg       Config
+	mapMgr    *maps.MapManager
+	fib       *routing.FIBEngine
+	router    *routing.RouteManager
+	bgp       *bgp.Speaker
+	bfd       *bfd.Monitor
+	wg        *wireguard.Manager
+	lb        *loadbalancer.ServiceManager
+	ident     *mesh.IdentityEngine
+	policy    *mesh.PolicyCompiler
+	metrics   *observability.MetricsCollector
+	flows     *observability.FlowCollector
+	obsServer *observability.Server
+	health    *HealthChecker
+	stopCh    chan struct{}
 }
-
 
 // NewManager creates an Agent Manager
 func NewManager(cfg Config) (*Manager, error) {
@@ -109,21 +108,21 @@ func NewManager(cfg Config) (*Manager, error) {
 	healthChecker := NewHealthChecker()
 
 	return &Manager{
-		cfg:         cfg,
-		mapMgr:      mapMgr,
-		fib:         fib,
-		router:      router,
-		bgp:         bgpSpeaker,
-		bfd:         bfdMon,
-		wg:          wgMgr,
-		lb:          lbMgr,
-		ident:       identEngine,
-		policy:      policyCompiler,
-		metrics:     metricsCol,
-		flows:       flowCol,
-		obsServer:   obsSrv,
-		health:      healthChecker,
-		stopCh:      make(chan struct{}),
+		cfg:       cfg,
+		mapMgr:    mapMgr,
+		fib:       fib,
+		router:    router,
+		bgp:       bgpSpeaker,
+		bfd:       bfdMon,
+		wg:        wgMgr,
+		lb:        lbMgr,
+		ident:     identEngine,
+		policy:    policyCompiler,
+		metrics:   metricsCol,
+		flows:     flowCol,
+		obsServer: obsSrv,
+		health:    healthChecker,
+		stopCh:    make(chan struct{}),
 	}, nil
 }
 
@@ -166,8 +165,6 @@ func (m *Manager) GetFlowCollector() *observability.FlowCollector {
 func (m *Manager) GetObservabilityServer() *observability.Server {
 	return m.obsServer
 }
-
-
 
 // Start launches the agent daemon run loop
 func (m *Manager) Start(ctx context.Context) error {
@@ -235,7 +232,6 @@ func (m *Manager) Stop() error {
 	_ = CleanupHostNetworking()
 	return nil
 }
-
 
 // HealthStatus returns the latest health report
 func (m *Manager) HealthStatus() HealthStatus {

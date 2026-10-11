@@ -30,17 +30,17 @@ func DefaultConfig() Config {
 
 // Manager coordinates socket-level and TC-level service load balancing
 type Manager struct {
-	mu         sync.RWMutex
-	cfg        Config
-	mapMgr     *maps.MapManager
-	bpfLoader  *loader.Loader
-	lbMgr      *loadbalancer.ServiceManager
-	con4Prog   *ebpf.Program
-	con6Prog   *ebpf.Program
-	snd4Prog   *ebpf.Program
-	snd6Prog   *ebpf.Program
-	tcLBProg   *ebpf.Program
-	links      []link.Link
+	mu        sync.RWMutex
+	cfg       Config
+	mapMgr    *maps.MapManager
+	bpfLoader *loader.Loader
+	lbMgr     *loadbalancer.ServiceManager
+	con4Prog  *ebpf.Program
+	con6Prog  *ebpf.Program
+	snd4Prog  *ebpf.Program
+	snd6Prog  *ebpf.Program
+	tcLBProg  *ebpf.Program
+	links     []link.Link
 }
 
 // NewManager creates a new Service Dataplane Manager

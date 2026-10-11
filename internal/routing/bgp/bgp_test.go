@@ -168,5 +168,3 @@ func TestBGPRouteAndPrefixManagement(t *testing.T) {
 		t.Errorf("expected 1 peer in list, got %d", len(peers))
 	}
 }
-
-

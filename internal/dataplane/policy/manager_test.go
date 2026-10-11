@@ -4,11 +4,11 @@ import (
 	"net"
 	"testing"
 
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"github.com/straitgateway/straitgateway/api/v1alpha1"
 	"github.com/straitgateway/straitgateway/internal/mesh"
 	"github.com/straitgateway/straitgateway/internal/security/ktls"
 	"github.com/straitgateway/straitgateway/pkg/types"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func TestPolicyManagerLifecycle(t *testing.T) {
@@ -130,4 +130,3 @@ func TestEnterpriseZeroTrustIntegration(t *testing.T) {
 		t.Errorf("unauthorized IP should not be permitted by FQDN engine")
 	}
 }
-

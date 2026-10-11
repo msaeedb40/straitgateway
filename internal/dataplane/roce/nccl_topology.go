@@ -5,9 +5,9 @@
 // AllGather, etc.). StraitGateway extends this by programming the BPF dataplane
 // to reflect NCCL topology decisions:
 //
-//	- NVLink peers: hairpin via XDP_TX (nanosecond latency)
-//	- Same PCIe root complex: local switch path (low-latency)
-//	- Cross-rack: standard RoCEv2 over IP with PFC/ECN enabled
+//   - NVLink peers: hairpin via XDP_TX (nanosecond latency)
+//   - Same PCIe root complex: local switch path (low-latency)
+//   - Cross-rack: standard RoCEv2 over IP with PFC/ECN enabled
 //
 // The TopologyGraph is built from:
 //  1. nvidia-smi topo -m (NVLink adjacency matrix)

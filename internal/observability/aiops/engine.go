@@ -126,9 +126,9 @@ func DefaultEngineConfig() EngineConfig {
 
 // actionRecord tracks the last action taken per interface.
 type actionRecord struct {
-	lastActionAt     time.Time
-	withdrawn        bool
-	withdrawnAt      time.Time
+	lastActionAt      time.Time
+	withdrawn         bool
+	withdrawnAt       time.Time
 	withdrawnPrefixes []withdrawnRoute
 }
 

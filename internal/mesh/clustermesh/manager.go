@@ -21,8 +21,8 @@ type Manager struct {
 	cfg            Config
 	wireguardMgr   *wireguard.Manager
 	routeMgr       *routing.RouteManager
-	peers          map[string]*ClusterPeerState      // clusterID -> state
-	globalServices map[string]*GlobalServiceRecord   // globalName -> record
+	peers          map[string]*ClusterPeerState    // clusterID -> state
+	globalServices map[string]*GlobalServiceRecord // globalName -> record
 	nextVIPSeq     uint32
 	globalCIDRNet  net.IPNet
 }
@@ -94,7 +94,7 @@ func (m *Manager) AddClusterPeer(peer *v1alpha1.ClusterPeering) error {
 		wgPeer := wireguard.PeerConfig{
 			PublicKey:           peer.Spec.WireGuardPublicKey,
 			Endpoint:            peer.Spec.WireGuardEndpoint,
-			AllowedIPs:         allowedIPs,
+			AllowedIPs:          allowedIPs,
 			PersistentKeepalive: int(peer.Spec.PersistentKeepaliveSeconds),
 		}
 		if wgPeer.PersistentKeepalive == 0 {

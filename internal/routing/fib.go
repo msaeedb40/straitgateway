@@ -223,4 +223,3 @@ func (f *FIBEngine) FindRoutesByNextHop(nextHopIP net.IP) []*RouteEntry {
 	}
 	return matching
 }
-

@@ -58,11 +58,11 @@ func (id *ID) String() string {
 
 // X509SVID represents a SPIFFE Verifiable Identity Document
 type X509SVID struct {
-	ID        *ID                `json:"id"`
-	Cert      *x509.Certificate  `json:"-"`
-	ExpiresAt time.Time          `json:"expiresAt"`
-	IssuedAt  time.Time          `json:"issuedAt"`
-	SANs      []string           `json:"sans"`
+	ID        *ID               `json:"id"`
+	Cert      *x509.Certificate `json:"-"`
+	ExpiresAt time.Time         `json:"expiresAt"`
+	IssuedAt  time.Time         `json:"issuedAt"`
+	SANs      []string          `json:"sans"`
 }
 
 // Attestor manages workload SPIFFE identity attestation and SVID verification

@@ -8,12 +8,12 @@
 //
 // The BurstDetector uses a token-bucket-style sliding window algorithm:
 //
-//	1. Maintains a circular ring buffer of (timestamp, bytes) observations.
-//	2. Every sample interval (default 10ms), reads per-CPU counters from
-//	   sg_counters BPF map (counter index 0=RX bytes, 1=TX bytes).
-//	3. Computes the byte-rate over the last N samples (window size W).
-//	4. If rate > BurstThresholdBps for more than MinDuration, fires a BurstEvent.
-//	5. Triggers the registered OnBurst callback (e.g., BGP withdrawal, alerting).
+//  1. Maintains a circular ring buffer of (timestamp, bytes) observations.
+//  2. Every sample interval (default 10ms), reads per-CPU counters from
+//     sg_counters BPF map (counter index 0=RX bytes, 1=TX bytes).
+//  3. Computes the byte-rate over the last N samples (window size W).
+//  4. If rate > BurstThresholdBps for more than MinDuration, fires a BurstEvent.
+//  5. Triggers the registered OnBurst callback (e.g., BGP withdrawal, alerting).
 //
 // # Statistical Model
 //

@@ -400,8 +400,8 @@ func syntheticUDPPacket(srcIP, dstIP net.IP, srcPort, dstPort uint16) []byte {
 	binary.BigEndian.PutUint16(pkt[18:], uint16(rand.Intn(65535)))
 	pkt[22] = 0x40 // DF
 	pkt[23] = 0x00
-	pkt[24] = 64          // TTL
-	pkt[25] = 17          // UDP
+	pkt[24] = 64                 // TTL
+	pkt[25] = 17                 // UDP
 	copy(pkt[26:], []byte{0, 0}) // checksum (0 = let kernel compute)
 	copy(pkt[28:], srcIP.To4())
 	copy(pkt[32:], dstIP.To4())

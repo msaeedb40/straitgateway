@@ -11,8 +11,8 @@ import (
 type CipherSuite string
 
 const (
-	CipherAESGCM128       CipherSuite = "TLS_CIPHER_AES_GCM_128"
-	CipherAESGCM256       CipherSuite = "TLS_CIPHER_AES_GCM_256"
+	CipherAESGCM128        CipherSuite = "TLS_CIPHER_AES_GCM_128"
+	CipherAESGCM256        CipherSuite = "TLS_CIPHER_AES_GCM_256"
 	CipherChaCha20Poly1305 CipherSuite = "TLS_CIPHER_CHACHA20_POLY1305"
 )
 
@@ -26,12 +26,12 @@ const (
 
 // CryptoInfo holds derived symmetric keys for kernel socket crypto configuration
 type CryptoInfo struct {
-	Cipher     CipherSuite `json:"cipher"`
-	Version    TLSVersion  `json:"version"`
-	Key        []byte      `json:"-"`
-	IV         []byte      `json:"-"`
-	Salt       []byte      `json:"-"`
-	RecSeq     uint64      `json:"recSeq"`
+	Cipher  CipherSuite `json:"cipher"`
+	Version TLSVersion  `json:"version"`
+	Key     []byte      `json:"-"`
+	IV      []byte      `json:"-"`
+	Salt    []byte      `json:"-"`
+	RecSeq  uint64      `json:"recSeq"`
 }
 
 // SessionState captures live in-kernel mTLS connection parameters

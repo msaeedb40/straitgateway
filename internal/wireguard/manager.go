@@ -15,7 +15,7 @@ import (
 type PeerConfig struct {
 	PublicKey           string
 	Endpoint            string
-	AllowedIPs         []net.IPNet
+	AllowedIPs          []net.IPNet
 	PersistentKeepalive int
 }
 
@@ -57,7 +57,6 @@ func (m *Manager) SetRouteManager(rm *routing.RouteManager) {
 	defer m.mu.Unlock()
 	m.routeManager = rm
 }
-
 
 // EnsureDevice creates and brings up the WireGuard link
 func (m *Manager) EnsureDevice(ip net.IPNet) error {
@@ -180,4 +179,3 @@ func generateMockKey() (string, error) {
 	}
 	return base64.StdEncoding.EncodeToString(b), nil
 }
-

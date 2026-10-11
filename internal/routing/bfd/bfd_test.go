@@ -95,4 +95,3 @@ func TestBFDHeartbeatAndTimeout(t *testing.T) {
 		t.Errorf("expected 0 sessions after removal, got %d", len(monitor.ListSessions()))
 	}
 }
-

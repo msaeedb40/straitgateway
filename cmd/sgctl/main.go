@@ -142,6 +142,7 @@ var monitorCmd = &cobra.Command{
 		fmt.Println("[EVENT] Netkit pod ingress: container=default/demo-pod ifindex=4 action=ALLOW")
 	},
 }
+
 // Observability commands
 var (
 	endpointFlag string
@@ -343,4 +344,3 @@ func main() {
 		os.Exit(1)
 	}
 }
-

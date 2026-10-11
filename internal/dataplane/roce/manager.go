@@ -156,11 +156,11 @@ type PFCConfig struct {
 
 // RoCECounter is the per-CPU per-QPN counter read from sg_roce_counters.
 type RoCECounter struct {
-	Bytes      uint64
-	Packets    uint64
-	CNPSent    uint64
-	ECNCESeen  uint64
-	Drops      uint64
+	Bytes     uint64
+	Packets   uint64
+	CNPSent   uint64
+	ECNCESeen uint64
+	Drops     uint64
 }
 
 // RoCECongestionEvent mirrors the BPF struct for ring buffer events.

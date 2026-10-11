@@ -61,14 +61,14 @@ type FlowKey struct {
 
 // FlowEntry represents connection tracking state
 type FlowEntry struct {
-	Bytes       uint64
-	Packets     uint64
-	LastSeen    uint64
-	Flags       uint32
-	RevSrcIP    uint32
-	RevDstIP    uint32
-	RevSrcPort  uint16
-	RevDstPort  uint16
+	Bytes      uint64
+	Packets    uint64
+	LastSeen   uint64
+	Flags      uint32
+	RevSrcIP   uint32
+	RevDstIP   uint32
+	RevSrcPort uint16
+	RevDstPort uint16
 }
 
 // PolicyKey matches source and destination workload identities
@@ -127,16 +127,16 @@ type NeighborEntry struct {
 
 // TelemetryEvent is delivered via BPF ring buffer for packet and policy telemetry
 type TelemetryEvent struct {
-	Timestamp   uint64
-	SrcIP       uint32
-	DstIP       uint32
-	SrcPort     uint16
-	DstPort     uint16
-	Proto       uint8
-	SrcID       uint32
-	DstID       uint32
-	Action      uint8
-	Pad         [2]byte
-	Bytes       uint64
-	Packets     uint64
+	Timestamp uint64
+	SrcIP     uint32
+	DstIP     uint32
+	SrcPort   uint16
+	DstPort   uint16
+	Proto     uint8
+	SrcID     uint32
+	DstID     uint32
+	Action    uint8
+	Pad       [2]byte
+	Bytes     uint64
+	Packets   uint64
 }

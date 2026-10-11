@@ -22,7 +22,7 @@ func TestWireGuardManager(t *testing.T) {
 	peer := PeerConfig{
 		PublicKey:           "test-remote-public-key",
 		Endpoint:            "192.168.1.100:51820",
-		AllowedIPs:         []net.IPNet{*allowedNet},
+		AllowedIPs:          []net.IPNet{*allowedNet},
 		PersistentKeepalive: 25,
 	}
 
@@ -56,8 +56,8 @@ func TestWireGuardRouteIntegration(t *testing.T) {
 
 	_, allowedNet, _ := net.ParseCIDR("10.210.0.0/16")
 	peer := PeerConfig{
-		PublicKey:   "cluster-b-pubkey",
-		AllowedIPs:  []net.IPNet{*allowedNet},
+		PublicKey:  "cluster-b-pubkey",
+		AllowedIPs: []net.IPNet{*allowedNet},
 	}
 
 	// Add peer and check route automatically created
@@ -89,4 +89,3 @@ func TestWireGuardRouteIntegration(t *testing.T) {
 		t.Error("expected route to be withdrawn after WireGuard peer removal")
 	}
 }
-

@@ -21,9 +21,9 @@ import (
 func TestQPStateMachineValidTransitions(t *testing.T) {
 	// RESET → INIT → RTR → RTS → SQD → ERR → RESET
 	transitions := []struct {
-		from    roce.QPState
-		to      roce.QPState
-		wantOk  bool
+		from   roce.QPState
+		to     roce.QPState
+		wantOk bool
 	}{
 		{roce.QPStateReset, roce.QPStateInit, true},
 		{roce.QPStateInit, roce.QPStateRTR, true},

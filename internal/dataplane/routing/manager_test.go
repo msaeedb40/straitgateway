@@ -71,4 +71,3 @@ func TestRoutingDataplaneLifecycle(t *testing.T) {
 		t.Errorf("expected route to be withdrawn on BFD peer failure")
 	}
 }
-

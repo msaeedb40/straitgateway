@@ -40,7 +40,6 @@ type IdentityEngine struct {
 	mapMgr       *maps.MapManager
 }
 
-
 // NewIdentityEngine creates an IdentityEngine
 func NewIdentityEngine() *IdentityEngine {
 	ie := &IdentityEngine{
@@ -163,7 +162,6 @@ func (ie *IdentityEngine) GetIPBindings() map[string]uint32 {
 	}
 	return copyMap
 }
-
 
 func normalizeLabels(ns, sa string, labels map[string]string) string {
 	var keys []string

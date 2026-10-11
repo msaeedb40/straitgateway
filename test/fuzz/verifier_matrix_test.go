@@ -33,10 +33,10 @@ import (
 
 func TestKernelVersionParsing(t *testing.T) {
 	cases := []struct {
-		input    string
-		wantMaj  int
-		wantMin  int
-		wantPat  int
+		input   string
+		wantMaj int
+		wantMin int
+		wantPat int
 	}{
 		{
 			"Linux version 6.8.0-41-generic (buildd@lcy02) ...",

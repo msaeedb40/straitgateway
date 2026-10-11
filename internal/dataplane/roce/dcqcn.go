@@ -104,9 +104,9 @@ type QPRateState struct {
 
 // RateController implements the DCQCN per-QPN rate controller.
 type RateController struct {
-	mu   sync.Mutex
-	cfg  DCQCNConfig
-	qps  map[uint32]*QPRateState
+	mu  sync.Mutex
+	cfg DCQCNConfig
+	qps map[uint32]*QPRateState
 
 	// OnRateChange is called when a QPN's rate changes.
 	// The caller should apply the new rate via RDMA QP modify.
@@ -197,7 +197,7 @@ func (rc *RateController) OnTimerExpiry(qpn uint32, bytesSent uint64) {
 	// Check if we should increase the rate
 	if time.Since(st.LastCNPTime) < rc.cfg.TimerPeriod {
 		// CNP was recent — decay Alpha toward 0 (no congestion)
-		st.Alpha = (1-rc.cfg.AlphaDecay)*st.Alpha
+		st.Alpha = (1 - rc.cfg.AlphaDecay) * st.Alpha
 		return
 	}
 
@@ -223,7 +223,7 @@ func (rc *RateController) OnTimerExpiry(qpn uint32, bytesSent uint64) {
 	}
 
 	// Decay Alpha toward 0 (less congestion signal)
-	st.Alpha = (1-rc.cfg.AlphaDecay)*st.Alpha
+	st.Alpha = (1 - rc.cfg.AlphaDecay) * st.Alpha
 
 	st.CurrentRateMbps = newRate
 	rc.notifyRateChange(qpn, newRate)

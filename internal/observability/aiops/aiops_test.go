@@ -168,9 +168,9 @@ func TestBurstDetectorInBurstState(t *testing.T) {
 
 // mockBGP implements BGPWithdrawer for testing.
 type mockBGP struct {
-	withdrawn   []string // prefix strings
+	withdrawn    []string // prefix strings
 	readvertised []string
-	peers       []aiops.BGPPeerInfo
+	peers        []aiops.BGPPeerInfo
 }
 
 func (m *mockBGP) WithdrawRoute(neighborIP net.IP, vrfID uint32, prefix net.IPNet) error {

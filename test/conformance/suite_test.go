@@ -83,10 +83,10 @@ func TestGatewayAPIConformance(t *testing.T) {
 	exemptFeatures := []features.FeatureName{}
 
 	opts := suite.ConformanceOptions{
-		Client:               c,
-		BaseManifests:        "manifests/base.yaml",
-		MeshManifests:        "",
-		ManifestFS:           []fs.FS{&conformance.Manifests},
+		Client:        c,
+		BaseManifests: "manifests/base.yaml",
+		MeshManifests: "",
+		ManifestFS:    []fs.FS{&conformance.Manifests},
 		ConfigurableOptions: suite.ConfigurableOptions{
 			GatewayClassName:           *gatewayClassName,
 			CleanupBaseResources:       true,

@@ -12,13 +12,13 @@ import (
 
 // Server exposes metrics, flow logs, and program status via HTTP
 type Server struct {
-	mu           sync.RWMutex
-	bindAddr     string
-	metrics      *MetricsCollector
-	flows        *FlowCollector
-	ebpfStatus   *EbpfStatusCollector
-	httpServer   *http.Server
-	corsEnabled  bool
+	mu          sync.RWMutex
+	bindAddr    string
+	metrics     *MetricsCollector
+	flows       *FlowCollector
+	ebpfStatus  *EbpfStatusCollector
+	httpServer  *http.Server
+	corsEnabled bool
 }
 
 // NewServer creates an Observability HTTP server

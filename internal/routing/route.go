@@ -115,4 +115,3 @@ func (rm *RouteManager) WithdrawNextHop(nextHopIP net.IP) (int, error) {
 func (rm *RouteManager) GetFIB() *FIBEngine {
 	return rm.fib
 }
-

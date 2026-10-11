@@ -118,4 +118,3 @@ func TestPolicyCompilerEgressAndAudit(t *testing.T) {
 		t.Errorf("expected 1 active policy, got %d", len(compiler.ListPolicies()))
 	}
 }
-

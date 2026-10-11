@@ -93,4 +93,3 @@ func TestNodeProxyExecuteRequest(t *testing.T) {
 		t.Errorf("expected mesh header Strict, got %s", receivedMeshHeader)
 	}
 }
-

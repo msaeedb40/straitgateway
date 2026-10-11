@@ -17,13 +17,13 @@ const (
 
 // FlowPacingState tracks live pacing parameters for an active L4 connection
 type FlowPacingState struct {
-	FlowID            string          `json:"flowId"`
-	Algorithm         PacingAlgorithm `json:"algorithm"`
-	CurrentRateBps    uint64          `json:"currentRateBps"`
-	RTTMicroseconds   uint32          `json:"rttUs"`
-	BDPBytes          uint64          `json:"bdpBytes"`
-	ZeroWindowProbes  uint32          `json:"zeroWindowProbes"`
-	LastPacedAt       time.Time       `json:"lastPacedAt"`
+	FlowID           string          `json:"flowId"`
+	Algorithm        PacingAlgorithm `json:"algorithm"`
+	CurrentRateBps   uint64          `json:"currentRateBps"`
+	RTTMicroseconds  uint32          `json:"rttUs"`
+	BDPBytes         uint64          `json:"bdpBytes"`
+	ZeroWindowProbes uint32          `json:"zeroWindowProbes"`
+	LastPacedAt      time.Time       `json:"lastPacedAt"`
 }
 
 // PacingConfig contains configuration for adaptive eBPF connection pacing

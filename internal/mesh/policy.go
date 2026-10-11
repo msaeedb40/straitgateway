@@ -214,4 +214,3 @@ func (pc *PolicyCompiler) GetActiveRuleCount() int {
 	}
 	return total
 }
-

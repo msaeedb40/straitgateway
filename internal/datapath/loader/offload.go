@@ -25,7 +25,7 @@ const (
 type HardwareVendor string
 
 const (
-	VendorMellanox HardwareVendor = "Mellanox/NVIDIA"
+	VendorMellanox  HardwareVendor = "Mellanox/NVIDIA"
 	VendorNetronome HardwareVendor = "Netronome"
 	VendorIntel     HardwareVendor = "Intel"
 	VendorBroadcom  HardwareVendor = "Broadcom"

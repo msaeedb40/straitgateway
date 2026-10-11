@@ -333,7 +333,6 @@ func (in *GlobalServiceImport) DeepCopy() *GlobalServiceImport {
 	return out
 }
 
-
 func (in *GlobalServiceImport) DeepCopyObject() runtime.Object {
 	if c := in.DeepCopy(); c != nil {
 		return c

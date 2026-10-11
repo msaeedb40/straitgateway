@@ -167,4 +167,3 @@ func (m *Monitor) GetSession(peerIP net.IP) (*Session, bool) {
 func (m *Monitor) Close() {
 	close(m.stopCh)
 }
-

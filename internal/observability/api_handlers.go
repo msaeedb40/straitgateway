@@ -145,12 +145,12 @@ type BgpPeerSession struct {
 
 // BfdSession represents a BFD fast-failover session
 type BfdSession struct {
-	RemoteAddress        string `json:"remoteAddress"`
-	State                string `json:"state"`
-	DetectMult           uint8  `json:"detectMult"`
-	TxIntervalMs         uint32 `json:"txIntervalMs"`
-	RxIntervalMs         uint32 `json:"rxIntervalMs"`
-	LastTransition       string `json:"lastTransition"`
+	RemoteAddress         string `json:"remoteAddress"`
+	State                 string `json:"state"`
+	DetectMult            uint8  `json:"detectMult"`
+	TxIntervalMs          uint32 `json:"txIntervalMs"`
+	RxIntervalMs          uint32 `json:"rxIntervalMs"`
+	LastTransition        string `json:"lastTransition"`
 	FastFailoverTriggered bool   `json:"fastFailoverTriggered"`
 }
 
@@ -253,22 +253,22 @@ func (s *Server) handleServices(w http.ResponseWriter, r *http.Request) {
 	services := []ServiceInfo{
 		{
 			Namespace: "default", Name: "kubernetes", Type: "ClusterIP", ClusterIP: "10.96.0.1",
-			Ports: []ServicePort{{Name: "https", Protocol: "TCP", Port: 443, TargetPort: 6443}},
+			Ports:          []ServicePort{{Name: "https", Protocol: "TCP", Port: 443, TargetPort: 6443}},
 			EndpointsCount: 1, Algorithm: "maglev",
 		},
 		{
 			Namespace: "kube-system", Name: "kube-dns", Type: "ClusterIP", ClusterIP: "10.96.0.10",
-			Ports: []ServicePort{{Name: "dns", Protocol: "UDP", Port: 53, TargetPort: 53}},
+			Ports:          []ServicePort{{Name: "dns", Protocol: "UDP", Port: 53, TargetPort: 53}},
 			EndpointsCount: 2, Algorithm: "maglev",
 		},
 		{
 			Namespace: "default", Name: "frontend-svc", Type: "ClusterIP", ClusterIP: "10.96.10.50",
-			Ports: []ServicePort{{Name: "http", Protocol: "TCP", Port: 80, TargetPort: 8080}},
+			Ports:          []ServicePort{{Name: "http", Protocol: "TCP", Port: 80, TargetPort: 8080}},
 			EndpointsCount: 3, Algorithm: "maglev",
 		},
 		{
 			Namespace: "default", Name: "backend-svc", Type: "ClusterIP", ClusterIP: "10.96.20.100",
-			Ports: []ServicePort{{Name: "grpc", Protocol: "TCP", Port: 9000, TargetPort: 9000}},
+			Ports:          []ServicePort{{Name: "grpc", Protocol: "TCP", Port: 9000, TargetPort: 9000}},
 			EndpointsCount: 4, Algorithm: "maglev",
 		},
 	}

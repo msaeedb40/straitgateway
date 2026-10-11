@@ -139,13 +139,13 @@ func ParseTracestate(value string) string {
 // FlowTraceRecord correlates a network flow with its W3C trace context.
 type FlowTraceRecord struct {
 	// FlowKey is a 5-tuple string (srcIP:srcPort→dstIP:dstPort/proto)
-	FlowKey    string
+	FlowKey string
 	// SpanContext is the trace context associated with this flow.
 	SpanContext SpanContext
 	// IngressAt is when the first packet of the flow was observed.
-	IngressAt  time.Time
+	IngressAt time.Time
 	// EgressAt is the last packet timestamp.
-	EgressAt   time.Time
+	EgressAt time.Time
 }
 
 // PropagatorConfig controls the W3C Trace Context propagator behaviour.
@@ -172,14 +172,14 @@ func DefaultPropagatorConfig() PropagatorConfig {
 
 // Propagator implements W3C Trace Context injection and extraction.
 type Propagator struct {
-	mu         sync.RWMutex
-	cfg        PropagatorConfig
-	flowCache  map[string]*FlowTraceRecord // key: flow 5-tuple string
+	mu        sync.RWMutex
+	cfg       PropagatorConfig
+	flowCache map[string]*FlowTraceRecord // key: flow 5-tuple string
 
 	// Metrics
-	TracesCreated   uint64
+	TracesCreated    uint64
 	TracesPropagated uint64
-	TracesSampled   uint64
+	TracesSampled    uint64
 }
 
 // NewPropagator creates a W3C Trace Context propagator.

@@ -74,7 +74,7 @@ func (r *GatewayPeerReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		wgCfg := wireguard.PeerConfig{
 			PublicKey:           peer.Spec.WireGuardPeer.PublicKey,
 			Endpoint:            peer.Spec.WireGuardPeer.Endpoint,
-			AllowedIPs:         allowedIPs,
+			AllowedIPs:          allowedIPs,
 			PersistentKeepalive: int(peer.Spec.WireGuardPeer.PersistentKeepaliveSeconds),
 		}
 		_ = r.WireGuard.AddPeer(wgCfg)

@@ -62,4 +62,3 @@ func TestIdentityEngine(t *testing.T) {
 		t.Errorf("expected binding for 10.244.2.10 -> 1005, got %d", bindings["10.244.2.10"])
 	}
 }
-

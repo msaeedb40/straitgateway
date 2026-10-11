@@ -13,9 +13,9 @@ type Config struct {
 	LocalClusterID         string `json:"localClusterId"`
 	LocalWireGuardEndpoint string `json:"localWireguardEndpoint"`
 	LocalWireGuardPubkey   string `json:"localWireguardPubkey"`
-	GlobalCIDR             string `json:"globalCIDR"`     // e.g. "240.0.0.0/8"
-	DomainSuffix           string `json:"domainSuffix"`   // e.g. "global.straitgateway"
-	DNSPort                int    `json:"dnsPort"`        // e.g. 5353
+	GlobalCIDR             string `json:"globalCIDR"`   // e.g. "240.0.0.0/8"
+	DomainSuffix           string `json:"domainSuffix"` // e.g. "global.straitgateway"
+	DNSPort                int    `json:"dnsPort"`      // e.g. 5353
 }
 
 // DefaultConfig provides standard ClusterMesh defaults

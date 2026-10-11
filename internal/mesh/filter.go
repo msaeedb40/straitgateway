@@ -19,12 +19,12 @@ const (
 
 // FilterContext carries request metadata across the filter pipeline
 type FilterContext struct {
-	Request         *http.Request
-	Headers         http.Header
-	Attributes      map[string]interface{}
-	ClientIdentity  uint32
-	TargetService   string
-	Timestamp       time.Time
+	Request        *http.Request
+	Headers        http.Header
+	Attributes     map[string]interface{}
+	ClientIdentity uint32
+	TargetService  string
+	Timestamp      time.Time
 }
 
 // FilterResult holds the outcome of filter execution

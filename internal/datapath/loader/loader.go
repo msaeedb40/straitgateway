@@ -14,17 +14,17 @@ import (
 
 // DataplaneCollection holds loaded BPF programs, links, and their associated maps
 type DataplaneCollection struct {
-	mu         sync.RWMutex
-	mapManager *maps.MapManager
-	tcIngress  *ebpf.Program
-	tcEgress   *ebpf.Program
-	xdpIngress *ebpf.Program
-	netkitIn   *ebpf.Program
-	netkitOut  *ebpf.Program
-	cgroupCon4 *ebpf.Program
-	cgroupCon6 *ebpf.Program
-	cgroupSnd4 *ebpf.Program
-	cgroupSnd6 *ebpf.Program
+	mu          sync.RWMutex
+	mapManager  *maps.MapManager
+	tcIngress   *ebpf.Program
+	tcEgress    *ebpf.Program
+	xdpIngress  *ebpf.Program
+	netkitIn    *ebpf.Program
+	netkitOut   *ebpf.Program
+	cgroupCon4  *ebpf.Program
+	cgroupCon6  *ebpf.Program
+	cgroupSnd4  *ebpf.Program
+	cgroupSnd6  *ebpf.Program
 	activeLinks []link.Link
 }
 
