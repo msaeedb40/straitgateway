@@ -2,6 +2,13 @@
 bin/
 dist/
 
+# Root-level compiled binaries (go build output)
+straitd
+sg-controller
+sg-agent
+sg-cni
+sgctl
+
 # eBPF artifacts
 *.o
 *.so

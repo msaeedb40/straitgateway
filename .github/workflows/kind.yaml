@@ -15,7 +15,7 @@ permissions:
 
 env:
   KIND_VERSION: v0.33.0
-  KUBECTL_VERSION: v1.36.5
+  KUBECTL_VERSION: v1.32.3
   REGISTRY: ghcr.io
   IMAGE_TAG: kind-${{ github.sha }}
 
@@ -138,6 +138,11 @@ jobs:
                   nodeRegistration:
                     kubeletExtraArgs:
                       node-labels: "ingress-ready=true"
+                - |
+                  kind: ClusterConfiguration
+                  apiServer:
+                    extraArgs:
+                      feature-gates: "GracefulNodeShutdown=true"
             - role: worker
               extraMounts:
                 - hostPath: ${{ github.workspace }}
@@ -172,9 +177,6 @@ jobs:
             podSubnet: "10.244.0.0/16"
             serviceSubnet: "10.96.0.0/12"
             kubeProxyMode: "none"
-          featureGates:
-            # Enable BPF-related kernel features
-            "GracefulNodeShutdown": true
           EOF
 
       - name: Create KinD cluster
@@ -204,7 +206,7 @@ jobs:
 
       - name: Apply Gateway API CRDs
         run: |
-          kubectl apply -f https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.2.1/standard-install.yaml
+          kubectl apply -f https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.6.3/standard-install.yaml
           kubectl wait --for condition=established --timeout=60s \
             crd/gateways.gateway.networking.k8s.io \
             crd/httproutes.gateway.networking.k8s.io
@@ -352,7 +354,7 @@ jobs:
 
       - name: Install Gateway API CRDs
         run: |
-          kubectl apply -f https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.2.1/standard-install.yaml
+          kubectl apply -f https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.6.3/standard-install.yaml
           kubectl wait --for condition=established --timeout=60s \
             crd/gateways.gateway.networking.k8s.io \
             crd/httproutes.gateway.networking.k8s.io \
