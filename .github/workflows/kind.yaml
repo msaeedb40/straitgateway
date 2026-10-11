@@ -202,7 +202,9 @@ jobs:
           # Swap image references to the KinD-loaded tags
           find deploy/ -name "*.yaml" -exec \
             sed -i "s|straitgateway/\(.*\):v[0-9.]*|straitgateway/\1:${IMAGE_TAG}|g" {} +
-          sed -i "s|imagePullPolicy: IfNotPresent|imagePullPolicy: Never|g" deploy/*.yaml
+          # Patch imagePullPolicy across all deploy yaml files (use find to avoid bare-glob failures)
+          find deploy/ -name "*.yaml" -exec \
+            sed -i "s|imagePullPolicy: IfNotPresent|imagePullPolicy: Never|g" {} +
 
       - name: Apply Gateway API CRDs
         run: |
@@ -350,7 +352,8 @@ jobs:
         run: |
           find deploy/ -name "*.yaml" -exec \
             sed -i "s|straitgateway/\(.*\):v[0-9.]*|straitgateway/\1:${IMAGE_TAG}|g" {} +
-          sed -i "s|imagePullPolicy: IfNotPresent|imagePullPolicy: Never|g" deploy/*.yaml
+          find deploy/ -name "*.yaml" -exec \
+            sed -i "s|imagePullPolicy: IfNotPresent|imagePullPolicy: Never|g" {} +
 
       - name: Install Gateway API CRDs
         run: |
@@ -499,7 +502,8 @@ jobs:
         run: |
           find deploy/ -name "*.yaml" -exec \
             sed -i "s|straitgateway/\(.*\):v[0-9.]*|straitgateway/\1:${IMAGE_TAG}|g" {} +
-          sed -i "s|imagePullPolicy: IfNotPresent|imagePullPolicy: Never|g" deploy/*.yaml
+          find deploy/ -name "*.yaml" -exec \
+            sed -i "s|imagePullPolicy: IfNotPresent|imagePullPolicy: Never|g" {} +
           kubectl apply -f deploy/namespace.yaml
           kubectl apply -f deploy/serviceaccount.yaml
           kubectl apply -f deploy/cni.yaml
@@ -517,7 +521,8 @@ jobs:
 
       - name: Run chaos Go tests (ENOMEM + DropBurst; requires root on runner)
         run: |
-          sudo go test -v -count=1 \
+          # sudo drops PATH, so pass Go's location explicitly
+          sudo env PATH=$PATH go test -v -count=1 \
             -run "TestInjectENOMEM|TestInjectDropBurst|TestBuildMinimalPassProg|TestInjectorNew|TestClearAll" \
             ./test/chaos/...
 

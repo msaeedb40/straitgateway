@@ -75,7 +75,7 @@ jobs:
   build-images:
     name: Build & Push Container Images
     runs-on: ubuntu-latest
-    needs: build-binaries
+    # Note: images are built from source via Dockerfiles, not from build-binaries artifacts
     strategy:
       fail-fast: false
       matrix:

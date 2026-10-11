@@ -18,6 +18,9 @@ spec:
         app.kubernetes.io/component: agent
     spec:
       hostNetwork: {{ .Values.agent.hostNetwork }}
+      # Required: when hostNetwork=true the default dnsPolicy is "Default" (node DNS only),
+      # which breaks cluster-internal name resolution. ClusterFirstWithHostNet restores it.
+      dnsPolicy: ClusterFirstWithHostNet
       hostPID: true
       serviceAccountName: {{ include "straitgateway.agentServiceAccountName" . }}
       tolerations:

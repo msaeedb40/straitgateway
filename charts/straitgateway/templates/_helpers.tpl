@@ -61,3 +61,33 @@ Controller service account name
 {{- define "straitgateway.controllerServiceAccountName" -}}
 {{- printf "%s-controller" (include "straitgateway.fullname" .) }}
 {{- end }}
+
+{{/*
+Resolve a full image reference honoring global.imageRegistry.
+Usage: {{ include "straitgateway.image" (dict "registry" "" "repository" "straitgateway/sg-agent" "tag" "v1.0.0") }}
+*/}}
+{{- define "straitgateway.image" -}}
+{{- $registry := .registry | default "" }}
+{{- $globalRegistry := $.root.Values.global.imageRegistry | default "" }}
+{{- $effectiveRegistry := $globalRegistry | default $registry }}
+{{- if $effectiveRegistry }}
+{{- printf "%s/%s:%s" $effectiveRegistry .repository .tag }}
+{{- else }}
+{{- printf "%s:%s" .repository .tag }}
+{{- end }}
+{{- end }}
+
+{{/*
+Merge global.imagePullSecrets with component-level imagePullSecrets.
+*/}}
+{{- define "straitgateway.imagePullSecrets" -}}
+{{- $global := .Values.global.imagePullSecrets | default (list) }}
+{{- $local := .local | default (list) }}
+{{- $merged := concat $global $local }}
+{{- if $merged }}
+imagePullSecrets:
+{{- range $merged }}
+  - name: {{ . }}
+{{- end }}
+{{- end }}
+{{- end }}

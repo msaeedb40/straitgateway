@@ -45,7 +45,7 @@ metadata:
   labels:
     {{- include "straitgateway.labels" . | nindent 4 }}
 roleRef:
-  apiGroup: rbac.authorization.k8s.io/v1
+  apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
   name: {{ include "straitgateway.fullname" . }}-agent
 subjects:
@@ -101,7 +101,7 @@ metadata:
   labels:
     {{- include "straitgateway.labels" . | nindent 4 }}
 roleRef:
-  apiGroup: rbac.authorization.k8s.io/v1
+  apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
   name: {{ include "straitgateway.fullname" . }}-controller
 subjects:
