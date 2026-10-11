@@ -4,8 +4,8 @@
 package v1alpha1
 
 import (
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"sigs.k8s.io/controller-runtime/pkg/scheme" //nolint:staticcheck // SA1019: scheme.Builder required by kubebuilder-generated Register calls
 )
 
 var (
@@ -13,7 +13,7 @@ var (
 	GroupVersion = schema.GroupVersion{Group: "straitgateway.io", Version: "v1alpha1"}
 
 	// SchemeBuilder is used to add go types to the GroupVersionKind scheme
-	SchemeBuilder = runtime.NewSchemeBuilder()
+	SchemeBuilder = &scheme.Builder{GroupVersion: GroupVersion} //nolint:staticcheck // SA1019: required by kubebuilder codegen
 
 	// AddToScheme adds the types in this group-version to the given scheme.
 	AddToScheme = SchemeBuilder.AddToScheme
