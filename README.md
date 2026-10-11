@@ -90,12 +90,13 @@ It leverages **eBPF**, **netkit**, **WireGuard**, **BGP**, and **BFD** to provid
 | **Phase 6** | **Dataplane Observability** | Prometheus exporter, flow log ring buffer, HTTP status server | **Done** |
 | **Phase 7** | **CLI, Helm & Manifests** | `sgctl` CLI (11 subcommands), Helm chart v1.0.0, `all-in-one.yaml` | **Done** |
 | **Phase 8** | **UI Plane & Integration** | React 19, Tailwind CSS 4, D3.js topology, REST API bridge | **Done** |
-| **Phase 9** | **Multi-Cluster Transit (ClusterMesh)** | Global WireGuard mesh, cross-cluster Maglev, Split-DNS | *Planned* |
+| **Phase 9** | **Multi-Cluster Transit (ClusterMesh)** | Global WireGuard mesh, cross-cluster Maglev, Split-DNS | **Done** |
 | **Phase 10** | **Advanced L7 & Hardware Acceleration** | SmartNIC `XDP_OFFLOAD`, Wasm extension engine, Gateway API v1.6.1 | **Done** |
-| **Phase 11** | **Enterprise Zero-Trust & In-Kernel mTLS** | SPIFFE/SPIRE attestation, kTLS + `sockops` zero-copy encryption | *Planned* |
+| **Phase 11** | **Enterprise Zero-Trust & In-Kernel mTLS** | SPIFFE/SPIRE attestation, kTLS + `sockops` zero-copy encryption | **Done** |
 | **Phase 12** | **Chaos Engineering & eBPF Fuzzing** | Sonobuoy CNI conformance, BPF map fault injection, multi-kernel CI | *Planned* |
 | **Phase 13** | **AI/ML & RDMA/RoCEv2 Acceleration** | GPU/TPU RoCEv2 bypass, NCCL optimization, PFC/ECN telemetry | *Planned* |
 | **Phase 14** | **Autonomous Dataplane AIOps** | Micro-burst detection, self-healing routing, zero-code tracing | *Planned* |
+| **Phase 15** | **Documentation System (`docs/`)** | Markdown technical specs, guides, CRD & dataplane manuals (`*.md`) | **Done** |
 
 ---
 

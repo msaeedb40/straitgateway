@@ -26,6 +26,12 @@ func TestSchemeRegistration(t *testing.T) {
 		&ServiceMeshPolicyList{},
 		&StraitGatewayConfig{},
 		&StraitGatewayConfigList{},
+		&ClusterPeering{},
+		&ClusterPeeringList{},
+		&GlobalServiceExport{},
+		&GlobalServiceExportList{},
+		&GlobalServiceImport{},
+		&GlobalServiceImportList{},
 	}
 
 	for _, obj := range types {
@@ -109,5 +115,44 @@ func TestDeepCopySecurityPolicy(t *testing.T) {
 	}
 	if len(copied.Spec.Ingress[0].HTTP[0].Methods) != 1 {
 		t.Errorf("HTTP methods slice not copied properly")
+	}
+}
+
+func TestDeepCopyClusterMesh(t *testing.T) {
+	cp := &ClusterPeering{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "peer-west",
+		},
+		Spec: ClusterPeeringSpec{
+			ClusterID:         "cluster-west-1",
+			WireGuardEndpoint: "198.51.100.1:51820",
+			PodCIDRs:          []string{"10.244.0.0/16"},
+			ServiceCIDRs:      []string{"10.96.0.0/16"},
+		},
+	}
+	cpCopy := cp.DeepCopy()
+	if cpCopy == nil || cpCopy.Spec.ClusterID != "cluster-west-1" {
+		t.Fatalf("failed deepcopy on ClusterPeering")
+	}
+	cpCopy.Spec.PodCIDRs[0] = "10.0.0.0/16"
+	if cp.Spec.PodCIDRs[0] == "10.0.0.0/16" {
+		t.Errorf("expected deepcopy slice isolation")
+	}
+
+	gsi := &GlobalServiceImport{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "order-service",
+		},
+		Spec: GlobalServiceImportSpec{
+			GlobalServiceName: "order.global.straitgateway",
+			GlobalVIP:         "240.0.0.50",
+			Clusters: []ClusterBackendRef{
+				{ClusterID: "cluster-west-1", EndpointIPs: []string{"10.244.1.20"}},
+			},
+		},
+	}
+	gsiCopy := gsi.DeepCopy()
+	if gsiCopy == nil || gsiCopy.Spec.GlobalVIP != "240.0.0.50" {
+		t.Fatalf("failed deepcopy on GlobalServiceImport")
 	}
 }

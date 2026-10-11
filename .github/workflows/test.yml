@@ -2,12 +2,13 @@ name: Test
 
 on:
   push:
-    branches: [ main, works ]
+    branches: [main, works]
   pull_request:
-    branches: [ main, works ]
+    branches: [main, works]
 
 jobs:
   unit-test:
+    name: Unit Tests
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -16,7 +17,56 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.24'
+          go-version: '1.27.1'
+          cache: true
 
-      - name: Run Unit Tests
-        run: go test -v -race ./...
+      - name: Run unit tests (race detector)
+        run: go test -v -race -count=1 -timeout=5m ./pkg/... ./internal/...
+
+  phase12:
+    name: Phase 12 — Chaos & Fuzz Unit
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.27.1'
+          cache: true
+
+      - name: Run fuzz unit tests (no BPF/root required)
+        run: make fuzz-unit
+
+  phase13:
+    name: Phase 13 — RoCEv2 Unit Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.27.1'
+          cache: true
+
+      - name: Run RoCEv2 unit tests
+        run: make test-phase13
+
+  phase14:
+    name: Phase 14 — AIOps Unit Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.27.1'
+          cache: true
+
+      - name: Run AIOps unit tests
+        run: make test-phase14

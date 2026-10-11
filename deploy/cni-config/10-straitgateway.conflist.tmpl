@@ -1,0 +1,26 @@
+{
+  "cniVersion": "0.4.0",
+  "name": "straitgateway-net",
+  "plugins": [
+    {
+      "type": "straitgateway",
+      "mode": "l3",
+      "bpfFsPath": "/sys/fs/bpf",
+      "ipam": {
+        "type": "host-local",
+        "subnet": "10.244.0.0/16",
+        "routes": [
+          { "dst": "0.0.0.0/0" }
+        ]
+      }
+    },
+    {
+      "type": "portmap",
+      "capabilities": { "portMappings": true }
+    },
+    {
+      "type": "bandwidth",
+      "capabilities": { "bandwidth": true }
+    }
+  ]
+}

@@ -2,12 +2,13 @@ name: CI
 
 on:
   push:
-    branches: [ main, works ]
+    branches: [main, works]
   pull_request:
-    branches: [ main, works ]
+    branches: [main, works]
 
 jobs:
-  lint-and-vet:
+  lint:
+    name: Lint & Vet
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -16,14 +17,24 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.24'
+          go-version: '1.27.1'
+          cache: true
 
-      - name: Go Format and Vet
+      - name: Go Format check
         run: |
-          go vet ./...
           test -z "$(gofmt -l .)" || (echo "Files need formatting:" && gofmt -l . && exit 1)
 
+      - name: Go Vet
+        run: go vet ./...
+
+      - name: Run golangci-lint
+        uses: golangci/golangci-lint-action@v6
+        with:
+          version: latest
+          args: --timeout=5m
+
   build:
+    name: Build All
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -32,10 +43,43 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.24'
+          go-version: '1.27.1'
+          cache: true
 
-      - name: Install LLVM/Clang
-        run: sudo apt-get update && sudo apt-get install -y clang llvm libbpf-dev
+      - name: Install LLVM/Clang & eBPF headers
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y clang llvm libbpf-dev linux-headers-$(uname -r) || \
+          sudo apt-get install -y clang llvm libbpf-dev linux-headers-generic
 
-      - name: Build All Binaries
+      - name: Build eBPF objects
+        run: make build-bpf
+
+      - name: Build all Go binaries
         run: make build
+
+  test:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    needs: [lint, build]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.27.1'
+          cache: true
+
+      - name: Run unit tests with race detector
+        run: go test -v -race -count=1 -timeout=5m ./pkg/... ./internal/...
+
+      - name: Run AIOps unit tests
+        run: make test-aiops
+
+      - name: Run RoCEv2 unit tests
+        run: make test-roce
+
+      - name: Run fuzz unit tests (no BPF required)
+        run: make fuzz-unit

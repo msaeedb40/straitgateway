@@ -1,0 +1,67 @@
+name: Feature Request
+description: Suggest a new feature or enhancement for StraitGateway
+title: '[Feature]: '
+labels: ['enhancement']
+assignees: []
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for suggesting an improvement! Please provide as much context as possible.
+
+  - type: checkboxes
+    id: preflight
+    attributes:
+      label: Pre-flight checklist
+      options:
+        - label: I have searched for existing feature requests before filing this one
+          required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Feature area
+      multiple: true
+      options:
+        - Data plane (eBPF/XDP/TC)
+        - Control plane (Controller/CRDs)
+        - CNI plugin
+        - Node agent
+        - CLI (sgctl)
+        - RoCEv2 / RDMA support
+        - AIOps / Observability
+        - Gateway API conformance
+        - Chaos / Resilience
+        - Helm chart / Deployment
+        - Documentation
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem / motivation
+      description: What problem does this feature solve? What is the use case?
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed solution
+      description: Describe the feature you would like to see implemented.
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Have you considered any alternative approaches or workarounds?
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional context
+      description: Links, references, related issues, or any other relevant information.

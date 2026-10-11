@@ -165,6 +165,14 @@ func (m *Manager) GetPeers() []*PeerConfig {
 	return list
 }
 
+// Close cleans up configured WireGuard peers
+func (m *Manager) Close() error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.peers = make(map[string]*PeerConfig)
+	return nil
+}
+
 func generateMockKey() (string, error) {
 	b := make([]byte, 32)
 	if _, err := rand.Read(b); err != nil {
@@ -172,3 +180,4 @@ func generateMockKey() (string, error) {
 	}
 	return base64.StdEncoding.EncodeToString(b), nil
 }
+

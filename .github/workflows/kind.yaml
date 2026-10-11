@@ -1,0 +1,536 @@
+# kind.yaml to run tests on kind cluster
+# mounts all files on on the Kind  for cluster , worker nodes
+
+name: KinD Integration & Conformance
+
+on:
+  push:
+    branches: [main, works]
+  pull_request:
+    branches: [main, works]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  KIND_VERSION: v0.33.0
+  KUBECTL_VERSION: v1.36.5
+  REGISTRY: ghcr.io
+  IMAGE_TAG: kind-${{ github.sha }}
+
+jobs:
+  # ─────────────────────────────────────────────────────────────
+  # Job 1: Build all images into a tar bundle for KinD to load
+  # ─────────────────────────────────────────────────────────────
+  build-images:
+    name: Build Images for KinD
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.27.1'
+          cache: true
+
+      - name: Install LLVM/Clang & eBPF headers
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y clang llvm libbpf-dev linux-headers-$(uname -r) || \
+          sudo apt-get install -y clang llvm libbpf-dev linux-headers-generic
+
+      - name: Build eBPF objects
+        run: make build-bpf
+
+      - name: Build all Go binaries
+        run: make build
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build container images (local, no push)
+        run: |
+          for component in straitd sg-controller sg-cni sg-agent; do
+            docker build \
+              --file deploy/docker/${component}.Dockerfile \
+              --tag straitgateway/${component}:${IMAGE_TAG} \
+              --build-arg VERSION=ci-${{ github.sha }} \
+              --build-arg GIT_COMMIT=${{ github.sha }} \
+              --build-arg BUILD_DATE=$(date -u +'%Y-%m-%dT%H:%M:%SZ') \
+              .
+          done
+
+      - name: Save images to tar
+        run: |
+          docker save \
+            straitgateway/straitd:${IMAGE_TAG} \
+            straitgateway/sg-controller:${IMAGE_TAG} \
+            straitgateway/sg-cni:${IMAGE_TAG} \
+            straitgateway/sg-agent:${IMAGE_TAG} \
+            | gzip > /tmp/straitgateway-images.tar.gz
+
+      - name: Upload image tar
+        uses: actions/upload-artifact@v4
+        with:
+          name: straitgateway-images
+          path: /tmp/straitgateway-images.tar.gz
+          retention-days: 1
+
+  # ─────────────────────────────────────────────────────────────
+  # Job 2: Integration tests on KinD (1 control-plane + 2 workers)
+  # ─────────────────────────────────────────────────────────────
+  integration:
+    name: Integration Tests (KinD)
+    runs-on: ubuntu-latest
+    needs: build-images
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.27.1'
+          cache: true
+
+      - name: Install KinD
+        run: |
+          curl -Lo /usr/local/bin/kind \
+            https://kind.sigs.k8s.io/dl/${KIND_VERSION}/kind-linux-amd64
+          chmod +x /usr/local/bin/kind
+          kind version
+
+      - name: Install kubectl
+        run: |
+          curl -Lo /usr/local/bin/kubectl \
+            https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/linux/amd64/kubectl
+          chmod +x /usr/local/bin/kubectl
+          kubectl version --client
+
+      - name: Create KinD cluster config
+        run: |
+          cat <<EOF > /tmp/kind-config.yaml
+          kind: Cluster
+          apiVersion: kind.x-k8s.io/v1alpha4
+          name: straitgateway-ci
+          nodes:
+            - role: control-plane
+              # Mount project root into control-plane node for fixture access
+              extraMounts:
+                - hostPath: ${{ github.workspace }}
+                  containerPath: /straitgateway
+                  readOnly: true
+                - hostPath: /sys/fs/bpf
+                  containerPath: /sys/fs/bpf
+                  propagation: Bidirectional
+                - hostPath: /sys/kernel/debug
+                  containerPath: /sys/kernel/debug
+                  propagation: HostToContainer
+                - hostPath: /lib/modules
+                  containerPath: /lib/modules
+                  readOnly: true
+              kubeadmConfigPatches:
+                - |
+                  kind: InitConfiguration
+                  nodeRegistration:
+                    kubeletExtraArgs:
+                      node-labels: "ingress-ready=true"
+            - role: worker
+              extraMounts:
+                - hostPath: ${{ github.workspace }}
+                  containerPath: /straitgateway
+                  readOnly: true
+                - hostPath: /sys/fs/bpf
+                  containerPath: /sys/fs/bpf
+                  propagation: Bidirectional
+                - hostPath: /sys/kernel/debug
+                  containerPath: /sys/kernel/debug
+                  propagation: HostToContainer
+                - hostPath: /lib/modules
+                  containerPath: /lib/modules
+                  readOnly: true
+            - role: worker
+              extraMounts:
+                - hostPath: ${{ github.workspace }}
+                  containerPath: /straitgateway
+                  readOnly: true
+                - hostPath: /sys/fs/bpf
+                  containerPath: /sys/fs/bpf
+                  propagation: Bidirectional
+                - hostPath: /sys/kernel/debug
+                  containerPath: /sys/kernel/debug
+                  propagation: HostToContainer
+                - hostPath: /lib/modules
+                  containerPath: /lib/modules
+                  readOnly: true
+          networking:
+            # Disable default CNI so we can install StraitGateway CNI
+            disableDefaultCNI: true
+            podSubnet: "10.244.0.0/16"
+            serviceSubnet: "10.96.0.0/12"
+            kubeProxyMode: "none"
+          featureGates:
+            # Enable BPF-related kernel features
+            "GracefulNodeShutdown": true
+          EOF
+
+      - name: Create KinD cluster
+        run: kind create cluster --config /tmp/kind-config.yaml --wait 120s
+
+      - name: Download image tar
+        uses: actions/download-artifact@v4
+        with:
+          name: straitgateway-images
+          path: /tmp/
+
+      - name: Load images into KinD
+        run: |
+          docker load < /tmp/straitgateway-images.tar.gz
+          for component in straitd sg-controller sg-cni sg-agent; do
+            kind load docker-image \
+              straitgateway/${component}:${IMAGE_TAG} \
+              --name straitgateway-ci
+          done
+
+      - name: Patch manifests to use KinD image tag
+        run: |
+          # Swap image references to the KinD-loaded tags
+          find deploy/ -name "*.yaml" -exec \
+            sed -i "s|straitgateway/\(.*\):v[0-9.]*|straitgateway/\1:${IMAGE_TAG}|g" {} +
+          sed -i "s|imagePullPolicy: IfNotPresent|imagePullPolicy: Never|g" deploy/*.yaml
+
+      - name: Apply Gateway API CRDs
+        run: |
+          kubectl apply -f https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.2.1/standard-install.yaml
+          kubectl wait --for condition=established --timeout=60s \
+            crd/gateways.gateway.networking.k8s.io \
+            crd/httproutes.gateway.networking.k8s.io
+
+      - name: Deploy StraitGateway namespace & RBAC
+        run: |
+          kubectl apply -f deploy/namespace.yaml
+          kubectl apply -f deploy/serviceaccount.yaml
+
+      - name: Deploy StraitGateway CNI
+        run: |
+          kubectl apply -f deploy/cni.yaml
+          kubectl rollout status daemonset/straitgateway-cni \
+            -n straitgateway-system --timeout=120s
+
+      - name: Wait for nodes to be Ready (CNI installed)
+        run: |
+          kubectl wait --for=condition=Ready nodes --all --timeout=180s
+
+      - name: Deploy StraitGateway agent & controller
+        run: |
+          kubectl apply -f deploy/daemonset.yaml
+          kubectl apply -f deploy/controller.yaml
+          kubectl rollout status daemonset/straitgateway-agent \
+            -n straitgateway-system --timeout=120s
+          kubectl rollout status deployment/straitgateway-controller \
+            -n straitgateway-system --timeout=120s
+
+      - name: Run integration tests
+        run: |
+          go test -v -race -count=1 -timeout=10m \
+            ./test/integration/...
+        env:
+          KUBECONFIG: $HOME/.kube/config
+
+      - name: Collect cluster state on failure
+        if: failure()
+        run: |
+          echo "=== Nodes ===" && kubectl get nodes -o wide
+          echo "=== Pods (all ns) ===" && kubectl get pods -A -o wide
+          echo "=== Events ===" && kubectl get events -A --sort-by='.lastTimestamp'
+          echo "=== agent logs ===" && kubectl logs -n straitgateway-system \
+            -l app.kubernetes.io/component=agent --tail=100 || true
+          echo "=== controller logs ===" && kubectl logs -n straitgateway-system \
+            -l app.kubernetes.io/component=controller --tail=100 || true
+
+      - name: Delete KinD cluster
+        if: always()
+        run: kind delete cluster --name straitgateway-ci
+
+  # ─────────────────────────────────────────────────────────────
+  # Job 3: Gateway API conformance on KinD
+  # ─────────────────────────────────────────────────────────────
+  conformance:
+    name: Gateway API Conformance (KinD)
+    runs-on: ubuntu-latest
+    needs: build-images
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.27.1'
+          cache: true
+
+      - name: Install KinD & kubectl
+        run: |
+          curl -Lo /usr/local/bin/kind \
+            https://kind.sigs.k8s.io/dl/${KIND_VERSION}/kind-linux-amd64
+          chmod +x /usr/local/bin/kind
+          curl -Lo /usr/local/bin/kubectl \
+            https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/linux/amd64/kubectl
+          chmod +x /usr/local/bin/kubectl
+
+      - name: Create KinD cluster (conformance)
+        run: |
+          cat <<EOF > /tmp/kind-conformance.yaml
+          kind: Cluster
+          apiVersion: kind.x-k8s.io/v1alpha4
+          name: sg-conformance
+          nodes:
+            - role: control-plane
+              extraMounts:
+                - hostPath: ${{ github.workspace }}
+                  containerPath: /straitgateway
+                  readOnly: true
+                - hostPath: /sys/fs/bpf
+                  containerPath: /sys/fs/bpf
+                  propagation: Bidirectional
+                - hostPath: /lib/modules
+                  containerPath: /lib/modules
+                  readOnly: true
+            - role: worker
+              extraMounts:
+                - hostPath: ${{ github.workspace }}
+                  containerPath: /straitgateway
+                  readOnly: true
+                - hostPath: /sys/fs/bpf
+                  containerPath: /sys/fs/bpf
+                  propagation: Bidirectional
+                - hostPath: /lib/modules
+                  containerPath: /lib/modules
+                  readOnly: true
+            - role: worker
+              extraMounts:
+                - hostPath: ${{ github.workspace }}
+                  containerPath: /straitgateway
+                  readOnly: true
+                - hostPath: /sys/fs/bpf
+                  containerPath: /sys/fs/bpf
+                  propagation: Bidirectional
+                - hostPath: /lib/modules
+                  containerPath: /lib/modules
+                  readOnly: true
+          networking:
+            disableDefaultCNI: true
+            podSubnet: "10.244.0.0/16"
+            serviceSubnet: "10.96.0.0/12"
+            kubeProxyMode: "none"
+          EOF
+          kind create cluster --config /tmp/kind-conformance.yaml --wait 120s
+
+      - name: Download and load images
+        uses: actions/download-artifact@v4
+        with:
+          name: straitgateway-images
+          path: /tmp/
+
+      - name: Load images into KinD
+        run: |
+          docker load < /tmp/straitgateway-images.tar.gz
+          for component in straitd sg-controller sg-cni sg-agent; do
+            kind load docker-image \
+              straitgateway/${component}:${IMAGE_TAG} \
+              --name sg-conformance
+          done
+
+      - name: Patch manifests to use KinD image tag
+        run: |
+          find deploy/ -name "*.yaml" -exec \
+            sed -i "s|straitgateway/\(.*\):v[0-9.]*|straitgateway/\1:${IMAGE_TAG}|g" {} +
+          sed -i "s|imagePullPolicy: IfNotPresent|imagePullPolicy: Never|g" deploy/*.yaml
+
+      - name: Install Gateway API CRDs
+        run: |
+          kubectl apply -f https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.2.1/standard-install.yaml
+          kubectl wait --for condition=established --timeout=60s \
+            crd/gateways.gateway.networking.k8s.io \
+            crd/httproutes.gateway.networking.k8s.io \
+            crd/grpcroutes.gateway.networking.k8s.io
+
+      - name: Deploy StraitGateway (full stack)
+        run: |
+          kubectl apply -f deploy/namespace.yaml
+          kubectl apply -f deploy/serviceaccount.yaml
+          kubectl apply -f deploy/cni.yaml
+          kubectl rollout status daemonset/straitgateway-cni \
+            -n straitgateway-system --timeout=120s
+          kubectl wait --for=condition=Ready nodes --all --timeout=180s
+          kubectl apply -f deploy/daemonset.yaml
+          kubectl apply -f deploy/controller.yaml
+          kubectl rollout status daemonset/straitgateway-agent \
+            -n straitgateway-system --timeout=120s
+          kubectl rollout status deployment/straitgateway-controller \
+            -n straitgateway-system --timeout=120s
+
+      - name: Run Gateway API conformance suite
+        run: |
+          mkdir -p _reports
+          go test -v -count=1 -tags conformance \
+            -timeout=30m \
+            ./test/conformance/... \
+            -gateway-class straitgateway \
+            -report-output _reports/gateway_conformance.json \
+            -cleanup-on-failure=false
+        env:
+          KUBECONFIG: $HOME/.kube/config
+
+      - name: Upload conformance report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: conformance-report
+          path: _reports/gateway_conformance.json
+          retention-days: 30
+
+      - name: Collect cluster state on failure
+        if: failure()
+        run: |
+          echo "=== Nodes ===" && kubectl get nodes -o wide
+          echo "=== Pods (all ns) ===" && kubectl get pods -A -o wide
+          echo "=== Events ===" && kubectl get events -A --sort-by='.lastTimestamp'
+          echo "=== controller logs ===" && kubectl logs -n straitgateway-system \
+            -l app.kubernetes.io/component=controller --tail=200 || true
+
+      - name: Delete KinD cluster
+        if: always()
+        run: kind delete cluster --name sg-conformance
+
+  # ─────────────────────────────────────────────────────────────
+  # Job 4: Chaos smoke tests on KinD (privileged, requires CAP_BPF)
+  # ─────────────────────────────────────────────────────────────
+  chaos:
+    name: Chaos Smoke Tests (KinD)
+    runs-on: ubuntu-latest
+    needs: build-images
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.27.1'
+          cache: true
+
+      - name: Install KinD & kubectl
+        run: |
+          curl -Lo /usr/local/bin/kind \
+            https://kind.sigs.k8s.io/dl/${KIND_VERSION}/kind-linux-amd64
+          chmod +x /usr/local/bin/kind
+          curl -Lo /usr/local/bin/kubectl \
+            https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/linux/amd64/kubectl
+          chmod +x /usr/local/bin/kubectl
+
+      - name: Install tc (iproute2) for netem chaos
+        run: sudo apt-get install -y iproute2
+
+      - name: Create KinD cluster (chaos — privileged node)
+        run: |
+          cat <<EOF > /tmp/kind-chaos.yaml
+          kind: Cluster
+          apiVersion: kind.x-k8s.io/v1alpha4
+          name: sg-chaos
+          nodes:
+            - role: control-plane
+              extraMounts:
+                - hostPath: ${{ github.workspace }}
+                  containerPath: /straitgateway
+                  readOnly: true
+                - hostPath: /sys/fs/bpf
+                  containerPath: /sys/fs/bpf
+                  propagation: Bidirectional
+                - hostPath: /sys/kernel/debug
+                  containerPath: /sys/kernel/debug
+                  propagation: HostToContainer
+                - hostPath: /lib/modules
+                  containerPath: /lib/modules
+                  readOnly: true
+            - role: worker
+              extraMounts:
+                - hostPath: ${{ github.workspace }}
+                  containerPath: /straitgateway
+                  readOnly: true
+                - hostPath: /sys/fs/bpf
+                  containerPath: /sys/fs/bpf
+                  propagation: Bidirectional
+                - hostPath: /sys/kernel/debug
+                  containerPath: /sys/kernel/debug
+                  propagation: HostToContainer
+                - hostPath: /lib/modules
+                  containerPath: /lib/modules
+                  readOnly: true
+          networking:
+            disableDefaultCNI: true
+            podSubnet: "10.244.0.0/16"
+            serviceSubnet: "10.96.0.0/12"
+            kubeProxyMode: "none"
+          EOF
+          kind create cluster --config /tmp/kind-chaos.yaml --wait 120s
+
+      - name: Download and load images
+        uses: actions/download-artifact@v4
+        with:
+          name: straitgateway-images
+          path: /tmp/
+
+      - name: Load images into KinD
+        run: |
+          docker load < /tmp/straitgateway-images.tar.gz
+          for component in straitd sg-controller sg-cni sg-agent; do
+            kind load docker-image \
+              straitgateway/${component}:${IMAGE_TAG} \
+              --name sg-chaos
+          done
+
+      - name: Deploy StraitGateway (minimal stack for chaos)
+        run: |
+          find deploy/ -name "*.yaml" -exec \
+            sed -i "s|straitgateway/\(.*\):v[0-9.]*|straitgateway/\1:${IMAGE_TAG}|g" {} +
+          sed -i "s|imagePullPolicy: IfNotPresent|imagePullPolicy: Never|g" deploy/*.yaml
+          kubectl apply -f deploy/namespace.yaml
+          kubectl apply -f deploy/serviceaccount.yaml
+          kubectl apply -f deploy/cni.yaml
+          kubectl rollout status daemonset/straitgateway-cni \
+            -n straitgateway-system --timeout=120s
+          kubectl wait --for=condition=Ready nodes --all --timeout=180s
+          kubectl apply -f deploy/daemonset.yaml
+          kubectl rollout status daemonset/straitgateway-agent \
+            -n straitgateway-system --timeout=120s
+        env:
+          KUBECONFIG: $HOME/.kube/config
+
+      - name: Run chaos unit tests (no root required)
+        run: make fuzz-unit
+
+      - name: Run chaos Go tests (ENOMEM + DropBurst; requires root on runner)
+        run: |
+          sudo go test -v -count=1 \
+            -run "TestInjectENOMEM|TestInjectDropBurst|TestBuildMinimalPassProg|TestInjectorNew|TestClearAll" \
+            ./test/chaos/...
+
+      - name: Run tc-netem chaos smoke (BFD link flap)
+        run: |
+          sudo bash hack/run-chaos.sh --iface lo --duration 2s
+
+      - name: Collect cluster state on failure
+        if: failure()
+        run: |
+          echo "=== Nodes ===" && kubectl get nodes -o wide
+          echo "=== Pods (all ns) ===" && kubectl get pods -A -o wide
+          echo "=== agent logs ===" && kubectl logs -n straitgateway-system \
+            -l app.kubernetes.io/component=agent --tail=100 || true
+
+      - name: Delete KinD cluster
+        if: always()
+        run: kind delete cluster --name sg-chaos

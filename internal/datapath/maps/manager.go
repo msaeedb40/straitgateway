@@ -570,6 +570,19 @@ func (m *MapManager) DeletePolicy(key types.PolicyKey) error {
 	return m.policies.Delete(key)
 }
 
+func (m *MapManager) LookupPolicy(key types.PolicyKey) (types.PolicyAction, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	if m.policies == nil {
+		return types.PolicyDrop, fmt.Errorf("policy map not initialized")
+	}
+	var action uint32
+	if err := m.policies.Lookup(key, &action); err != nil {
+		return types.PolicyDrop, err
+	}
+	return types.PolicyAction(action), nil
+}
+
 // Counters (Per-CPU aggregation)
 func (m *MapManager) GetCounter(index uint32) (uint64, error) {
 	m.mu.RLock()

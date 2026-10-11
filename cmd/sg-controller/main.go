@@ -25,8 +25,10 @@ import (
 	"github.com/straitgateway/straitgateway/controllers/security"
 	"github.com/straitgateway/straitgateway/controllers/service"
 	"github.com/straitgateway/straitgateway/controllers/transitgateway"
+	internalgw "github.com/straitgateway/straitgateway/internal/gateway"
 	"github.com/straitgateway/straitgateway/internal/loadbalancer"
 	"github.com/straitgateway/straitgateway/internal/mesh"
+	"github.com/straitgateway/straitgateway/internal/mesh/clustermesh"
 	"github.com/straitgateway/straitgateway/internal/routing"
 	"github.com/straitgateway/straitgateway/internal/routing/bgp"
 	"github.com/straitgateway/straitgateway/internal/wireguard"
@@ -116,13 +118,42 @@ func main() {
 		os.Exit(1)
 	}
 
-	// 4. Gateway API Controller
+	// 4. Gateway API Controllers (Gateway & HTTPRoute)
 	if err = (&gateway.GatewayReconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
 		Proxy:  nodeProxy,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create Gateway controller")
+		os.Exit(1)
+	}
+
+	httpRouteEngine := internalgw.NewHTTPRouteEngine()
+	if err = (&gateway.HTTPRouteReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+		Engine: httpRouteEngine,
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create HTTPRoute controller")
+		os.Exit(1)
+	}
+
+	// 5. ClusterMesh Controllers
+	cmMgr, _ := clustermesh.NewManager(clustermesh.DefaultConfig(), wgMgr, routeMgr)
+	if err = (&peering.ClusterPeeringReconciler{
+		Client:         mgr.GetClient(),
+		Scheme:         mgr.GetScheme(),
+		ClusterMeshMgr: cmMgr,
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create ClusterPeering controller")
+		os.Exit(1)
+	}
+	if err = (&peering.GlobalServiceReconciler{
+		Client:         mgr.GetClient(),
+		Scheme:         mgr.GetScheme(),
+		ClusterMeshMgr: cmMgr,
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create GlobalService controller")
 		os.Exit(1)
 	}
 

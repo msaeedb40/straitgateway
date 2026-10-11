@@ -21,6 +21,8 @@ func TestSGCTLCommands(t *testing.T) {
 		{"service list", []string{"service", "list"}},
 		{"metrics fallback", []string{"metrics", "--endpoint", "http://127.0.0.1:54321"}},
 		{"flows fallback", []string{"flows", "--endpoint", "http://127.0.0.1:54321"}},
+		{"clustermesh status", []string{"clustermesh", "status"}},
+		{"clustermesh services", []string{"clustermesh", "services"}},
 	}
 
 	for _, tc := range tests {

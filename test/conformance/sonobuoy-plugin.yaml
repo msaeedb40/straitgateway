@@ -1,0 +1,73 @@
+---
+# StraitGateway Sonobuoy plug-in manifest
+#
+# Deploy with:
+#   sonobuoy run --plugin sonobuoy-plugin.yaml --wait
+#   sonobuoy retrieve ./results && sonobuoy results ./results/*.tar.gz
+#
+# The plug-in runs two test binaries inside a privileged pod:
+#  1. CNI conformance (cni_conformance_test)
+#  2. Gateway API conformance (suite_test, requires a running cluster)
+#
+# Results are collected from /tmp/sonobuoy/results/ by the Sonobuoy sidecar.
+
+sonobuoy-config:
+  driver: Job
+  plugin-name: straitgateway-conformance
+  result-format: junit
+  result-files:
+    - /tmp/sonobuoy/results/results.json
+  source-url: https://github.com/straitgateway/straitgateway
+
+spec:
+  name: straitgateway-conformance
+  image: ghcr.io/straitgateway/conformance-runner:latest
+  command:
+    - /bin/sh
+    - -c
+    - |
+      set -e
+      mkdir -p /tmp/sonobuoy/results
+
+      echo "==> Running CNI conformance tests..."
+      /conformance/cni.test \
+        -test.v \
+        -test.output-dir /tmp/sonobuoy/results \
+        2>&1 | tee /tmp/sonobuoy/results/cni.log || true
+
+      echo "==> Running Gateway API conformance tests..."
+      /conformance/gateway.test \
+        -test.v \
+        -gateway-class straitgateway \
+        -report-output /tmp/sonobuoy/results/gateway_report.json \
+        2>&1 | tee /tmp/sonobuoy/results/gateway.log || true
+
+      # Write the Sonobuoy done signal
+      echo "/tmp/sonobuoy/results/results.json" > /tmp/sonobuoy/results/done
+      echo "==> Conformance run complete."
+  env:
+    - name: KUBECONFIG
+      value: /etc/kubeconfig/config
+  volumeMounts:
+    - name: results
+      mountPath: /tmp/sonobuoy/results
+    - name: kubeconfig
+      mountPath: /etc/kubeconfig
+      readOnly: true
+  volumes:
+    - name: results
+      emptyDir: {}
+    - name: kubeconfig
+      secret:
+        secretName: sonobuoy-kubeconfig
+  securityContext:
+    privileged: true
+    capabilities:
+      add:
+        - NET_ADMIN
+        - SYS_ADMIN
+        - BPF
+  tolerations:
+    - operator: Exists
+  hostNetwork: false
+  hostPID: false

@@ -5,27 +5,163 @@ on:
     tags:
       - 'v*'
 
+permissions:
+  contents: write
+  packages: write
+  id-token: write  # Required for Cosign OIDC signing
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_BASE: ghcr.io/${{ github.repository_owner }}
+
 jobs:
-  release:
+  build-binaries:
+    name: Build Release Binaries
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - goos: linux
+            goarch: amd64
+          - goos: linux
+            goarch: arm64
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.24'
+          go-version: '1.27.1'
+          cache: true
 
-      - name: Build All Binaries
+      - name: Install LLVM/Clang & eBPF headers
+        if: matrix.goos == 'linux' && matrix.goarch == 'amd64'
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y clang llvm libbpf-dev linux-headers-$(uname -r) || \
+          sudo apt-get install -y clang llvm libbpf-dev linux-headers-generic
+
+      - name: Build eBPF objects (amd64 only)
+        if: matrix.goos == 'linux' && matrix.goarch == 'amd64'
+        run: make build-bpf
+
+      - name: Build all binaries
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          CGO_ENABLED: 0
+          VERSION: ${{ github.ref_name }}
         run: make build
 
-      - name: Create Release
+      - name: Package binaries
+        run: |
+          SUFFIX="${{ matrix.goos }}_${{ matrix.goarch }}"
+          mkdir -p dist
+          for b in straitd sg-controller sg-cni sg-agent sgctl; do
+            cp bin/$b dist/${b}_${SUFFIX}
+          done
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: binaries-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: dist/
+          retention-days: 1
+
+  build-images:
+    name: Build & Push Container Images
+    runs-on: ubuntu-latest
+    needs: build-binaries
+    strategy:
+      fail-fast: false
+      matrix:
+        component: [straitd, sg-controller, sg-cni, sg-agent, sgctl]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract Docker metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.IMAGE_BASE }}/${{ matrix.component }}
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=sha
+
+      - name: Build and push image
+        id: build-push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./deploy/docker/${{ matrix.component }}.Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@v3
+
+      - name: Sign image with Cosign (keyless OIDC)
+        run: |
+          cosign sign --yes ${{ env.IMAGE_BASE }}/${{ matrix.component }}@${{ steps.build-push.outputs.digest }}
+
+  release:
+    name: Create GitHub Release
+    runs-on: ubuntu-latest
+    needs: [build-binaries, build-images]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download all binary artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: binaries-*
+          path: dist/
+          merge-multiple: true
+
+      - name: Generate checksums
+        run: |
+          cd dist
+          sha256sum * > checksums.txt
+          cat checksums.txt
+
+      - name: Generate SBOM
+        uses: anchore/sbom-action@v0
+        with:
+          path: .
+          format: spdx-json
+          output-file: sbom.spdx.json
+
+      - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
+          generate_release_notes: true
+          fail_on_unmatched_files: false
           files: |
-            bin/straitd
-            bin/sg-controller
-            bin/sg-cni
-            bin/sg-agent
-            bin/sgctl
+            dist/*
+            sbom.spdx.json

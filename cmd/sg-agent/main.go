@@ -17,10 +17,12 @@ func main() {
 	var nodeName string
 	var nodeIP string
 	var localASN uint
+	var metricsAddr string
 
 	flag.StringVar(&nodeName, "node-name", "", "Name of the Kubernetes node")
 	flag.StringVar(&nodeIP, "node-ip", "127.0.0.1", "Primary IP address of the node")
 	flag.UintVar(&localASN, "asn", 65001, "Local BGP Autonomous System Number")
+	flag.StringVar(&metricsAddr, "metrics-bind-addr", ":9090", "TCP address to bind Prometheus & HTTP observability server")
 	flag.Parse()
 
 	if nodeName == "" {
@@ -31,9 +33,10 @@ func main() {
 	fmt.Printf("Starting sg-agent (StraitGateway Node Agent) - %s\n", version.Info())
 
 	cfg := agent.Config{
-		NodeName: nodeName,
-		NodeIP:   net.ParseIP(nodeIP),
-		LocalASN: uint32(localASN),
+		NodeName:        nodeName,
+		NodeIP:          net.ParseIP(nodeIP),
+		LocalASN:        uint32(localASN),
+		MetricsBindAddr: metricsAddr,
 	}
 
 	mgr, err := agent.NewManager(cfg)

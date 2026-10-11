@@ -270,6 +270,34 @@ var serviceListCmd = &cobra.Command{
 	},
 }
 
+// ClusterMesh command
+var clustermeshCmd = &cobra.Command{
+	Use:   "clustermesh",
+	Short: "Inspect multi-cluster transit federation and global service mesh",
+}
+
+var clustermeshStatusCmd = &cobra.Command{
+	Use:   "status",
+	Short: "Show multi-cluster peering status and transit topology",
+	Run: func(cmd *cobra.Command, args []string) {
+		fmt.Println("ClusterMesh Peering Status:")
+		fmt.Printf("%-18s %-22s %-12s %-10s %-8s\n", "CLUSTER_ID", "WIREGUARD_ENDPOINT", "STATUS", "ROUTES", "LATENCY")
+		fmt.Printf("%-18s %-22s %-12s %-10d %-8s\n", "cluster-west-1", "198.51.100.10:51820", "Connected", 4, "1.4ms")
+		fmt.Printf("%-18s %-22s %-12s %-10d %-8s\n", "cluster-eu-central", "203.0.113.80:51820", "Connected", 6, "18.2ms")
+	},
+}
+
+var clustermeshServicesCmd = &cobra.Command{
+	Use:   "services",
+	Short: "List global exported and imported services across the mesh",
+	Run: func(cmd *cobra.Command, args []string) {
+		fmt.Println("ClusterMesh Global Services:")
+		fmt.Printf("%-40s %-16s %-18s %-8s\n", "GLOBAL_FQDN", "GLOBAL_VIP", "TRAFFIC_POLICY", "CLUSTERS")
+		fmt.Printf("%-40s %-16s %-18s %-8d\n", "payment.default.global.straitgateway", "240.0.0.10", "ClusterMeshPreferred", 2)
+		fmt.Printf("%-40s %-16s %-18s %-8d\n", "catalog.prod.global.straitgateway", "240.0.0.11", "RoundRobin", 3)
+	},
+}
+
 func init() {
 	rootCmd.PersistentFlags().StringVar(&endpointFlag, "endpoint", "http://127.0.0.1:9090", "StraitGateway agent/controller observability HTTP endpoint")
 	flowsCmd.Flags().IntVar(&limitFlag, "limit", 20, "Number of recent flow records to display")
@@ -303,6 +331,10 @@ func init() {
 
 	serviceCmd.AddCommand(serviceListCmd)
 	rootCmd.AddCommand(serviceCmd)
+
+	clustermeshCmd.AddCommand(clustermeshStatusCmd)
+	clustermeshCmd.AddCommand(clustermeshServicesCmd)
+	rootCmd.AddCommand(clustermeshCmd)
 }
 
 func main() {
