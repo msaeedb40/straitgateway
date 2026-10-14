@@ -20,7 +20,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.27.1'
+          go-version: '1.27.2'
           cache: true
 
       - name: Run unit tests (race detector)
@@ -36,7 +36,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.27.1'
+          go-version: '1.27.2'
           cache: true
 
       - name: Run fuzz unit tests (no BPF/root required)
@@ -52,7 +52,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.27.1'
+          go-version: '1.27.2'
           cache: true
 
       - name: Run RoCEv2 unit tests
@@ -68,7 +68,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.27.1'
+          go-version: '1.27.2'
           cache: true
 
       - name: Run AIOps unit tests
