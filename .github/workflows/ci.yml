@@ -5,6 +5,11 @@ on:
     branches: [main, works]
   pull_request:
     branches: [main, works]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read
@@ -22,6 +27,9 @@ jobs:
         with:
           go-version: '1.27.1'
           cache: true
+
+      - name: Verify dependencies
+        run: go mod verify
 
       - name: Go Format check
         run: |
@@ -67,7 +75,9 @@ jobs:
           sudo apt-get install -y clang llvm libbpf-dev linux-headers-generic
 
       - name: Build eBPF objects
-        run: make build-bpf
+        run: |
+          make build-bpf
+          make build-bpf-roce
 
       - name: Build all Go binaries
         run: make build

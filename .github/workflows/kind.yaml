@@ -98,16 +98,16 @@ jobs:
 
       - name: Install KinD
         run: |
-          curl -Lo /usr/local/bin/kind \
-            https://kind.sigs.k8s.io/dl/${KIND_VERSION}/kind-linux-amd64
-          chmod +x /usr/local/bin/kind
+          curl -Lo ./kind https://kind.sigs.k8s.io/dl/${{ env.KIND_VERSION }}/kind-linux-amd64
+          chmod +x ./kind
+          sudo mv ./kind /usr/local/bin/kind
           kind version
 
       - name: Install kubectl
         run: |
-          curl -Lo /usr/local/bin/kubectl \
-            https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/linux/amd64/kubectl
-          chmod +x /usr/local/bin/kubectl
+          curl -Lo ./kubectl https://dl.k8s.io/release/${{ env.KUBECTL_VERSION }}/bin/linux/amd64/kubectl
+          chmod +x ./kubectl
+          sudo mv ./kubectl /usr/local/bin/kubectl
           kubectl version --client
 
       - name: Create KinD cluster config
@@ -278,12 +278,12 @@ jobs:
 
       - name: Install KinD & kubectl
         run: |
-          curl -Lo /usr/local/bin/kind \
-            https://kind.sigs.k8s.io/dl/${KIND_VERSION}/kind-linux-amd64
-          chmod +x /usr/local/bin/kind
-          curl -Lo /usr/local/bin/kubectl \
-            https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/linux/amd64/kubectl
-          chmod +x /usr/local/bin/kubectl
+          curl -Lo ./kind https://kind.sigs.k8s.io/dl/${{ env.KIND_VERSION }}/kind-linux-amd64
+          chmod +x ./kind
+          sudo mv ./kind /usr/local/bin/kind
+          curl -Lo ./kubectl https://dl.k8s.io/release/${{ env.KUBECTL_VERSION }}/bin/linux/amd64/kubectl
+          chmod +x ./kubectl
+          sudo mv ./kubectl /usr/local/bin/kubectl
 
       - name: Create KinD cluster (conformance)
         run: |
@@ -430,12 +430,12 @@ jobs:
 
       - name: Install KinD & kubectl
         run: |
-          curl -Lo /usr/local/bin/kind \
-            https://kind.sigs.k8s.io/dl/${KIND_VERSION}/kind-linux-amd64
-          chmod +x /usr/local/bin/kind
-          curl -Lo /usr/local/bin/kubectl \
-            https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/linux/amd64/kubectl
-          chmod +x /usr/local/bin/kubectl
+          curl -Lo ./kind https://kind.sigs.k8s.io/dl/${{ env.KIND_VERSION }}/kind-linux-amd64
+          chmod +x ./kind
+          sudo mv ./kind /usr/local/bin/kind
+          curl -Lo ./kubectl https://dl.k8s.io/release/${{ env.KUBECTL_VERSION }}/bin/linux/amd64/kubectl
+          chmod +x ./kubectl
+          sudo mv ./kubectl /usr/local/bin/kubectl
 
       - name: Install tc (iproute2) for netem chaos
         run: sudo apt-get install -y iproute2
