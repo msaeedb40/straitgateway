@@ -5,7 +5,7 @@
 # ============================================================
 
 # ── Stage 0: LLVM/eBPF toolchain base ──
-FROM golang:1.27.1-bookworm AS bpf-toolchain
+FROM golang:1.27.2-bookworm AS bpf-toolchain
 
 RUN apt-get update -q && apt-get install -y --no-install-recommends \
     clang \

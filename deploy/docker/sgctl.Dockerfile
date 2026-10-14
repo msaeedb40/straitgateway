@@ -4,7 +4,7 @@
 # ============================================================
 
 # ── Stage 1: Go module cache ──
-FROM golang:1.27.1-bookworm AS go-deps
+FROM golang:1.27.2-bookworm AS go-deps
 
 WORKDIR /build
 COPY go.mod go.sum ./
