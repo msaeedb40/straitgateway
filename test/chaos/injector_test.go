@@ -152,7 +152,7 @@ func TestClearAll(t *testing.T) {
 	if err != nil {
 		t.Fatalf("chaos.New: %v", err)
 	}
-	defer inj.Close()
+	defer func() { _ = inj.Close() }()
 
 	if err := inj.ClearAll(); err != nil {
 		t.Errorf("ClearAll on empty injector: %v", err)

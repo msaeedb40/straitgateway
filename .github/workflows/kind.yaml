@@ -215,6 +215,7 @@ jobs:
 
       - name: Deploy StraitGateway namespace & RBAC
         run: |
+          kubectl apply -f config/crd/bases
           kubectl apply -f deploy/namespace.yaml
           kubectl apply -f deploy/serviceaccount.yaml
 
@@ -365,6 +366,7 @@ jobs:
 
       - name: Deploy StraitGateway (full stack)
         run: |
+          kubectl apply -f config/crd/bases
           kubectl apply -f deploy/namespace.yaml
           kubectl apply -f deploy/serviceaccount.yaml
           kubectl apply -f deploy/cni.yaml
@@ -504,6 +506,7 @@ jobs:
             sed -i "s|straitgateway/\(.*\):v[0-9.]*|straitgateway/\1:${IMAGE_TAG}|g" {} +
           find deploy/ -name "*.yaml" -exec \
             sed -i "s|imagePullPolicy: IfNotPresent|imagePullPolicy: Never|g" {} +
+          kubectl apply -f config/crd/bases
           kubectl apply -f deploy/namespace.yaml
           kubectl apply -f deploy/serviceaccount.yaml
           kubectl apply -f deploy/cni.yaml

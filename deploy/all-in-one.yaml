@@ -767,11 +767,13 @@ rules:
       - transitroutes
       - securitypolicies
       - servicemeshpolicies
+      - straitgatewayconfigs/status
+      - transitgateways/status
+      - gatewaypeers/status
+      - transitroutes/status
+      - securitypolicies/status
+      - servicemeshpolicies/status
     verbs: ["get", "list", "watch", "update", "patch"]
-  - apiGroups: ["straitgateway.io"]
-    resources:
-      - "*/status"
-    verbs: ["get", "update", "patch"]
   - apiGroups: [""]
     resources:
       - events
@@ -819,11 +821,13 @@ rules:
       - transitroutes
       - securitypolicies
       - servicemeshpolicies
+      - straitgatewayconfigs/status
+      - transitgateways/status
+      - gatewaypeers/status
+      - transitroutes/status
+      - securitypolicies/status
+      - servicemeshpolicies/status
     verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
-  - apiGroups: ["straitgateway.io"]
-    resources:
-      - "*/status"
-    verbs: ["get", "update", "patch"]
   - apiGroups: ["coordination.k8s.io"]
     resources:
       - leases

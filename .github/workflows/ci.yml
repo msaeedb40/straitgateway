@@ -75,9 +75,7 @@ jobs:
           sudo apt-get install -y clang llvm libbpf-dev linux-headers-generic
 
       - name: Build eBPF objects
-        run: |
-          make build-bpf
-          make build-bpf-roce
+        run: make build-bpf
 
       - name: Build all Go binaries
         run: make build
