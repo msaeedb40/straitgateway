@@ -61,6 +61,7 @@ LABEL org.opencontainers.image.licenses="Apache-2.0"
 LABEL org.opencontainers.image.vendor="StraitGateway"
 
 COPY --from=go-builder /out/sg-cni /opt/cni/bin/sg-cni
+RUN ln -sf /opt/cni/bin/sg-cni /usr/local/bin/sg-cni
 
 # Embed the CNI conflist template — rendered at install time
 COPY deploy/cni-config/10-straitgateway.conflist.tmpl \

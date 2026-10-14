@@ -1083,8 +1083,9 @@ spec:
             - -c
             - |
               set -e
-              echo "Installing StraitGateway CNI binary to host /opt/cni/bin..."
-              cp -f /usr/local/bin/sg-cni /host/opt/cni/bin/straitgateway
+              BIN_SRC="/usr/local/bin/sg-cni"
+              [ ! -f "$BIN_SRC" ] && BIN_SRC="/opt/cni/bin/sg-cni"
+              cp -f "$BIN_SRC" /host/opt/cni/bin/straitgateway
               chmod +x /host/opt/cni/bin/straitgateway
               
               echo "Generating 10-straitgateway.conflist in /etc/cni/net.d..."
@@ -1130,10 +1131,12 @@ spec:
             - -c
             - |
               trap 'exit 0' SIGTERM
+              BIN_SRC="/usr/local/bin/sg-cni"
+              [ ! -f "$BIN_SRC" ] && BIN_SRC="/opt/cni/bin/sg-cni"
               while true; do
                 if [ ! -f /host/opt/cni/bin/straitgateway ]; then
                   echo "Restoring missing CNI binary..."
-                  cp -f /usr/local/bin/sg-cni /host/opt/cni/bin/straitgateway
+                  cp -f "$BIN_SRC" /host/opt/cni/bin/straitgateway
                   chmod +x /host/opt/cni/bin/straitgateway
                 fi
                 sleep 60
