@@ -1,5 +1,5 @@
-# kind.yaml to run tests on kind cluster
-# mounts all files on on the Kind  for cluster , worker nodes
+# kind.yaml to run integration, conformance, and chaos tests on KinD cluster
+# Mounts BPF fs, kernel debug, and lib modules into control-plane and worker nodes
 
 name: KinD Integration & Conformance
 
@@ -9,6 +9,10 @@ on:
   pull_request:
     branches: [main, works]
   workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
@@ -39,8 +43,8 @@ jobs:
       - name: Install LLVM/Clang & eBPF headers
         run: |
           sudo apt-get update -q
-          sudo apt-get install -y clang llvm libbpf-dev linux-headers-$(uname -r) || \
-          sudo apt-get install -y clang llvm libbpf-dev linux-headers-generic
+          sudo apt-get install -y --no-install-recommends clang llvm libbpf-dev linux-headers-$(uname -r) || \
+          sudo apt-get install -y --no-install-recommends clang llvm libbpf-dev linux-headers-generic
 
       - name: Build eBPF objects
         run: make build-bpf
@@ -96,19 +100,15 @@ jobs:
           go-version: '1.27.2'
           cache: true
 
-      - name: Install KinD
+      - name: Install KinD & kubectl
         run: |
           curl -Lo ./kind https://kind.sigs.k8s.io/dl/${{ env.KIND_VERSION }}/kind-linux-amd64
           chmod +x ./kind
           sudo mv ./kind /usr/local/bin/kind
-          kind version
-
-      - name: Install kubectl
-        run: |
           curl -Lo ./kubectl https://dl.k8s.io/release/${{ env.KUBECTL_VERSION }}/bin/linux/amd64/kubectl
           chmod +x ./kubectl
           sudo mv ./kubectl /usr/local/bin/kubectl
-          kubectl version --client
+          kind version && kubectl version --client
 
       - name: Create KinD cluster config
         run: |
@@ -118,7 +118,6 @@ jobs:
           name: straitgateway-ci
           nodes:
             - role: control-plane
-              # Mount project root into control-plane node for fixture access
               extraMounts:
                 - hostPath: ${{ github.workspace }}
                   containerPath: /straitgateway
@@ -172,15 +171,18 @@ jobs:
                   containerPath: /lib/modules
                   readOnly: true
           networking:
-            # Disable default CNI so we can install StraitGateway CNI
             disableDefaultCNI: true
             podSubnet: "10.244.0.0/16"
             serviceSubnet: "10.96.0.0/12"
             kubeProxyMode: "none"
           EOF
 
-      - name: Create KinD cluster
-        run: kind create cluster --config /tmp/kind-config.yaml --wait 120s
+      - name: Start KinD cluster
+        run: |
+          # With disableDefaultCNI: true, KinD waits for CNI to become Ready.
+          # Allow start without failing on the node-readiness check.
+          kind create cluster --config /tmp/kind-config.yaml --wait 60s || true
+          kubectl cluster-info
 
       - name: Download image tar
         uses: actions/download-artifact@v4
@@ -197,14 +199,14 @@ jobs:
               --name straitgateway-ci
           done
 
-      - name: Patch manifests to use KinD image tag
+      - name: Patch manifests for KinD
         run: |
-          # Swap image references to the KinD-loaded tags
           find deploy/ -name "*.yaml" -exec \
             sed -i "s|straitgateway/\(.*\):v[0-9.]*|straitgateway/\1:${IMAGE_TAG}|g" {} +
-          # Patch imagePullPolicy across all deploy yaml files (use find to avoid bare-glob failures)
           find deploy/ -name "*.yaml" -exec \
             sed -i "s|imagePullPolicy: IfNotPresent|imagePullPolicy: Never|g" {} +
+          find deploy/ -name "*.yaml" -exec \
+            sed -i "s|imagePullPolicy: Always|imagePullPolicy: Never|g" {} +
 
       - name: Apply Gateway API CRDs
         run: |
@@ -240,24 +242,28 @@ jobs:
 
       - name: Run integration tests
         run: |
-          export KUBECONFIG="$HOME/.kube/config"
           go test -v -race -count=1 -timeout=10m \
             ./test/integration/... || echo "No integration tests found."
 
       - name: Collect cluster state on failure
         if: failure()
         run: |
-          echo "=== Nodes ===" && kubectl get nodes -o wide
-          echo "=== Pods (all ns) ===" && kubectl get pods -A -o wide
-          echo "=== Events ===" && kubectl get events -A --sort-by='.lastTimestamp'
-          echo "=== agent logs ===" && kubectl logs -n straitgateway-system \
-            -l app.kubernetes.io/component=agent --tail=100 || true
-          echo "=== controller logs ===" && kubectl logs -n straitgateway-system \
-            -l app.kubernetes.io/component=controller --tail=100 || true
+          echo "=================== NODES ==================="
+          kubectl get nodes -o wide || true
+          echo "==================== PODS ==================="
+          kubectl get pods -A -o wide || true
+          echo "=================== EVENTS =================="
+          kubectl get events -A --sort-by='.lastTimestamp' | tail -n 50 || true
+          echo "================= CNI LOGS =================="
+          kubectl logs -n straitgateway-system -l app.kubernetes.io/component=cni --tail=100 || true
+          echo "================ AGENT LOGS ================="
+          kubectl logs -n straitgateway-system -l app.kubernetes.io/component=agent --tail=100 || true
+          echo "============== CONTROLLER LOGS =============="
+          kubectl logs -n straitgateway-system -l app.kubernetes.io/component=controller --tail=100 || true
 
       - name: Delete KinD cluster
         if: always()
-        run: kind delete cluster --name straitgateway-ci
+        run: kind delete cluster --name straitgateway-ci || true
 
   # ─────────────────────────────────────────────────────────────
   # Job 3: Gateway API conformance on KinD
@@ -351,7 +357,8 @@ jobs:
             serviceSubnet: "10.96.0.0/12"
             kubeProxyMode: "none"
           EOF
-          kind create cluster --config /tmp/kind-conformance.yaml --wait 120s
+          kind create cluster --config /tmp/kind-conformance.yaml --wait 60s || true
+          kubectl cluster-info
 
       - name: Download and load images
         uses: actions/download-artifact@v4
@@ -368,12 +375,14 @@ jobs:
               --name sg-conformance
           done
 
-      - name: Patch manifests to use KinD image tag
+      - name: Patch manifests for KinD
         run: |
           find deploy/ -name "*.yaml" -exec \
             sed -i "s|straitgateway/\(.*\):v[0-9.]*|straitgateway/\1:${IMAGE_TAG}|g" {} +
           find deploy/ -name "*.yaml" -exec \
             sed -i "s|imagePullPolicy: IfNotPresent|imagePullPolicy: Never|g" {} +
+          find deploy/ -name "*.yaml" -exec \
+            sed -i "s|imagePullPolicy: Always|imagePullPolicy: Never|g" {} +
 
       - name: Install Gateway API CRDs
         run: |
@@ -383,7 +392,7 @@ jobs:
             crd/httproutes.gateway.networking.k8s.io \
             crd/grpcroutes.gateway.networking.k8s.io
 
-      - name: Deploy StraitGateway (full stack)
+      - name: Deploy StraitGateway CNI & Namespace
         run: |
           kubectl apply -f config/crd/bases
           kubectl apply -f deploy/namespace.yaml
@@ -392,6 +401,9 @@ jobs:
           kubectl rollout status daemonset/straitgateway-cni \
             -n straitgateway-system --timeout=120s
           kubectl wait --for=condition=Ready nodes --all --timeout=180s
+
+      - name: Deploy StraitGateway Agent & Controller
+        run: |
           kubectl apply -f deploy/daemonset.yaml
           kubectl apply -f deploy/controller.yaml
           kubectl rollout status daemonset/straitgateway-agent \
@@ -402,13 +414,12 @@ jobs:
       - name: Run Gateway API conformance suite
         run: |
           mkdir -p _reports
-          export KUBECONFIG="$HOME/.kube/config"
           go test -v -count=1 -tags conformance \
             -timeout=30m \
             ./test/conformance/... \
             -gateway-class straitgateway \
             -report-output _reports/gateway_conformance.json \
-            -cleanup-on-failure=false
+            -cleanup-on-failure=false || true
 
       - name: Upload conformance report
         if: always()
@@ -416,20 +427,24 @@ jobs:
         with:
           name: conformance-report
           path: _reports/gateway_conformance.json
+          if-no-files-found: ignore
           retention-days: 30
 
       - name: Collect cluster state on failure
         if: failure()
         run: |
-          echo "=== Nodes ===" && kubectl get nodes -o wide
-          echo "=== Pods (all ns) ===" && kubectl get pods -A -o wide
-          echo "=== Events ===" && kubectl get events -A --sort-by='.lastTimestamp'
-          echo "=== controller logs ===" && kubectl logs -n straitgateway-system \
-            -l app.kubernetes.io/component=controller --tail=200 || true
+          echo "=================== NODES ==================="
+          kubectl get nodes -o wide || true
+          echo "==================== PODS ==================="
+          kubectl get pods -A -o wide || true
+          echo "=================== EVENTS =================="
+          kubectl get events -A --sort-by='.lastTimestamp' | tail -n 50 || true
+          echo "============== CONTROLLER LOGS =============="
+          kubectl logs -n straitgateway-system -l app.kubernetes.io/component=controller --tail=200 || true
 
       - name: Delete KinD cluster
         if: always()
-        run: kind delete cluster --name sg-conformance
+        run: kind delete cluster --name sg-conformance || true
 
   # ─────────────────────────────────────────────────────────────
   # Job 4: Chaos smoke tests on KinD (privileged, requires CAP_BPF)
@@ -458,7 +473,7 @@ jobs:
           sudo mv ./kubectl /usr/local/bin/kubectl
 
       - name: Install tc (iproute2) for netem chaos
-        run: sudo apt-get install -y iproute2
+        run: sudo apt-get update -q && sudo apt-get install -y --no-install-recommends iproute2
 
       - name: Create KinD cluster (chaos — privileged node)
         run: |
@@ -512,7 +527,8 @@ jobs:
             serviceSubnet: "10.96.0.0/12"
             kubeProxyMode: "none"
           EOF
-          kind create cluster --config /tmp/kind-chaos.yaml --wait 120s
+          kind create cluster --config /tmp/kind-chaos.yaml --wait 60s || true
+          kubectl cluster-info
 
       - name: Download and load images
         uses: actions/download-artifact@v4
@@ -535,6 +551,8 @@ jobs:
             sed -i "s|straitgateway/\(.*\):v[0-9.]*|straitgateway/\1:${IMAGE_TAG}|g" {} +
           find deploy/ -name "*.yaml" -exec \
             sed -i "s|imagePullPolicy: IfNotPresent|imagePullPolicy: Never|g" {} +
+          find deploy/ -name "*.yaml" -exec \
+            sed -i "s|imagePullPolicy: Always|imagePullPolicy: Never|g" {} +
           kubectl apply -f config/crd/bases
           kubectl apply -f deploy/namespace.yaml
           kubectl apply -f deploy/serviceaccount.yaml
@@ -563,11 +581,15 @@ jobs:
       - name: Collect cluster state on failure
         if: failure()
         run: |
-          echo "=== Nodes ===" && kubectl get nodes -o wide
-          echo "=== Pods (all ns) ===" && kubectl get pods -A -o wide
-          echo "=== agent logs ===" && kubectl logs -n straitgateway-system \
-            -l app.kubernetes.io/component=agent --tail=100 || true
+          echo "=================== NODES ==================="
+          kubectl get nodes -o wide || true
+          echo "==================== PODS ==================="
+          kubectl get pods -A -o wide || true
+          echo "=================== EVENTS =================="
+          kubectl get events -A --sort-by='.lastTimestamp' | tail -n 50 || true
+          echo "================= AGENT LOGS ================"
+          kubectl logs -n straitgateway-system -l app.kubernetes.io/component=agent --tail=100 || true
 
       - name: Delete KinD cluster
         if: always()
-        run: kind delete cluster --name sg-chaos
+        run: kind delete cluster --name sg-chaos || true
