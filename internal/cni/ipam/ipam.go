@@ -30,6 +30,7 @@ type IPAM struct {
 // Config holds configuration parameters for the IP allocator
 type Config struct {
 	SubnetV4  string `json:"subnetV4"`
+	Subnet    string `json:"subnet,omitempty"`
 	SubnetV6  string `json:"subnetV6,omitempty"`
 	StateFile string `json:"stateFile,omitempty"`
 }
@@ -39,6 +40,9 @@ const DefaultStatePath = "/var/lib/cni/straitgateway/ipam.json"
 
 // NewIPAM creates and loads an IPAM instance
 func NewIPAM(cfg Config) (*IPAM, error) {
+	if cfg.SubnetV4 == "" && cfg.Subnet != "" {
+		cfg.SubnetV4 = cfg.Subnet
+	}
 	if cfg.SubnetV4 == "" {
 		cfg.SubnetV4 = "10.244.0.0/24"
 	}

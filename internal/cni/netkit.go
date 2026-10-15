@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
 	"time"
@@ -70,6 +71,17 @@ func DeriveHostIfName(containerID string) string {
 	return fmt.Sprintf("sg%s", hex.EncodeToString(hash[:5]))
 }
 
+// DerivePeerIfName generates a deterministic temporary interface name for the peer endpoint
+// before moving it into the target container namespace.
+// Max 12 characters ("sgp" + 8 hex digits), well below the 15-character Linux IFNAMSIZ limit.
+func DerivePeerIfName(containerID string) string {
+	if containerID == "" {
+		return "sgp00000000"
+	}
+	hash := sha256.Sum256([]byte(containerID + ":peer"))
+	return fmt.Sprintf("sgp%s", hex.EncodeToString(hash[:4]))
+}
+
 // SetupPodInterface creates the host/container interface pair and configures pod networking
 func SetupPodInterface(cfg PodInterfaceConfig) (*InterfaceResult, error) {
 	if cfg.MTU == 0 {
@@ -82,12 +94,31 @@ func SetupPodInterface(cfg PodInterfaceConfig) (*InterfaceResult, error) {
 		cfg.HostIfName = DeriveHostIfName(cfg.ContainerID)
 	}
 
-	// Try creating netkit pair first; if not supported in kernel, fallback to veth
+	// Temporary name for the container-side interface while in the host network namespace.
+	// This prevents looking up or moving the host's existing interface (e.g. host eth0).
+	tmpPeer := DerivePeerIfName(cfg.ContainerID)
+
+	// Clean up any stale host or peer links from earlier aborted runs
+	if staleHost, err := netlink.LinkByName(cfg.HostIfName); err == nil {
+		_ = netlink.LinkDel(staleHost)
+	}
+	if stalePeer, err := netlink.LinkByName(tmpPeer); err == nil {
+		_ = netlink.LinkDel(stalePeer)
+	}
+
+	// Try creating netkit pair first; if not supported in kernel/iproute2, fallback to veth
 	devType := DeviceTypeNetkit
-	err := createNetkitPair(cfg.HostIfName, cfg.ContainerIfName)
+	err := createNetkitPair(cfg.HostIfName, tmpPeer)
 	if err != nil {
 		devType = DeviceTypeVeth
-		if errVeth := createVethPair(cfg.HostIfName, cfg.ContainerIfName); errVeth != nil {
+		// Ensure no half-created links remain before veth creation
+		if staleHost, errFind := netlink.LinkByName(cfg.HostIfName); errFind == nil {
+			_ = netlink.LinkDel(staleHost)
+		}
+		if stalePeer, errFind := netlink.LinkByName(tmpPeer); errFind == nil {
+			_ = netlink.LinkDel(stalePeer)
+		}
+		if errVeth := createVethPair(cfg.HostIfName, tmpPeer); errVeth != nil {
 			return nil, fmt.Errorf("failed to create netkit (%v) and veth fallback (%v)", err, errVeth)
 		}
 	}
@@ -99,16 +130,17 @@ func SetupPodInterface(cfg PodInterfaceConfig) (*InterfaceResult, error) {
 	}
 
 	// Retrieve peer link before moving to container namespace
-	peerLink, err := netlink.LinkByName(cfg.ContainerIfName)
+	peerLink, err := netlink.LinkByName(tmpPeer)
 	if err != nil {
 		_ = netlink.LinkDel(hostLink)
-		return nil, fmt.Errorf("find peer link %s: %w", cfg.ContainerIfName, err)
+		return nil, fmt.Errorf("find peer link %s: %w", tmpPeer, err)
 	}
 
 	// Open container netns
 	targetNs, err := netns.GetFromPath(cfg.NetNSPath)
 	if err != nil {
 		_ = netlink.LinkDel(hostLink)
+		_ = netlink.LinkDel(peerLink)
 		return nil, fmt.Errorf("open netns %s: %w", cfg.NetNSPath, err)
 	}
 	defer func() { _ = targetNs.Close() }()
@@ -116,6 +148,7 @@ func SetupPodInterface(cfg PodInterfaceConfig) (*InterfaceResult, error) {
 	// Move peer interface to container netns
 	if err := netlink.LinkSetNsFd(peerLink, int(targetNs)); err != nil {
 		_ = netlink.LinkDel(hostLink)
+		_ = netlink.LinkDel(peerLink)
 		return nil, fmt.Errorf("move link to netns: %w", err)
 	}
 
@@ -131,10 +164,22 @@ func SetupPodInterface(cfg PodInterfaceConfig) (*InterfaceResult, error) {
 	var containerMAC string
 
 	err = executeInNetNS(targetNs, func() error {
-		link, err := netlink.LinkByName(cfg.ContainerIfName)
+		link, err := netlink.LinkByName(tmpPeer)
 		if err != nil {
-			return fmt.Errorf("find link in netns: %w", err)
+			return fmt.Errorf("find link %s in netns: %w", tmpPeer, err)
 		}
+
+		// Rename peer interface from temporary name to target container interface name (e.g., eth0)
+		if err := netlink.LinkSetName(link, cfg.ContainerIfName); err != nil {
+			return fmt.Errorf("rename %s to %s in netns: %w", tmpPeer, cfg.ContainerIfName, err)
+		}
+
+		// Re-fetch link by new name
+		link, err = netlink.LinkByName(cfg.ContainerIfName)
+		if err != nil {
+			return fmt.Errorf("find link %s after rename: %w", cfg.ContainerIfName, err)
+		}
+
 		containerIfIndex = link.Attrs().Index
 		containerMAC = link.Attrs().HardwareAddr.String()
 
@@ -225,14 +270,12 @@ func TeardownPodInterface(containerID, hostIfName string) error {
 	return nil
 }
 
-func createNetkitPair(hostName, _ string) error {
-	la := netlink.NewLinkAttrs()
-	la.Name = hostName
-	netkitLink := &netlink.GenericLink{
-		LinkAttrs: la,
-		LinkType:  "netkit",
+func createNetkitPair(hostName, peerName string) error {
+	cmd := exec.Command("ip", "link", "add", "dev", hostName, "type", "netkit", "peer", "name", peerName)
+	if out, err := cmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("create netkit pair: %w (%s)", err, string(out))
 	}
-	return netlink.LinkAdd(netkitLink)
+	return nil
 }
 
 func createVethPair(hostName, peerName string) error {

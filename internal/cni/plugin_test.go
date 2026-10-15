@@ -64,6 +64,30 @@ func TestDeriveHostIfName(t *testing.T) {
 	}
 }
 
+func TestDerivePeerIfName(t *testing.T) {
+	cID := "c1234567890abcdef"
+	name1 := DerivePeerIfName(cID)
+	name2 := DerivePeerIfName(cID)
+
+	if name1 != name2 {
+		t.Errorf("expected deterministic peer ifname, got %s and %s", name1, name2)
+	}
+	if len(name1) > 15 {
+		t.Errorf("peer ifname too long for IFNAMSIZ: %s (len %d)", name1, len(name1))
+	}
+	if name1[:3] != "sgp" {
+		t.Errorf("expected sgp prefix, got %s", name1)
+	}
+	// Verify that host interface name and peer interface name are strictly distinct
+	hostName := DeriveHostIfName(cID)
+	if name1 == hostName {
+		t.Errorf("peer ifname and host ifname must never be equal: %s == %s", name1, hostName)
+	}
+	if name1 == "eth0" || hostName == "eth0" {
+		t.Errorf("derived ifnames must never collide with host default eth0")
+	}
+}
+
 func TestGenerateAndInstallCNIConfig(t *testing.T) {
 	tmpDir, err := os.MkdirTemp("", "cni-conf-test-*")
 	if err != nil {

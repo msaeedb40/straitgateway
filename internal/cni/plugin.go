@@ -16,6 +16,7 @@ import (
 type NetConf struct {
 	cniTypes.NetConf
 	SubnetV4  string      `json:"subnetV4"`
+	Subnet    string      `json:"subnet,omitempty"`
 	SubnetV6  string      `json:"subnetV6,omitempty"`
 	MTU       int         `json:"mtu,omitempty"`
 	StateFile string      `json:"stateFile,omitempty"`
@@ -28,8 +29,14 @@ func ParseNetConf(bytes []byte) (*NetConf, error) {
 	if err := json.Unmarshal(bytes, conf); err != nil {
 		return nil, fmt.Errorf("failed to parse netconf: %w", err)
 	}
+	if conf.SubnetV4 == "" && conf.Subnet != "" {
+		conf.SubnetV4 = conf.Subnet
+	}
 	if conf.SubnetV4 == "" && conf.IPAM.SubnetV4 != "" {
 		conf.SubnetV4 = conf.IPAM.SubnetV4
+	}
+	if conf.SubnetV4 == "" && conf.IPAM.Subnet != "" {
+		conf.SubnetV4 = conf.IPAM.Subnet
 	}
 	if conf.SubnetV4 == "" {
 		conf.SubnetV4 = "10.244.0.0/24"
@@ -51,6 +58,9 @@ func CmdAdd(args *skel.CmdArgs) error {
 		SubnetV4:  conf.SubnetV4,
 		SubnetV6:  conf.SubnetV6,
 		StateFile: conf.StateFile,
+	}
+	if ipamConfig.StateFile == "" && conf.IPAM.StateFile != "" {
+		ipamConfig.StateFile = conf.IPAM.StateFile
 	}
 	ipamMgr, err := ipam.NewIPAM(ipamConfig)
 	if err != nil {
@@ -128,6 +138,9 @@ func CmdDel(args *skel.CmdArgs) error {
 		SubnetV4:  conf.SubnetV4,
 		SubnetV6:  conf.SubnetV6,
 		StateFile: conf.StateFile,
+	}
+	if ipamConfig.StateFile == "" && conf.IPAM.StateFile != "" {
+		ipamConfig.StateFile = conf.IPAM.StateFile
 	}
 	ipamMgr, err := ipam.NewIPAM(ipamConfig)
 	if err == nil {
