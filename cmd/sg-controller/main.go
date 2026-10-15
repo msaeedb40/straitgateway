@@ -4,7 +4,9 @@ import (
 	"flag"
 	"fmt"
 	"net"
+	"net/http"
 	"os"
+	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	discoveryv1 "k8s.io/api/discovery/v1"
@@ -49,13 +51,24 @@ func init() {
 }
 
 func main() {
+	if len(os.Args) > 1 && os.Args[1] == "healthz" {
+		client := &http.Client{Timeout: 3 * time.Second}
+		resp, err := client.Get("http://127.0.0.1:8081/healthz")
+		if err != nil || resp.StatusCode != http.StatusOK {
+			os.Exit(1)
+		}
+		os.Exit(0)
+	}
+
 	var metricsAddr string
 	var probeAddr string
 	var enableLeaderElection bool
+	var syncPeriod time.Duration
 
 	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
 	flag.BoolVar(&enableLeaderElection, "leader-elect", false, "Enable leader election for controller manager.")
+	flag.DurationVar(&syncPeriod, "sync-period", 30*time.Second, "Reconciliation sync period.")
 
 	opts := zap.Options{
 		Development: true,

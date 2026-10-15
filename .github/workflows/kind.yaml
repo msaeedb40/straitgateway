@@ -240,10 +240,9 @@ jobs:
 
       - name: Run integration tests
         run: |
+          export KUBECONFIG="$HOME/.kube/config"
           go test -v -race -count=1 -timeout=10m \
             ./test/integration/... || echo "No integration tests found."
-        env:
-          KUBECONFIG: $HOME/.kube/config
 
       - name: Collect cluster state on failure
         if: failure()
@@ -301,6 +300,34 @@ jobs:
                 - hostPath: /sys/fs/bpf
                   containerPath: /sys/fs/bpf
                   propagation: Bidirectional
+                - hostPath: /sys/kernel/debug
+                  containerPath: /sys/kernel/debug
+                  propagation: HostToContainer
+                - hostPath: /lib/modules
+                  containerPath: /lib/modules
+                  readOnly: true
+              kubeadmConfigPatches:
+                - |
+                  kind: InitConfiguration
+                  nodeRegistration:
+                    kubeletExtraArgs:
+                      node-labels: "ingress-ready=true"
+                - |
+                  kind: ClusterConfiguration
+                  apiServer:
+                    extraArgs:
+                      feature-gates: "GracefulNodeShutdown=true"
+            - role: worker
+              extraMounts:
+                - hostPath: ${{ github.workspace }}
+                  containerPath: /straitgateway
+                  readOnly: true
+                - hostPath: /sys/fs/bpf
+                  containerPath: /sys/fs/bpf
+                  propagation: Bidirectional
+                - hostPath: /sys/kernel/debug
+                  containerPath: /sys/kernel/debug
+                  propagation: HostToContainer
                 - hostPath: /lib/modules
                   containerPath: /lib/modules
                   readOnly: true
@@ -312,17 +339,9 @@ jobs:
                 - hostPath: /sys/fs/bpf
                   containerPath: /sys/fs/bpf
                   propagation: Bidirectional
-                - hostPath: /lib/modules
-                  containerPath: /lib/modules
-                  readOnly: true
-            - role: worker
-              extraMounts:
-                - hostPath: ${{ github.workspace }}
-                  containerPath: /straitgateway
-                  readOnly: true
-                - hostPath: /sys/fs/bpf
-                  containerPath: /sys/fs/bpf
-                  propagation: Bidirectional
+                - hostPath: /sys/kernel/debug
+                  containerPath: /sys/kernel/debug
+                  propagation: HostToContainer
                 - hostPath: /lib/modules
                   containerPath: /lib/modules
                   readOnly: true
@@ -383,14 +402,13 @@ jobs:
       - name: Run Gateway API conformance suite
         run: |
           mkdir -p _reports
+          export KUBECONFIG="$HOME/.kube/config"
           go test -v -count=1 -tags conformance \
             -timeout=30m \
             ./test/conformance/... \
             -gateway-class straitgateway \
             -report-output _reports/gateway_conformance.json \
             -cleanup-on-failure=false
-        env:
-          KUBECONFIG: $HOME/.kube/config
 
       - name: Upload conformance report
         if: always()
@@ -463,6 +481,17 @@ jobs:
                 - hostPath: /lib/modules
                   containerPath: /lib/modules
                   readOnly: true
+              kubeadmConfigPatches:
+                - |
+                  kind: InitConfiguration
+                  nodeRegistration:
+                    kubeletExtraArgs:
+                      node-labels: "ingress-ready=true"
+                - |
+                  kind: ClusterConfiguration
+                  apiServer:
+                    extraArgs:
+                      feature-gates: "GracefulNodeShutdown=true"
             - role: worker
               extraMounts:
                 - hostPath: ${{ github.workspace }}
@@ -516,8 +545,6 @@ jobs:
           kubectl apply -f deploy/daemonset.yaml
           kubectl rollout status daemonset/straitgateway-agent \
             -n straitgateway-system --timeout=120s
-        env:
-          KUBECONFIG: $HOME/.kube/config
 
       - name: Run chaos unit tests (no root required)
         run: make fuzz-unit
@@ -531,7 +558,7 @@ jobs:
 
       - name: Run tc-netem chaos smoke (BFD link flap)
         run: |
-          sudo bash hack/run-chaos.sh --iface lo --duration 2s
+          sudo env PATH=$PATH bash hack/run-chaos.sh --iface lo --duration 2s
 
       - name: Collect cluster state on failure
         if: failure()
