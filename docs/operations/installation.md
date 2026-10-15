@@ -57,6 +57,27 @@ kubectl apply -f deploy/all-in-one.yaml
 ### Verify Deployment Status
 
 ```bash
+# Check running pods in straitgateway-system namespace
 kubectl get pods -n straitgateway-system -o wide
+
+# Check CRDs installed
 kubectl get crds | grep straitgateway
+
+# Verify agent readiness and health probes
+curl -s http://localhost:9090/readyz
+curl -s http://localhost:9090/healthz
+
+# Verify controller readiness and health probes
+curl -s http://localhost:8081/readyz
+curl -s http://localhost:8081/healthz
 ```
+
+---
+
+## 4. RBAC & Security Context
+
+The controller runs with dedicated ServiceAccounts and ClusterRoles granting least-privilege access to:
+* Core Kubernetes resources (`nodes`, `namespaces`, `pods`, `services`, `endpoints`, `endpointslices`)
+* Gateway API resources (`gateway.networking.k8s.io` groups: `gatewayclasses`, `gateways`, `httproutes`, `grpcroutes`, `tlsroutes`, `tcproutes`, `udproutes`)
+* StraitGateway CRDs (`straitgateway.io` groups: `transitgateways`, `gatewaypeers`, `clusterpeerings`, `securitypolicies`)
+

@@ -40,7 +40,7 @@ sonobuoy retrieve ./results/
 
 ### 1.2 Gateway API Conformance (SIG-Network)
 
-The Gateway API conformance suite runs the official SIG-Network test harness against StraitGateway's Gateway API v1.6.1 implementation:
+The Gateway API conformance suite runs the official SIG-Network test harness against StraitGateway's Gateway API v1.6.3 implementation:
 
 ```bash
 make conformance-gateway

@@ -1,6 +1,6 @@
-# Gateway API v1.6.1 Implementation
+# Gateway API v1.6.3 Implementation
 
-StraitGateway implements full conformance with the Kubernetes **Gateway API v1.6.1** specification, providing next-generation ingress, egress, and cross-cluster routing.
+StraitGateway implements full conformance with the Kubernetes **Gateway API v1.6.3** specification, providing next-generation ingress, egress, and cross-cluster transit routing.
 
 ---
 
@@ -11,6 +11,7 @@ StraitGateway implements full conformance with the Kubernetes **Gateway API v1.6
 * `HTTPRoute`: Declares layer 7 routing rules, header mutations, path rewrites, and traffic split percentages.
 * `GRPCRoute`: High-performance gRPC method and service routing with header filtering.
 * `TLSRoute`: Layer 4 SNI passthrough routing without terminating payload encryption.
+* `TCPRoute` & `UDPRoute`: Direct Layer 4 raw socket routing and Maglev load balancing.
 
 ---
 
@@ -48,6 +49,16 @@ spec:
 
 ---
 
-## 3. Hardware Acceleration & SmartNIC Offload
+## 3. Controller Architecture & RBAC
+
+The `sg-controller` reconciles Gateway API resources in real-time, programming eBPF maps and synchronizing routes with node agents (`straitd` / `sg-agent`):
+
+* **RBAC Roles**: Full permissions configured for `gateway.networking.k8s.io` resource groups (`gatewayclasses`, `gateways`, `httproutes`, `grpcroutes`, `tlsroutes`, `tcproutes`, `udproutes`) with status subresources.
+* **Readiness Probing**: Controller exposes `/readyz` and `/healthz` endpoints at port 8081 for Kubernetes liveness and readiness monitoring.
+* **ClusterMesh Integration**: Seamlessly routes across federated clusters using `ClusterPeering` CRD and WireGuard transport.
+
+---
+
+## 4. Hardware Acceleration & SmartNIC Offload
 
 For high-bandwidth edge clusters, StraitGateway offloads Gateway API route lookups to SmartNICs running `XDP_OFFLOAD`, achieving 100GbE line-rate switching with zero host CPU intervention.

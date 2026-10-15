@@ -57,8 +57,16 @@ type NetkitLink struct {
 ```
 
 During container initialization (`sg-cni ADD`):
-1. Allocates a unique `netkit` pair (`nk-<containerID>` and peer `eth0`).
+1. Allocates a unique `netkit` pair with a randomized temporary peer interface name (`nkp-<id>`) to prevent collisions with the host's existing `eth0`.
 2. Sets mode to **L3** (`NETKIT_MODE_L3`) to eliminate unnecessary Ethernet L2 header generation.
-3. Moves `peer` interface into the container network namespace using its file descriptor (`/proc/<pid>/ns/net`).
-4. Configures assigned IP, sets MTU (standard 1500 or jumbo 9000), and activates the link.
-5. Automatically attaches StraitGateway's TCX ingress program to the host-side device.
+3. Moves the peer interface into the container network namespace using its file descriptor (`/proc/<pid>/ns/net`), where it is safely renamed to `eth0`.
+4. Configures assigned IP, subnet alias routes, sets MTU (standard 1500 or jumbo 9000), and activates the link.
+5. Automatically attaches StraitGateway's TCX ingress program to the host-side device (`nk-<id>`).
+
+---
+
+## 4. Host Interface Isolation & Subnet Aliases
+
+* **Collision Prevention**: Because Linux netlink does not permit two interfaces with the name `eth0` in the same initial namespace (even momentarily), the CNI allocates a unique ephemeral name before moving it across the netns boundary.
+* **Subnet Aliases**: Automatically provisions local subnet alias routing tables within the container to allow multi-tenant network partitioning and direct overlay transit without intermediate NAT hops.
+

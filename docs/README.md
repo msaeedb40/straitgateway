@@ -59,7 +59,7 @@
 | [Sidecarless Service Mesh](service-mesh/sidecarless-mesh.md) | Shared NodeProxy, socket redirection via `bpf_msg_redirect_hash`, zero copy overhead |
 | [Zero-Trust Security Policies](service-mesh/security-policy.md) | 32-bit identity tokens, default-deny ACLs, L7 HTTP inspection hooks |
 | [In-Kernel mTLS](service-mesh/in-kernel-mtls.md) | SPIFFE/SPIRE SVID attestation, kTLS + eBPF `sockops` splicing |
-| [Gateway API v1.6.1](gateway-api/gateway-api.md) | HTTPRoute, canary splits, header mutation, gRPC routing, conformance status |
+| [Gateway API v1.6.3](gateway-api/gateway-api.md) | HTTPRoute, canary splits, header mutation, gRPC routing, conformance status |
 
 ### 6. AI/ML & RDMA
 
@@ -137,7 +137,7 @@ graph TD
 | 7 | Sidecarless service mesh + identity | ✅ Complete |
 | 8 | XDP DDoS / micro-segmentation | ✅ Complete |
 | 9 | Multi-cluster transit + ClusterMesh | ✅ Complete |
-| 10 | Gateway API v1.6.1 + SmartNIC offload | ✅ Complete |
+| 10 | Gateway API v1.6.3 + SmartNIC offload | ✅ Complete |
 | 11 | SPIFFE/SPIRE + in-kernel mTLS | ✅ Complete |
 | 12 | Chaos engineering + conformance CI | ✅ Complete |
 | 13 | RoCEv2 / RDMA + DCQCN + NCCL routing | ✅ Complete |
