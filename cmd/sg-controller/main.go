@@ -79,11 +79,17 @@ func main() {
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
 	setupLog.Info("Starting sg-controller", "version", version.Info())
 
+	leaderElectionNamespace := os.Getenv("POD_NAMESPACE")
+	if leaderElectionNamespace == "" {
+		leaderElectionNamespace = "straitgateway-system"
+	}
+
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
-		Scheme:                 scheme,
-		HealthProbeBindAddress: probeAddr,
-		LeaderElection:         enableLeaderElection,
-		LeaderElectionID:       "straitgateway-controller-leader",
+		Scheme:                  scheme,
+		HealthProbeBindAddress:  probeAddr,
+		LeaderElection:          enableLeaderElection,
+		LeaderElectionID:        "straitgateway-controller-leader",
+		LeaderElectionNamespace: leaderElectionNamespace,
 	})
 	if err != nil {
 		setupLog.Error(err, "unable to start manager")
@@ -151,23 +157,21 @@ func main() {
 		os.Exit(1)
 	}
 
-	// 5. ClusterMesh Controllers
+	// 5. ClusterMesh Controllers (optional CRD controllers)
 	cmMgr, _ := clustermesh.NewManager(clustermesh.DefaultConfig(), wgMgr, routeMgr)
 	if err = (&peering.ClusterPeeringReconciler{
 		Client:         mgr.GetClient(),
 		Scheme:         mgr.GetScheme(),
 		ClusterMeshMgr: cmMgr,
 	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create ClusterPeering controller")
-		os.Exit(1)
+		setupLog.Info("ClusterPeering controller disabled or CRD not ready", "error", err)
 	}
 	if err = (&peering.GlobalServiceReconciler{
 		Client:         mgr.GetClient(),
 		Scheme:         mgr.GetScheme(),
 		ClusterMeshMgr: cmMgr,
 	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create GlobalService controller")
-		os.Exit(1)
+		setupLog.Info("GlobalService controller disabled or CRD not ready", "error", err)
 	}
 
 	// 5. SecurityPolicy Controller

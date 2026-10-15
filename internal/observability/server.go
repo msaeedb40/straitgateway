@@ -50,6 +50,8 @@ func NewServer(
 	mux.HandleFunc("/observability/ebpf/programs", s.handleEbpfPrograms)
 	mux.HandleFunc("/api/v1/observability/ebpf/programs", s.handleEbpfPrograms)
 	mux.HandleFunc("/healthz", s.handleHealthz)
+	mux.HandleFunc("/readyz", s.handleHealthz)
+	mux.HandleFunc("/livez", s.handleHealthz)
 
 	// UI REST API Endpoints
 	mux.HandleFunc("/api/v1/cluster/overview", s.handleClusterOverview)

@@ -759,6 +759,12 @@ rules:
     resources:
       - endpointslices
     verbs: ["get", "list", "watch"]
+  - apiGroups: ["gateway.networking.k8s.io"]
+    resources:
+      - gatewayclasses
+      - gateways
+      - httproutes
+    verbs: ["get", "list", "watch"]
   - apiGroups: ["straitgateway.io"]
     resources:
       - straitgatewayconfigs
@@ -767,12 +773,18 @@ rules:
       - transitroutes
       - securitypolicies
       - servicemeshpolicies
+      - clusterpeerings
+      - globalserviceexports
+      - globalserviceimports
       - straitgatewayconfigs/status
       - transitgateways/status
       - gatewaypeers/status
       - transitroutes/status
       - securitypolicies/status
       - servicemeshpolicies/status
+      - clusterpeerings/status
+      - globalserviceexports/status
+      - globalserviceimports/status
     verbs: ["get", "list", "watch", "update", "patch"]
   - apiGroups: [""]
     resources:
@@ -808,11 +820,24 @@ rules:
       - services
       - endpoints
       - namespaces
-    verbs: ["get", "list", "watch"]
+      - configmaps
+      - secrets
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
   - apiGroups: ["discovery.k8s.io"]
     resources:
       - endpointslices
     verbs: ["get", "list", "watch"]
+  - apiGroups: ["gateway.networking.k8s.io"]
+    resources:
+      - gatewayclasses
+      - gatewayclasses/status
+      - gateways
+      - gateways/status
+      - httproutes
+      - httproutes/status
+      - referencegrants
+      - referencegrants/status
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
   - apiGroups: ["straitgateway.io"]
     resources:
       - straitgatewayconfigs
@@ -821,12 +846,18 @@ rules:
       - transitroutes
       - securitypolicies
       - servicemeshpolicies
+      - clusterpeerings
+      - globalserviceexports
+      - globalserviceimports
       - straitgatewayconfigs/status
       - transitgateways/status
       - gatewaypeers/status
       - transitroutes/status
       - securitypolicies/status
       - servicemeshpolicies/status
+      - clusterpeerings/status
+      - globalserviceexports/status
+      - globalserviceimports/status
     verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
   - apiGroups: ["coordination.k8s.io"]
     resources:
@@ -987,7 +1018,7 @@ spec:
             periodSeconds: 10
           readinessProbe:
             httpGet:
-              path: /readyz
+              path: /healthz
               port: metrics
             initialDelaySeconds: 5
             periodSeconds: 5
